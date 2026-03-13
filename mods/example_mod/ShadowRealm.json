@@ -1,0 +1,141 @@
+{
+    "mod_info": {
+        "name": "Shadow Realm Expansion",
+        "version": "1.0.0",
+        "author": "TPPRPG Dev Team",
+        "description": "Agrega una nueva zona oscura con armas, armaduras y un atributo nuevo: Oscuridad"
+    },
+    "items": {
+        "TYPE:Weapons": {
+            "shadow_sword": {
+                "STATIC_ID": 2001,
+                "Name": "Espada de las Sombras",
+                "Type": "Weapon",
+                "DMG": [25, 0, 0, 0, 35],
+                "DMG_min": [12, 0, 0, 0],
+                "Gold_Cost": 450,
+                "Description": "Espada forjada en la oscuridad eterna. Causa daño profundo masivo",
+                "MaxStack": 1
+            },
+            "void_dagger": {
+                "STATIC_ID": 2002,
+                "Name": "Daga del Vacío",
+                "Type": "Weapon",
+                "DMG": [18, 0, 0, 0, 28],
+                "DMG_min": [10, 0, 0, 0],
+                "Gold_Cost": 350,
+                "Description": "Daga rápida que corta a través de las dimensiones",
+                "MaxStack": 1
+            },
+            "eclipse_staff": {
+                "STATIC_ID": 2003,
+                "Name": "Báculo del Eclipse",
+                "Type": "Weapon",
+                "DMG": [10, 15, 0, 0, 40],
+                "DMG_min": [5, 8, 0, 0],
+                "Gold_Cost": 600,
+                "Description": "Bastón que canaliza el poder del eclipse. Daño profundo superior",
+                "MaxStack": 1
+            }
+        },
+        "TYPE:Armor": {
+            "abyss_armor": {
+                "STATIC_ID": 2010,
+                "Name": "Armadura del Abismo",
+                "Type": "Armor",
+                "Defense": [20, 10, 10, 10, 40],
+                "HealthBoost": 80,
+                "HealthSteal": 0,
+                "DmgBoost": 10,
+                "Gold_Cost": 900,
+                "Description": "Armadura forjada en las profundidades del abismo. Alta resistencia profunda"
+            }
+        },
+        "TYPE:Helmet": {
+            "dark_obsidian_helmet": {
+                "STATIC_ID": 2020,
+                "Name": "Casco de Obsidiana Oscura",
+                "Type": "Helmet",
+                "Defense": [15, 5, 5, 5, 30],
+                "HealthBoost": 40,
+                "HealthSteal": 0,
+                "DmgBoost": 5,
+                "Gold_Cost": 400,
+                "Description": "Casco tallado de obsidiana pura. Protege contra ataques profundos"
+            }
+        },
+        "TYPE:Boots": {
+            "shadow_walker_boots": {
+                "STATIC_ID": 2030,
+                "Name": "Botas del Caminante Sombrío",
+                "Type": "Boots",
+                "Defense": [10, 5, 5, 5, 25],
+                "HealthBoost": 30,
+                "HealthSteal": 0,
+                "DmgBoost": 8,
+                "Gold_Cost": 350,
+                "Description": "Botas que permiten caminar entre sombras"
+            }
+        }
+    },
+    "zones": {
+        "ShadowRealm": [{
+            "shadow_specter": {
+                "NAME": "Espectro Sombrío",
+                "HP_M": 100,
+                "DMG": [15, 0, 0, 0, 35],
+                "DMG_min": [8, 0, 0, 0],
+                "MP_M": 50,
+                "EXP_TO_PLAYER": 80,
+                "DEF": [10, 10, 10, 10, 30],
+                "LS": 5,
+                "AGI": 22,
+                "DBUFF_TO_PLAYER": [],
+                "BUFF_RECEIVED": [],
+                "GOLD": 150
+            },
+            "void_guardian": {
+                "NAME": "Guardián del Vacío",
+                "HP_M": 140,
+                "DMG": [25, 10, 10, 10, 40],
+                "DMG_min": [12, 5, 5, 5],
+                "MP_M": 80,
+                "EXP_TO_PLAYER": 120,
+                "DEF": [20, 15, 15, 15, 40],
+                "LS": 8,
+                "AGI": 15,
+                "DBUFF_TO_PLAYER": [],
+                "BUFF_RECEIVED": [],
+                "GOLD": 220
+            },
+            "shadow_lord": {
+                "NAME": "Señor de las Sombras",
+                "HP_M": 200,
+                "DMG": [30, 20, 20, 20, 60],
+                "DMG_min": [15, 10, 10, 10],
+                "MP_M": 150,
+                "EXP_TO_PLAYER": 250,
+                "DEF": [25, 20, 20, 20, 50],
+                "LS": 15,
+                "AGI": 18,
+                "DBUFF_TO_PLAYER": [],
+                "BUFF_RECEIVED": [],
+                "GOLD": 500
+            },
+            "Strings": {
+                "name": "Reino de las Sombras",
+                "desc": "Un reino envuelto en oscuridad eterna donde habitan criaturas del vacío",
+                "exit": "Escapando del Reino de las Sombras",
+                "color": "magenta"
+            },
+            "Gathering": {
+                "Materials": []
+            }
+        }]
+    },
+    "shops": {
+        "ShadowRealmShop": [{
+            "IDs": [2001, 2002, 2003, 2010, 2020, 2030]
+        }]
+    }
+}

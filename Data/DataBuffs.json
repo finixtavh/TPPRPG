@@ -1,0 +1,472 @@
+{
+    "BUFFS": {
+        "1_buff": {
+            "STATIC_ID": "1_buff",
+            "Name": "Poder Bruto",
+            "Description": "Aumenta el daño físico y mágico en 10 puntos",
+            "Duration": 3,
+            "Type": "flat",
+            "Effects": {
+                "PhysicalDamageFlat": 10,
+                "MagicalDamageFlat": 10
+            },
+            "Icon": "⚔️"
+        },
+        "2_buff": {
+            "STATIC_ID": "2_buff",
+            "Name": "Maestría en Combate",
+            "Description": "Aumenta el daño físico y mágico en 5%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "PhysicalDamagePercent": 5,
+                "MagicalDamagePercent": 5
+            },
+            "Icon": "💪"
+        },
+        "3_buff": {
+            "STATIC_ID": "3_buff",
+            "Name": "Penetración de Armadura",
+            "Description": "Ignora 10 puntos de armadura y resistencia mágica",
+            "Duration": 3,
+            "Type": "flat",
+            "Effects": {
+                "ArmorPenetrationFlat": 10,
+                "MagicPenetrationFlat": 10
+            },
+            "Icon": "🗡️"
+        },
+        "4_buff": {
+            "STATIC_ID": "4_buff",
+            "Name": "Penetración Porcentual",
+            "Description": "Ignora 5% de armadura y resistencia mágica",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "ArmorPenetrationPercent": 5,
+                "MagicPenetrationPercent": 5
+            },
+            "Icon": "⚡"
+        },
+        "5_buff": {
+            "STATIC_ID": "5_buff",
+            "Name": "Fortificación",
+            "Description": "Aumenta la defensa y defensa mágica en 15 puntos",
+            "Duration": 4,
+            "Type": "flat",
+            "Effects": {
+                "DefenseFlat": 15,
+                "MagicDefenseFlat": 15
+            },
+            "Icon": "🛡️"
+        },
+        "6_buff": {
+            "STATIC_ID": "6_buff",
+            "Name": "Resistencia Mejorada",
+            "Description": "Aumenta la defensa y defensa mágica en 10%",
+            "Duration": 4,
+            "Type": "percentage",
+            "Effects": {
+                "DefensePercent": 10,
+                "MagicDefensePercent": 10
+            },
+            "Icon": "🏰"
+        },
+        "7_buff": {
+            "STATIC_ID": "7_buff",
+            "Name": "Vitalidad",
+            "Description": "Aumenta la vida máxima temporalmente en 150 puntos",
+            "Duration": 5,
+            "Type": "flat",
+            "Effects": {
+                "HealthMaxFlat": 150
+            },
+            "Icon": "❤️"
+        },
+        "8_buff": {
+            "STATIC_ID": "8_buff",
+            "Name": "Constitución Robusta",
+            "Description": "Aumenta la vida máxima temporalmente en 15%",
+            "Duration": 5,
+            "Type": "percentage",
+            "Effects": {
+                "HealthMaxPercent": 15
+            },
+            "Icon": "💗"
+        },
+        "9_buff": {
+            "STATIC_ID": "9_buff",
+            "Name": "Claridad Mental",
+            "Description": "Aumenta el maná máximo temporalmente en 100 puntos",
+            "Duration": 5,
+            "Type": "flat",
+            "Effects": {
+                "ManaMaxFlat": 100
+            },
+            "Icon": "🔵"
+        },
+        "10_buff": {
+            "STATIC_ID": "10_buff",
+            "Name": "Sabiduría Arcana",
+            "Description": "Aumenta el maná máximo temporalmente en 20%",
+            "Duration": 5,
+            "Type": "percentage",
+            "Effects": {
+                "ManaMaxPercent": 20
+            },
+            "Icon": "✨"
+        },
+        "11_buff": {
+            "STATIC_ID": "11_buff",
+            "Name": "Velocidad",
+            "Description": "Aumenta la agilidad en 20 puntos",
+            "Duration": 3,
+            "Type": "flat",
+            "Effects": {
+                "AgilityFlat": 20
+            },
+            "Icon": "💨"
+        },
+        "12_buff": {
+            "STATIC_ID": "12_buff",
+            "Name": "Reflejos Mejorados",
+            "Description": "Aumenta la agilidad en 15%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "AgilityPercent": 15
+            },
+            "Icon": "⚡"
+        },
+        "13_buff": {
+            "STATIC_ID": "13_buff",
+            "Name": "Robo de Vida",
+            "Description": "Roba 10 puntos de vida por ataque",
+            "Duration": 4,
+            "Type": "flat",
+            "Effects": {
+                "LifeStealFlat": 10
+            },
+            "Icon": "🩸"
+        },
+        "14_buff": {
+            "STATIC_ID": "14_buff",
+            "Name": "Vampirismo",
+            "Description": "Roba 8% de vida del daño infligido",
+            "Duration": 4,
+            "Type": "percentage",
+            "Effects": {
+                "LifeStealPercent": 8
+            },
+            "Icon": "🧛"
+        },
+        "15_buff": {
+            "STATIC_ID": "15_buff",
+            "Name": "Regeneración",
+            "Description": "Regenera 15 HP por turno",
+            "Duration": 5,
+            "Type": "flat",
+            "Effects": {
+                "HealthRegenFlat": 15
+            },
+            "Icon": "💚"
+        },
+        "16_buff": {
+            "STATIC_ID": "16_buff",
+            "Name": "Regeneración Arcana",
+            "Description": "Regenera 10 MP por turno",
+            "Duration": 5,
+            "Type": "flat",
+            "Effects": {
+                "ManaRegenFlat": 10
+            },
+            "Icon": "🔮"
+        },
+        "17_buff": {
+            "STATIC_ID": "17_buff",
+            "Name": "Crítico Mortal",
+            "Description": "Aumenta probabilidad de crítico en 15%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "CriticalChancePercent": 15
+            },
+            "Icon": "💥"
+        },
+        "18_buff": {
+            "STATIC_ID": "18_buff",
+            "Name": "Evasión",
+            "Description": "Aumenta probabilidad de evasión en 10%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "EvasionPercent": 10
+            },
+            "Icon": "👻"
+        },
+        "19_buff": {
+            "STATIC_ID": "19_buff",
+            "Name": "Contraataque",
+            "Description": "Aumenta probabilidad de contraataque en 12%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "CounterAttackPercent": 12
+            },
+            "Icon": "⚔️"
+        },
+        "20_buff": {
+            "STATIC_ID": "20_buff",
+            "Name": "Bendición Divina",
+            "Description": "Aumenta todos los stats en 5%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "PhysicalDamagePercent": 5,
+                "MagicalDamagePercent": 5,
+                "DefensePercent": 5,
+                "MagicDefensePercent": 5,
+                "AgilityPercent": 5,
+                "HealthMaxPercent": 5,
+                "ManaMaxPercent": 5
+            },
+            "Icon": "✨"
+        }
+    },
+    "DEBUFFS": {
+        "1_debuff": {
+            "STATIC_ID": "1_debuff",
+            "Name": "Debilitamiento",
+            "Description": "Reduce el daño físico y mágico en 10 puntos",
+            "Duration": 3,
+            "Type": "flat",
+            "Effects": {
+                "PhysicalDamageFlat": -10,
+                "MagicalDamageFlat": -10
+            },
+            "Icon": "⚠️"
+        },
+        "2_debuff": {
+            "STATIC_ID": "2_debuff",
+            "Name": "Torpeza",
+            "Description": "Reduce el daño físico y mágico en 5%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "PhysicalDamagePercent": -5,
+                "MagicalDamagePercent": -5
+            },
+            "Icon": "😵"
+        },
+        "3_debuff": {
+            "STATIC_ID": "3_debuff",
+            "Name": "Armadura Quebrada",
+            "Description": "Reduce defensa y resistencia mágica en 15 puntos",
+            "Duration": 4,
+            "Type": "flat",
+            "Effects": {
+                "DefenseFlat": -15,
+                "MagicDefenseFlat": -15
+            },
+            "Icon": "🔨"
+        },
+        "4_debuff": {
+            "STATIC_ID": "4_debuff",
+            "Name": "Fragilidad",
+            "Description": "Reduce defensa y resistencia mágica en 10%",
+            "Duration": 4,
+            "Type": "percentage",
+            "Effects": {
+                "DefensePercent": -10,
+                "MagicDefensePercent": -10
+            },
+            "Icon": "💔"
+        },
+        "5_debuff": {
+            "STATIC_ID": "5_debuff",
+            "Name": "Herida Grave",
+            "Description": "Reduce vida máxima temporalmente en 100 puntos",
+            "Duration": 4,
+            "Type": "flat",
+            "Effects": {
+                "HealthMaxFlat": -100
+            },
+            "Icon": "🩹"
+        },
+        "6_debuff": {
+            "STATIC_ID": "6_debuff",
+            "Name": "Agotamiento",
+            "Description": "Reduce vida máxima temporalmente en 15%",
+            "Duration": 4,
+            "Type": "percentage",
+            "Effects": {
+                "HealthMaxPercent": -15
+            },
+            "Icon": "😰"
+        },
+        "7_debuff": {
+            "STATIC_ID": "7_debuff",
+            "Name": "Silencio Arcano",
+            "Description": "Reduce maná máximo temporalmente en 80 puntos",
+            "Duration": 3,
+            "Type": "flat",
+            "Effects": {
+                "ManaMaxFlat": -80
+            },
+            "Icon": "🔇"
+        },
+        "8_debuff": {
+            "STATIC_ID": "8_debuff",
+            "Name": "Confusión Mental",
+            "Description": "Reduce maná máximo temporalmente en 20%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "ManaMaxPercent": -20
+            },
+            "Icon": "🌀"
+        },
+        "9_debuff": {
+            "STATIC_ID": "9_debuff",
+            "Name": "Lentitud",
+            "Description": "Reduce agilidad en 25 puntos",
+            "Duration": 3,
+            "Type": "flat",
+            "Effects": {
+                "AgilityFlat": -25
+            },
+            "Icon": "🐌"
+        },
+        "10_debuff": {
+            "STATIC_ID": "10_debuff",
+            "Name": "Entorpecimiento",
+            "Description": "Reduce agilidad en 20%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "AgilityPercent": -20
+            },
+            "Icon": "⏱️"
+        },
+        "11_debuff": {
+            "STATIC_ID": "11_debuff",
+            "Name": "Sangrado",
+            "Description": "Pierde 12 HP por turno",
+            "Duration": 5,
+            "Type": "flat",
+            "Effects": {
+                "HealthRegenFlat": -12
+            },
+            "Icon": "🩸"
+        },
+        "12_debuff": {
+            "STATIC_ID": "12_debuff",
+            "Name": "Quemadura de Maná",
+            "Description": "Pierde 8 MP por turno",
+            "Duration": 4,
+            "Type": "flat",
+            "Effects": {
+                "ManaRegenFlat": -8
+            },
+            "Icon": "🔥"
+        },
+        "13_debuff": {
+            "STATIC_ID": "13_debuff",
+            "Name": "Ceguera",
+            "Description": "Reduce probabilidad de acierto en 15%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "AccuracyPercent": -15
+            },
+            "Icon": "👁️"
+        },
+        "14_debuff": {
+            "STATIC_ID": "14_debuff",
+            "Name": "Maldición",
+            "Description": "Reduce todos los stats en 5%",
+            "Duration": 4,
+            "Type": "percentage",
+            "Effects": {
+                "PhysicalDamagePercent": -5,
+                "MagicalDamagePercent": -5,
+                "DefensePercent": -5,
+                "MagicDefensePercent": -5,
+                "AgilityPercent": -5,
+                "HealthMaxPercent": -5,
+                "ManaMaxPercent": -5
+            },
+            "Icon": "☠️"
+        },
+        "15_debuff": {
+            "STATIC_ID": "15_debuff",
+            "Name": "Veneno",
+            "Description": "Pierde 20 HP por turno y reduce regeneración",
+            "Duration": 5,
+            "Type": "flat",
+            "Effects": {
+                "HealthRegenFlat": -20
+            },
+            "Icon": "☠️"
+        },
+        "16_debuff": {
+            "STATIC_ID": "16_debuff",
+            "Name": "Congelado",
+            "Description": "Reduce agilidad en 50% y defensa en 10 puntos",
+            "Duration": 2,
+            "Type": "mixed",
+            "Effects": {
+                "AgilityPercent": -50,
+                "DefenseFlat": -10
+            },
+            "Icon": "❄️"
+        },
+        "17_debuff": {
+            "STATIC_ID": "17_debuff",
+            "Name": "Aturdimiento",
+            "Description": "Reduce probabilidad de contraataque y evasión en 20%",
+            "Duration": 2,
+            "Type": "percentage",
+            "Effects": {
+                "CounterAttackPercent": -20,
+                "EvasionPercent": -20
+            },
+            "Icon": "💫"
+        },
+        "18_debuff": {
+            "STATIC_ID": "18_debuff",
+            "Name": "Corrosión",
+            "Description": "Reduce defensa física y mágica en 20%",
+            "Duration": 4,
+            "Type": "percentage",
+            "Effects": {
+                "DefensePercent": -20,
+                "MagicDefensePercent": -20
+            },
+            "Icon": "🧪"
+        },
+        "19_debuff": {
+            "STATIC_ID": "19_debuff",
+            "Name": "Agotamiento de Energía",
+            "Description": "Reduce regeneración de HP y MP significativamente",
+            "Duration": 5,
+            "Type": "flat",
+            "Effects": {
+                "HealthRegenFlat": -10,
+                "ManaRegenFlat": -15
+            },
+            "Icon": "😴"
+        },
+        "20_debuff": {
+            "STATIC_ID": "20_debuff",
+            "Name": "Locura",
+            "Description": "El daño que infliges también te afecta en 30%",
+            "Duration": 3,
+            "Type": "percentage",
+            "Effects": {
+                "SelfDamagePercent": 30
+            },
+            "Icon": "🤪"
+        }
+    }
+}

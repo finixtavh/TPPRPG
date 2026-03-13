@@ -1,0 +1,760 @@
+{
+    "cWeapon": {
+        "sharpness": {
+            "ENCHANT_ID": 1,
+            "Name": "Sharpness",
+            "TargetClass": "cWeapon",
+            "Description": "Aumenta el daño físico del arma",
+            "Rarity": "Common",
+            "MaxLevel": 5,
+            "GoldCost": 100,
+            "Effects": {
+                "dmg_bonus": [5, 0, 0, 0, 0],
+                "dmg_min_bonus": [3, 0, 0, 0]
+            }
+        },
+        "fire_aspect": {
+            "ENCHANT_ID": 2,
+            "Name": "Fire Aspect",
+            "TargetClass": "cWeapon",
+            "Description": "Añade daño de fuego a los ataques",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 200,
+            "Effects": {
+                "dmg_bonus": [0, 8, 0, 0, 0],
+                "special_effect": "burning"
+            }
+        },
+        "earthquake": {
+            "ENCHANT_ID": 3,
+            "Name": "Earthquake",
+            "TargetClass": "cWeapon",
+            "Description": "Los golpes causan temblores de tierra",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 250,
+            "Effects": {
+                "dmg_bonus": [0, 0, 10, 0, 0],
+                "special_effect": "stun"
+            }
+        },
+        "thunderstrike": {
+            "ENCHANT_ID": 4,
+            "Name": "Thunderstrike",
+            "TargetClass": "cWeapon",
+            "Description": "Invoca rayos al golpear",
+            "Rarity": "Rare",
+            "MaxLevel": 2,
+            "GoldCost": 300,
+            "Effects": {
+                "dmg_bonus": [0, 0, 0, 12, 0],
+                "special_effect": "chain_lightning"
+            }
+        },
+        "void_edge": {
+            "ENCHANT_ID": 5,
+            "Name": "Void Edge",
+            "TargetClass": "cWeapon",
+            "Description": "Atraviesa la realidad causando daño profundo",
+            "Rarity": "Legendary",
+            "MaxLevel": 1,
+            "GoldCost": 1000,
+            "Effects": {
+                "dmg_bonus": [0, 0, 0, 0, 15],
+                "special_effect": "armor_pierce"
+            }
+        },
+        "critical_strike": {
+            "ENCHANT_ID": 6,
+            "Name": "Critical Strike",
+            "TargetClass": "cWeapon",
+            "Description": "Aumenta la probabilidad de crítico",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 150,
+            "Effects": {
+                "crit_chance": 0.15,
+                "crit_damage": 1.5
+            }
+        },
+        "vampiric": {
+            "ENCHANT_ID": 7,
+            "Name": "Vampiric",
+            "TargetClass": "cWeapon",
+            "Description": "Roba vida del enemigo",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 300,
+            "Effects": {
+                "lifesteal": 0.1
+            }
+        },
+        "elemental_fury": {
+            "ENCHANT_ID": 8,
+            "Name": "Elemental Fury",
+            "TargetClass": "cWeapon",
+            "Description": "Potencia todos los daños elementales",
+            "Rarity": "Epic",
+            "MaxLevel": 2,
+            "GoldCost": 500,
+            "Effects": {
+                "elemental_boost": {
+                    "thermal": 1.25,
+                    "earth": 1.25,
+                    "electric": 1.25
+                }
+            }
+        },
+        "smite": {
+            "ENCHANT_ID": 9,
+            "Name": "Smite",
+            "TargetClass": "cWeapon",
+            "Description": "Daño extra contra muertos vivientes",
+            "Rarity": "Common",
+            "MaxLevel": 5,
+            "GoldCost": 120,
+            "Effects": {
+                "dmg_bonus": 0.2,
+                "special_effect": "smite_undead"
+            }
+        },
+        "bane_of_beasts": {
+            "ENCHANT_ID": 10,
+            "Name": "Bane of Beasts",
+            "TargetClass": "cWeapon",
+            "Description": "Daño extra contra bestias",
+            "Rarity": "Common",
+            "MaxLevel": 5,
+            "GoldCost": 120,
+            "Effects": {
+                "dmg_bonus": 0.2,
+                "special_effect": "bane_beasts"
+            }
+        },
+        "sweeping_edge": {
+            "ENCHANT_ID": 11,
+            "Name": "Sweeping Edge",
+            "TargetClass": "cWeapon",
+            "Description": "Ataques en área",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 250,
+            "Effects": {
+                "special_effect": "aoe_damage"
+            }
+        },
+        "poison": {
+            "ENCHANT_ID": 12,
+            "Name": "Poison",
+            "TargetClass": "cWeapon",
+            "Description": "Envenena al enemigo",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 180,
+            "Effects": {
+                "special_effect": "poison_dot"
+            }
+        },
+        "frost": {
+            "ENCHANT_ID": 13,
+            "Name": "Frost",
+            "TargetClass": "cWeapon",
+            "Description": "Congela y ralentiza enemigos",
+            "Rarity": "Rare",
+            "MaxLevel": 2,
+            "GoldCost": 280,
+            "Effects": {
+                "dmg_bonus": [0, 6, 0, 0, 0],
+                "special_effect": "freeze"
+            }
+        },
+        "knockback": {
+            "ENCHANT_ID": 14,
+            "Name": "Knockback",
+            "TargetClass": "cWeapon",
+            "Description": "Empuja a los enemigos hacia atrás",
+            "Rarity": "Common",
+            "MaxLevel": 2,
+            "GoldCost": 100,
+            "Effects": {
+                "special_effect": "knockback"
+            }
+        },
+        "looting": {
+            "ENCHANT_ID": 15,
+            "Name": "Looting",
+            "TargetClass": "cWeapon",
+            "Description": "Aumenta el oro y objetos obtenidos",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 200,
+            "Effects": {
+                "special_effect": "increased_loot"
+            }
+        },
+        "soul_reaper": {
+            "ENCHANT_ID": 16,
+            "Name": "Soul Reaper",
+            "TargetClass": "cWeapon",
+            "Description": "Absorbe almas para aumentar poder",
+            "Rarity": "Epic",
+            "MaxLevel": 1,
+            "GoldCost": 600,
+            "Effects": {
+                "special_effect": "soul_stack"
+            }
+        },
+        "berserker": {
+            "ENCHANT_ID": 17,
+            "Name": "Berserker",
+            "TargetClass": "cWeapon",
+            "Description": "Más daño al tener poca vida",
+            "Rarity": "Rare",
+            "MaxLevel": 2,
+            "GoldCost": 300,
+            "Effects": {
+                "special_effect": "low_hp_boost"
+            }
+        },
+        "execute": {
+            "ENCHANT_ID": 18,
+            "Name": "Execute",
+            "TargetClass": "cWeapon",
+            "Description": "Daño masivo a enemigos con poca vida",
+            "Rarity": "Epic",
+            "MaxLevel": 1,
+            "GoldCost": 450,
+            "Effects": {
+                "special_effect": "execute_low_hp"
+            }
+        },
+        "divine_light": {
+            "ENCHANT_ID": 19,
+            "Name": "Divine Light",
+            "TargetClass": "cWeapon",
+            "Description": "Daño sagrado que ignora defensa profunda",
+            "Rarity": "Legendary",
+            "MaxLevel": 1,
+            "GoldCost": 1200,
+            "Effects": {
+                "dmg_bonus": [0, 0, 0, 0, 20],
+                "special_effect": "holy_damage"
+            }
+        },
+        "duelist": {
+            "ENCHANT_ID": 20,
+            "Name": "Duelist",
+            "TargetClass": "cWeapon",
+            "Description": "Bonificación al pelear 1v1",
+            "Rarity": "Rare",
+            "MaxLevel": 2,
+            "GoldCost": 250,
+            "Effects": {
+                "dmg_bonus": 0.15,
+                "special_effect": "duel_bonus"
+            }
+        }
+    },
+    "cEquippableItems": {
+        "protection": {
+            "ENCHANT_ID": 21,
+            "Name": "Protection",
+            "TargetClass": "cEquippableItems",
+            "Description": "Aumenta la defensa general",
+            "Rarity": "Common",
+            "MaxLevel": 4,
+            "GoldCost": 100,
+            "Effects": {
+                "defense_bonus": [5, 5, 5, 5, 5]
+            }
+        },
+        "fire_protection": {
+            "ENCHANT_ID": 22,
+            "Name": "Fire Protection",
+            "TargetClass": "cEquippableItems",
+            "Description": "Resistencia al daño térmico",
+            "Rarity": "Uncommon",
+            "MaxLevel": 4,
+            "GoldCost": 150,
+            "Effects": {
+                "defense_bonus": [0, 10, 0, 0, 0],
+                "elemental_resistance": {
+                    "thermal": 0.15
+                }
+            }
+        },
+        "blast_protection": {
+            "ENCHANT_ID": 23,
+            "Name": "Blast Protection",
+            "TargetClass": "cEquippableItems",
+            "Description": "Resistencia a explosiones",
+            "Rarity": "Uncommon",
+            "MaxLevel": 4,
+            "GoldCost": 150,
+            "Effects": {
+                "damage_reduction": 0.1
+            }
+        },
+        "grounding": {
+            "ENCHANT_ID": 24,
+            "Name": "Grounding",
+            "TargetClass": "cEquippableItems",
+            "Description": "Inmunidad al daño eléctrico",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 250,
+            "Effects": {
+                "defense_bonus": [0, 0, 0, 15, 0],
+                "elemental_resistance": {
+                    "electric": 0.25
+                }
+            }
+        },
+        "void_protection": {
+            "ENCHANT_ID": 25,
+            "Name": "Void Protection",
+            "TargetClass": "cEquippableItems",
+            "Description": "Protección contra daño profundo",
+            "Rarity": "Legendary",
+            "MaxLevel": 2,
+            "GoldCost": 1000,
+            "Effects": {
+                "defense_bonus": [0, 0, 0, 0, 20],
+                "elemental_resistance": {
+                    "deep": 0.3
+                }
+            }
+        },
+        "thorns": {
+            "ENCHANT_ID": 26,
+            "Name": "Thorns",
+            "TargetClass": "cEquippableItems",
+            "Description": "Devuelve daño a los atacantes",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 200,
+            "Effects": {
+                "thorns": 15
+            }
+        },
+        "health_boost": {
+            "ENCHANT_ID": 27,
+            "Name": "Health Boost",
+            "TargetClass": "cEquippableItems",
+            "Description": "Aumenta la salud máxima",
+            "Rarity": "Common",
+            "MaxLevel": 5,
+            "GoldCost": 120,
+            "Effects": {
+                "health_bonus": 20
+            }
+        },
+        "regeneration": {
+            "ENCHANT_ID": 28,
+            "Name": "Regeneration",
+            "TargetClass": "cEquippableItems",
+            "Description": "Regenera vida constantemente",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 300,
+            "Effects": {
+                "health_regen": 2.0
+            }
+        },
+        "feather_falling": {
+            "ENCHANT_ID": 29,
+            "Name": "Feather Falling",
+            "TargetClass": "cEquippableItems",
+            "Description": "Reduce daño por caída",
+            "Rarity": "Common",
+            "MaxLevel": 4,
+            "GoldCost": 80,
+            "Effects": {
+                "special_effect": "fall_damage_reduction"
+            }
+        },
+        "aqua_affinity": {
+            "ENCHANT_ID": 30,
+            "Name": "Aqua Affinity",
+            "TargetClass": "cEquippableItems",
+            "Description": "No hay penalización bajo el agua",
+            "Rarity": "Uncommon",
+            "MaxLevel": 1,
+            "GoldCost": 150,
+            "Effects": {
+                "special_effect": "underwater_breathing"
+            }
+        },
+        "soul_bound": {
+            "ENCHANT_ID": 31,
+            "Name": "Soul Bound",
+            "TargetClass": "cEquippableItems",
+            "Description": "El item no se pierde al morir",
+            "Rarity": "Epic",
+            "MaxLevel": 1,
+            "GoldCost": 800,
+            "Effects": {
+                "special_effect": "keep_on_death"
+            }
+        },
+        "mending": {
+            "ENCHANT_ID": 32,
+            "Name": "Mending",
+            "TargetClass": "cEquippableItems",
+            "Description": "Repara el item con experiencia",
+            "Rarity": "Rare",
+            "MaxLevel": 1,
+            "GoldCost": 400,
+            "Effects": {
+                "special_effect": "exp_repair"
+            }
+        },
+        "frost_walker": {
+            "ENCHANT_ID": 33,
+            "Name": "Frost Walker",
+            "TargetClass": "cEquippableItems",
+            "Description": "Congela el suelo al caminar",
+            "Rarity": "Rare",
+            "MaxLevel": 2,
+            "GoldCost": 300,
+            "Effects": {
+                "special_effect": "freeze_ground"
+            }
+        },
+        "swift_step": {
+            "ENCHANT_ID": 34,
+            "Name": "Swift Step",
+            "TargetClass": "cEquippableItems",
+            "Description": "Aumenta la velocidad de movimiento",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 180,
+            "Effects": {
+                "special_effect": "speed_boost"
+            }
+        },
+        "nimble": {
+            "ENCHANT_ID": 35,
+            "Name": "Nimble",
+            "TargetClass": "cEquippableItems",
+            "Description": "Aumenta la evasión",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 250,
+            "Effects": {
+                "special_effect": "dodge_chance"
+            }
+        },
+        "fortify": {
+            "ENCHANT_ID": 36,
+            "Name": "Fortify",
+            "TargetClass": "cEquippableItems",
+            "Description": "Defensa aumenta al estar quieto",
+            "Rarity": "Uncommon",
+            "MaxLevel": 2,
+            "GoldCost": 200,
+            "Effects": {
+                "special_effect": "stationary_defense"
+            }
+        },
+        "last_stand": {
+            "ENCHANT_ID": 37,
+            "Name": "Last Stand",
+            "TargetClass": "cEquippableItems",
+            "Description": "Defensa masiva al tener poca vida",
+            "Rarity": "Epic",
+            "MaxLevel": 1,
+            "GoldCost": 600,
+            "Effects": {
+                "special_effect": "low_hp_defense"
+            }
+        },
+        "reflect": {
+            "ENCHANT_ID": 38,
+            "Name": "Reflect",
+            "TargetClass": "cEquippableItems",
+            "Description": "Refleja porcentaje del daño recibido",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 350,
+            "Effects": {
+                "reflect_damage": 0.2
+            }
+        },
+        "immortal": {
+            "ENCHANT_ID": 39,
+            "Name": "Immortal",
+            "TargetClass": "cEquippableItems",
+            "Description": "Sobrevive a un golpe mortal una vez",
+            "Rarity": "Legendary",
+            "MaxLevel": 1,
+            "GoldCost": 1500,
+            "Effects": {
+                "special_effect": "death_save"
+            }
+        },
+        "dragon_scales": {
+            "ENCHANT_ID": 40,
+            "Name": "Dragon Scales",
+            "TargetClass": "cEquippableItems",
+            "Description": "Resistencia a fuego y físico aumentada",
+            "Rarity": "Epic",
+            "MaxLevel": 1,
+            "GoldCost": 700,
+            "Effects": {
+                "defense_bonus": [10, 15, 0, 0, 0],
+                "elemental_resistance": {
+                    "thermal": 0.25
+                }
+            }
+        }
+    },
+    "cTool": {
+        "efficiency": {
+            "ENCHANT_ID": 41,
+            "Name": "Efficiency",
+            "TargetClass": "cTool",
+            "Description": "Aumenta la velocidad de recolección",
+            "Rarity": "Common",
+            "MaxLevel": 5,
+            "GoldCost": 100,
+            "Effects": {
+                "efficiency_bonus": 1.2
+            }
+        },
+        "unbreaking": {
+            "ENCHANT_ID": 42,
+            "Name": "Unbreaking",
+            "TargetClass": "cTool",
+            "Description": "Aumenta la durabilidad",
+            "Rarity": "Common",
+            "MaxLevel": 3,
+            "GoldCost": 120,
+            "Effects": {
+                "durability_bonus": 1.5
+            }
+        },
+        "fortune": {
+            "ENCHANT_ID": 43,
+            "Name": "Fortune",
+            "TargetClass": "cTool",
+            "Description": "Aumenta los recursos obtenidos",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 300,
+            "Effects": {
+                "fortune": 1
+            }
+        },
+        "silk_touch": {
+            "ENCHANT_ID": 44,
+            "Name": "Silk Touch",
+            "TargetClass": "cTool",
+            "Description": "Obtén el bloque sin procesar",
+            "Rarity": "Rare",
+            "MaxLevel": 1,
+            "GoldCost": 400,
+            "Effects": {
+                "silk_touch": true
+            }
+        },
+        "auto_smelt": {
+            "ENCHANT_ID": 45,
+            "Name": "Auto Smelt",
+            "TargetClass": "cTool",
+            "Description": "Funde automáticamente los minerales",
+            "Rarity": "Uncommon",
+            "MaxLevel": 1,
+            "GoldCost": 250,
+            "Effects": {
+                "auto_smelt": true
+            }
+        },
+        "haste": {
+            "ENCHANT_ID": 46,
+            "Name": "Haste",
+            "TargetClass": "cTool",
+            "Description": "Velocidad de recolección extrema",
+            "Rarity": "Epic",
+            "MaxLevel": 2,
+            "GoldCost": 500,
+            "Effects": {
+                "speed_bonus": 1.5
+            }
+        },
+        "master_gatherer": {
+            "ENCHANT_ID": 47,
+            "Name": "Master Gatherer",
+            "TargetClass": "cTool",
+            "Description": "Bonificación de EXP al recolectar",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 200,
+            "Effects": {
+                "exp_bonus": 1.25
+            }
+        },
+        "vein_miner": {
+            "ENCHANT_ID": 48,
+            "Name": "Vein Miner",
+            "TargetClass": "cTool",
+            "Description": "Rompe venas completas de minerales",
+            "Rarity": "Epic",
+            "MaxLevel": 1,
+            "GoldCost": 600,
+            "Effects": {
+                "special_effect": "vein_mining"
+            }
+        },
+        "timber": {
+            "ENCHANT_ID": 49,
+            "Name": "Timber",
+            "TargetClass": "cTool",
+            "Description": "Tala árboles completos de una vez",
+            "Rarity": "Rare",
+            "MaxLevel": 1,
+            "GoldCost": 350,
+            "Effects": {
+                "special_effect": "tree_feller"
+            }
+        },
+        "herbalist": {
+            "ENCHANT_ID": 50,
+            "Name": "Herbalist",
+            "TargetClass": "cTool",
+            "Description": "Duplica hierbas raras",
+            "Rarity": "Rare",
+            "MaxLevel": 2,
+            "GoldCost": 300,
+            "Effects": {
+                "special_effect": "herb_duplication"
+            }
+        },
+        "treasure_hunter": {
+            "ENCHANT_ID": 51,
+            "Name": "Treasure Hunter",
+            "TargetClass": "cTool",
+            "Description": "Probabilidad de encontrar tesoros",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 250,
+            "Effects": {
+                "special_effect": "treasure_chance"
+            }
+        },
+        "aquatic": {
+            "ENCHANT_ID": 52,
+            "Name": "Aquatic",
+            "TargetClass": "cTool",
+            "Description": "Recolecta bajo el agua sin penalización",
+            "Rarity": "Uncommon",
+            "MaxLevel": 1,
+            "GoldCost": 150,
+            "Effects": {
+                "special_effect": "underwater_gathering"
+            }
+        },
+        "gentle_touch": {
+            "ENCHANT_ID": 53,
+            "Name": "Gentle Touch",
+            "TargetClass": "cTool",
+            "Description": "No daña recursos frágiles",
+            "Rarity": "Common",
+            "MaxLevel": 1,
+            "GoldCost": 100,
+            "Effects": {
+                "special_effect": "preserve_fragile"
+            }
+        },
+        "moonlight_harvester": {
+            "ENCHANT_ID": 54,
+            "Name": "Moonlight Harvester",
+            "TargetClass": "cTool",
+            "Description": "Bonificación al recolectar de noche",
+            "Rarity": "Rare",
+            "MaxLevel": 2,
+            "GoldCost": 280,
+            "Effects": {
+                "special_effect": "night_bonus"
+            }
+        },
+        "prospector": {
+            "ENCHANT_ID": 55,
+            "Name": "Prospector",
+            "TargetClass": "cTool",
+            "Description": "Revela minerales cercanos",
+            "Rarity": "Uncommon",
+            "MaxLevel": 2,
+            "GoldCost": 200,
+            "Effects": {
+                "special_effect": "ore_detection"
+            }
+        },
+        "botanist": {
+            "ENCHANT_ID": 56,
+            "Name": "Botanist",
+            "TargetClass": "cTool",
+            "Description": "Las hierbas se regeneran más rápido",
+            "Rarity": "Rare",
+            "MaxLevel": 1,
+            "GoldCost": 350,
+            "Effects": {
+                "special_effect": "herb_regrowth"
+            }
+        },
+        "lumberjack": {
+            "ENCHANT_ID": 57,
+            "Name": "Lumberjack",
+            "TargetClass": "cTool",
+            "Description": "Chance de madera extra",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 180,
+            "Effects": {
+                "fortune": 1,
+                "special_effect": "wood_bonus"
+            }
+        },
+        "precision": {
+            "ENCHANT_ID": 58,
+            "Name": "Precision",
+            "TargetClass": "cTool",
+            "Description": "Siempre obtén recursos de calidad",
+            "Rarity": "Epic",
+            "MaxLevel": 1,
+            "GoldCost": 500,
+            "Effects": {
+                "special_effect": "quality_guarantee"
+            }
+        },
+        "eternal": {
+            "ENCHANT_ID": 59,
+            "Name": "Eternal",
+            "TargetClass": "cTool",
+            "Description": "La herramienta nunca se rompe",
+            "Rarity": "Legendary",
+            "MaxLevel": 1,
+            "GoldCost": 1500,
+            "Effects": {
+                "durability_bonus": 999.0,
+                "special_effect": "unbreakable"
+            }
+        },
+        "master_craftsman": {
+            "ENCHANT_ID": 60,
+            "Name": "Master Craftsman",
+            "TargetClass": "cTool",
+            "Description": "Todas las bonificaciones al máximo",
+            "Rarity": "Legendary",
+            "MaxLevel": 1,
+            "GoldCost": 2000,
+            "Effects": {
+                "efficiency_bonus": 2.0,
+                "fortune": 3,
+                "exp_bonus": 2.0,
+                "special_effect": "master_gatherer"
+            }
+        }
+    }
+}

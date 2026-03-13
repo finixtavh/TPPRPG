@@ -1,0 +1,88 @@
+{
+    "mod_info": {
+        "name": "Example Mod",
+        "version": "1.0.0",
+        "author": "Tu Nombre",
+        "description": "Mod de ejemplo con sistema de archivos mejorado"
+    },
+    "items": {
+        "TYPE:Weapons": {
+            "example_sword": {
+                "STATIC_ID": 3001,
+                "Name": "Espada de Ejemplo",
+                "Type": "Weapon",
+                "DMG": [
+                    30,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "DMG_min": [
+                    15,
+                    0,
+                    0,
+                    0
+                ],
+                "Gold_Cost": 300,
+                "Description": "Una espada de ejemplo del mod",
+                "MaxStack": 1
+            }
+        }
+    },
+    "zones": {
+        "ExampleZone": [
+            {
+                "example_enemy": {
+                    "NAME": "Enemigo de Ejemplo",
+                    "HP_M": 80,
+                    "DMG": [
+                        20,
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    "DMG_min": [
+                        10,
+                        0,
+                        0,
+                        0
+                    ],
+                    "MP_M": 30,
+                    "EXP_TO_PLAYER": 60,
+                    "DEF": [
+                        10,
+                        5,
+                        5,
+                        5,
+                        5
+                    ],
+                    "LS": 0,
+                    "AGI": 15,
+                    "DBUFF_TO_PLAYER": [],
+                    "BUFF_RECEIVED": [],
+                    "GOLD": 100
+                },
+                "Strings": {
+                    "name": "Zona de Ejemplo",
+                    "desc": "Una zona agregada por el mod de ejemplo",
+                    "exit": "Saliendo de la zona de ejemplo",
+                    "color": "cyan"
+                },
+                "Gathering": {
+                    "Materials": []
+                }
+            }
+        ]
+    },
+    "shops": {
+        "ExampleZoneShop": [
+            {
+                "IDs": [
+                    3001
+                ]
+            }
+        ]
+    }
+}

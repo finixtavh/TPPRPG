@@ -1,0 +1,44 @@
+{
+    "GeneralStore": [
+        {
+            "IDs": [1, 10, 20, 30, 40, 50, 51, 53],
+            "Description": "Tienda general con items básicos",
+            "Location": "Ciudad Principal"
+        }
+    ],
+    "WeaponShop": [
+        {
+            "IDs": [1, 2, 3, 4, 5],
+            "Description": "Armería especializada en armas",
+            "Location": "Distrito de Herreros"
+        }
+    ],
+    "ArmorShop": [
+        {
+            "IDs": [10, 11, 12, 13, 20, 21, 22, 30, 31, 32],
+            "Description": "Tienda de armaduras y protección",
+            "Location": "Distrito de Herreros"
+        }
+    ],
+    "MagicShop": [
+        {
+            "IDs": [4, 5, 41, 42, 43, 44, 54, 55],
+            "Description": "Tienda de items mágicos y pociones",
+            "Location": "Torre de Magos"
+        }
+    ],
+    "ForestShop": [
+        {
+            "IDs": [1, 2, 50, 51, 52, 53],
+            "Description": "Pequeña tienda en el bosque",
+            "Location": "Bosque"
+        }
+    ],
+    "CaveShop": [
+        {
+            "IDs": [3, 11, 21, 31, 41, 52, 54],
+            "Description": "Mercader errante en la cueva",
+            "Location": "Cueva"
+        }
+    ]
+}
