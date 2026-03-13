@@ -2,6 +2,10 @@
 __pycache__/
 *.py[codz]
 *$py.class
+*.pyc 
+
+# Other
+settings.json
 
 # C extensions
 *.so
