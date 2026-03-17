@@ -3,6 +3,7 @@ __pycache__/
 *.py[codz]
 *$py.class
 *.pyc*
+__pycache__/
 
 # Other
 settings.json
