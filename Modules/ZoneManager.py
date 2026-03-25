@@ -1,10 +1,3 @@
-"""
-ZoneManager - Sistema dinámico de gestión de zonas
-===================================================
-Lee zonas desde DataStats.json y desde archivos JSON de mods
-"""
-
-import os
 from typing import Dict, List, Tuple
 from Modules.Loader import Read
 
@@ -18,7 +11,6 @@ class ZoneManager:
     
     def get_all_zones(self) -> Dict[str, Dict]:
         """
-        Obtiene TODAS las zonas disponibles (JSON base + Mods)
         
         Returns:
             Dict con formato: {

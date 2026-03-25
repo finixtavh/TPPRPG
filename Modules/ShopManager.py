@@ -7,6 +7,7 @@ Las tiendas cargan sus inventarios desde DataShops.json
 import json
 import os
 from typing import List, Optional
+from Modules.input_utils import wait_for_enter
 
 
 class ShopManager:
@@ -181,8 +182,6 @@ def display_shop(shop_name: str, player, item_manager):
         player: Objeto del jugador
         item_manager: Instancia del ItemManager
     """
-    import keyboard
-    
     shop_manager = get_shop_manager()
     item_ids = shop_manager.get_shop_items(shop_name)
     
@@ -263,7 +262,7 @@ def display_shop(shop_name: str, player, item_manager):
                 
                 if player.Gold < cost:
                     print(f"\n[ERROR] No tienes suficiente oro. Necesitas {cost - player.Gold} más.")
-                    keyboard.wait("enter", suppress=True)
+                    wait_for_enter()
                     continue
                 
                 confirm = input(f"\n¿Comprar por {cost} oro? (s/n): ").strip().lower()
@@ -283,20 +282,20 @@ def display_shop(shop_name: str, player, item_manager):
                         
                         print(f"\n[SUCCESS] ¡Has comprado {item_data.get('Name')}!")
                         print(f"Oro restante: {player.Gold}")
-                        keyboard.wait("enter", suppress=True)
+                        wait_for_enter()
                     else:
                         print("[ERROR] No se pudo crear el item")
-                        keyboard.wait("enter", suppress=True)
+                        wait_for_enter()
                 else:
                     print("Compra cancelada.")
-                    keyboard.wait("enter", suppress=True)
+                    wait_for_enter()
             else:
                 print("[ERROR] Opción inválida")
-                keyboard.wait("enter", suppress=True)
+                wait_for_enter()
                 
         except ValueError:
             print("[ERROR] Entrada inválida")
-            keyboard.wait("enter", suppress=True)
+            wait_for_enter()
         except Exception as e:
             print(f"[ERROR] {e}")
-            keyboard.wait("enter", suppress=True)
+            wait_for_enter()

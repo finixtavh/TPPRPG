@@ -18,7 +18,7 @@ class cFarm:
         self.gathering: Dict[str, cSkill] = {skill: cSkill() for skill in self.GATHERING_SKILLS}
         self.weapons: Dict[str, cSkill] = {skill: cSkill() for skill in self.WEAPON_SKILLS}
 
-    def gather(self, Material, Tool, vInventory, buffs=None):
+    def gather(self, Material, Tool, buffs=None) -> bool:
         if buffs is None:
             buffs = []
 
@@ -27,10 +27,8 @@ class cFarm:
         for b in buffs:
             total_modifier *= b
 
-        # Tool efficiency
         tool_eff = Tool.Efficiency if Tool else 1.0
 
-        # Total
         power = tool_eff * Gathering_Skill_Bonus * total_modifier
 
         with Progress(
@@ -43,10 +41,10 @@ class cFarm:
 
             while not progress.finished:
                 progress.update(task, advance=power)
-                time.sleep(0.1)
+                time.sleep(1)
 
         self.gathering[Material.SkillName.lower()].exp_total += Material.Hardness / 13
-
+        return True
                 
 class cMaterial:
     def __init__(self, MATERIAL_ID, TypeStr, Name, Hardness, SkillName):
@@ -57,14 +55,19 @@ class cMaterial:
         self.SkillName = SkillName
 
 class cTool:
-    def __init__(self, STATIC_ID, TypeStr, Name, Desc, Efficiency, Enchantments: List, ):
-        self.STATIC_ID = STATIC_ID
+    def __init__(self, ID, TypeStr, Name, Desc, Efficiency, Gold_Cost, MaxStack, Enchantments: List):
+        self.ID = ID
         self.ToolTypeStr: str = "TYPE_M:" + TypeStr # Needs support for multiple materials
         self.Name = Name
         self.Desc = Desc
         self.Efficiency = Efficiency
+        self.Gold_Cost = Gold_Cost
+        self.MaxStack = MaxStack
         self.Enchantments = Enchantments
 
+
+def Gathering(cFarmv, cMaterialv, cToolv, cPlayerv, vInventory):
+    if cFarmv.gather(cMaterialv, cToolv, cPlayerv): 
+        vInventory.addObject(cMaterialv)
+
 Gathering_init = cFarm()
-
-

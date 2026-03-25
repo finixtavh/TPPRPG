@@ -1,3 +1,5 @@
+from Modules.input_utils import wait_for_enter
+
 """
 Sistema de Equipamiento Mejorado para TPPRPG
 Permite equipar/desequipar items y aplicar/remover stats dinámicamente
@@ -326,8 +328,6 @@ def equip_menu(player, inventory):
         player: El objeto jugador
         inventory: El objeto inventario
     """
-    import keyboard
-    
     while True:
         print("\n" + "="*70)
         print("MENÚ DE EQUIPAMIENTO".center(70))
@@ -348,7 +348,7 @@ def equip_menu(player, inventory):
             
             if not equipable_items:
                 print("\nNo tienes items equipables en el inventario.")
-                keyboard.wait("enter", suppress=True)
+                wait_for_enter()
                 continue
             
             print("\nITEMS DISPONIBLES:")
@@ -368,13 +368,13 @@ def equip_menu(player, inventory):
                         # Remover del inventario (1 unidad)
                         inventory.remove_item(selected_item, 1)
                     
-                    keyboard.wait("enter", suppress=True)
+                    wait_for_enter()
                 else:
                     print("Selección inválida.")
-                    keyboard.wait("enter", suppress=True)
+                    wait_for_enter()
             except ValueError:
                 print("Entrada inválida.")
-                keyboard.wait("enter", suppress=True)
+                wait_for_enter()
         
         elif choice == "2":
             print("\n¿Qué quieres desequipar?")
@@ -400,17 +400,17 @@ def equip_menu(player, inventory):
             
             if slot_choice in slot_map:
                 EquipmentManager.unequip_item(player, slot_map[slot_choice], inventory)
-                keyboard.wait("enter", suppress=True)
+                wait_for_enter()
             else:
                 print("Selección inválida.")
-                keyboard.wait("enter", suppress=True)
+                wait_for_enter()
         
         elif choice == "3":
             EquipmentManager.show_equipment(player)
-            keyboard.wait("enter", suppress=True)
+            wait_for_enter()
         
         elif choice == "0":
             break
         else:
             print("Opción inválida.")
-            keyboard.wait("enter", suppress=True)
+            wait_for_enter()

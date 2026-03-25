@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 import random
 import time as sp
-import keyboard
+from Modules.input_utils import wait_for_enter
 
 ##################      First Variables
 player = None
@@ -43,7 +43,7 @@ class cPlayer:
         
         TODO: Finish Comments
     """
-    
+
     def __init__(self, name, weapon):
         self.name = name
         # Main Stats
@@ -52,14 +52,16 @@ class cPlayer:
         self.Mana_max = 100
         self.Mana = self.Mana_max
         self.Level = 1
-        # Secondary Stats - DEF is now a tuple of 5 values
-        self.DEF = [0, 0, 0, 0, 0]  # [Physical, Thermal, Earth, Electric, Deep]
-        self.MDEF = 0  # Pending for removal
+        # Secondary Stats
+        self.DEF = [0, 0, 0, 0, 0]  # [Phys, Thermal, Earth, Electric, Deep]
         self.AGI = 0
         self.DefensePercentage = 0
         self.CounterAttack = 0
         self.Evasion = 0
         self.ManaRegen = 2.5
+        self.RAC = 0
+        self.Control = 0
+        self.Barrier = 0
         # Gold and Experience
         self.Gold = 50
         self.EXP = 15
@@ -72,7 +74,8 @@ class cPlayer:
         self.ring = None
         self.ring2 = None
         self.ring3 = None
-        
+        self.SecHand = None 
+
         # Seems like this can changed fore something better
         self.items_in_PlayerClass = [self.weapon, self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3]
 
@@ -261,7 +264,7 @@ class cPlayer:
 
             console.print(f"Tienes: {exp_formated} y ahora requeriras {exp_m_formated} para avanzar al siguiente nivel")
 
-            keyboard.wait("enter", suppress=True)
+            wait_for_enter()
 
     def Equip(self, vInventory, InventorySortervar, player):
         print("\nInventario: \n")
@@ -314,31 +317,6 @@ class cPlayer:
                 vInventory.addObject(weapon_get, False)
                 sp.sleep(3.5)
 
-############################### Gathering & Skills
-
-@dataclass
-class cSkill:
-    exp_total: float = 0.0
-    exp_to_next_lvl: float = 100.0
-    current_level: int = 1
-
-class cFarm:
-    GATHERING_SKILLS = ["mining", "lumberjack", "fishing", "herbs", "hunting", "astrology"]
-
-    WEAPON_SKILLS = ["swords", "electric_wands", "thermal_wands", "earth_wands", 
-                     "void_staffs", "shields", "blessed_ornament", "ornament", "cursed_ornament"]
-
-    def __init__(self):
-        self.gathering: Dict[str, cSkill] = {skill: cSkill() for skill in self.GATHERING_SKILLS}
-        self.weapons: Dict[str, cSkill] = {skill: cSkill() for skill in self.WEAPON_SKILLS}
-
-    def gather(self, Material):
-        NotImplemented
-
-class cMaterial:
-    def __init__(self, TypeStr, Name):
-        Material_Type: str = "TYPE_M:" + {TypeStr}
-        self.Name = Name
 
 class cEnemy:
     def __init__ (self, NAME, 
@@ -685,7 +663,7 @@ class cInventory:
         """Muestra inventario simple (compatibilidad)"""
         if not self.slots:
             print("[yellow]El inventario está vacío[/yellow]")
-            keyboard.wait("enter", suppress=True)
+            wait_for_enter()
             return
         
         print("\n[cyan]Inventario:[/cyan]\n")
@@ -706,7 +684,7 @@ class cInventory:
                 print(f"  • {display_name}")
         
         print("\nPresiona enter ↵")
-        keyboard.wait("enter", suppress=True)
+        wait_for_enter()
     
     @property
     def lObjectsInventory(self):
@@ -841,51 +819,15 @@ def enemy_loader(data_npc, return_single=False):
             if key not in NON_ENEMY_KEYS:
                 try:
                     # Extract damage arrays
-                    # DMG should be [Physical, Thermal, Earth, Electric, Deep]
+                    # DMG [Physical, Thermal, Earth, Electric, Deep]
                     dmg_array = enemy_data.get('DMG', [0, 0, 0, 0, 0])
-                    if isinstance(dmg_array, list) and len(dmg_array) >= 5:
-                        # New format - use as is
-                        pass
-                    elif isinstance(dmg_array, list) and len(dmg_array) == 2:
-                        # Old format: [Physical, Magical] -> [Physical, Thermal, 0, 0, 0]
-                        dmg_array = [dmg_array[0], dmg_array[1], 0, 0, 0]
-                    elif isinstance(dmg_array, (int, float)):
-                        # Single number - only physical
-                        dmg_array = [dmg_array, 0, 0, 0, 0]
-                    else:
-                        # Invalid format
-                        dmg_array = [0, 0, 0, 0, 0]
-                    
-                    # DMG_min should be [Physical, Thermal, Earth, Electric]
+
+                    # DMG_min [Physical, Thermal, Earth, Electric]
                     dmg_min_array = enemy_data.get('DMG_min', [0, 0, 0, 0])
-                    if isinstance(dmg_min_array, list) and len(dmg_min_array) >= 4:
-                        # New format - use as is
-                        pass
-                    elif isinstance(dmg_min_array, list) and len(dmg_min_array) == 2:
-                        # Old format: [Physical_min, Magical_min] -> [Physical, Thermal, 0, 0]
-                        dmg_min_array = [dmg_min_array[0], dmg_min_array[1], 0, 0]
-                    elif isinstance(dmg_min_array, (int, float)):
-                        # Single number - only physical
-                        dmg_min_array = [dmg_min_array, 0, 0, 0]
-                    else:
-                        # Invalid format
-                        dmg_min_array = [0, 0, 0, 0]
                     
-                    # Extract defense array
-                    # DEF should be [Physical, Thermal, Earth, Electric, Deep]
+
+                    # DEF [Physical, Thermal, Earth, Electric, Deep]
                     def_array = enemy_data.get('DEF', [0, 0, 0, 0, 0])
-                    if isinstance(def_array, list) and len(def_array) >= 5:
-                        # New format - use as is
-                        pass
-                    elif isinstance(def_array, list) and len(def_array) == 2:
-                        # Old format: [Physical, Magical] -> [Physical, Magical, Magical, Magical, Magical]
-                        def_array = [def_array[0], def_array[1], def_array[1], def_array[1], def_array[1]]
-                    elif isinstance(def_array, (int, float)):
-                        # Single number - apply to all
-                        def_array = [def_array, def_array, def_array, def_array, def_array]
-                    else:
-                        # Invalid format
-                        def_array = [0, 0, 0, 0, 0]
                     
                     # Create enemy instance
                     enemy_load_var = cEnemy(

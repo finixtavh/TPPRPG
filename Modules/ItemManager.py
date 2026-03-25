@@ -1,10 +1,3 @@
-"""
-Sistema de Gestión de Items desde JSON
-=======================================
-Carga, crea, modifica y guarda items desde archivos JSON
-Actualizado para manejar sistema de daño y defensa multi-tipo
-"""
-
 import json
 import os
 from typing import Dict, List, Optional, Any, Union
@@ -78,7 +71,7 @@ class ItemManager:
                             "key": item_key
                         }
     
-    def get_item_by_id(self, item_id: int) -> Optional[Dict]:
+    def get_item_by_id(self, item_id: Union[int, str]) -> Optional[Dict]:
         """
         Obtiene los datos de un item por su ID
         
@@ -120,7 +113,7 @@ class ItemManager:
             ]
         return []
     
-    def create_item_object(self, item_id: int, cWeapon, cEquippableItems, cObject):
+    def create_item_object(self, item_id: Union[int, str], cWeapon, cEquippableItems, cObject, cTool):
         """
         Crea un objeto de item (cWeapon, cEquippableItems, o cObject) desde JSON
         
@@ -148,6 +141,9 @@ class ItemManager:
                 return self._create_equippable(item_data, cEquippableItems)
             elif item_type == "Consumable":
                 return self._create_consumable(item_data, cObject)
+            elif item_type == "Tool":
+                return self._create_tool(item_data, cTool)
+
             else:
                 print(f"[ERROR] Tipo de item desconocido: {item_type}")
                 return None
@@ -158,45 +154,15 @@ class ItemManager:
     
     def _create_weapon(self, item_data: Dict, cWeapon):
         """
-        Crea un objeto cWeapon desde datos JSON
+        Creates a cWeapon via Json
         
-        Nuevo formato:
+        DEF and DMG Arrays:
         DMG: [Physical, Thermal, Earth, Electric, Deep]
-        DMG_min: [Physical, Thermal, Earth, Electric] (Deep siempre es máximo)
+        DMG_min: [Physical, Thermal, Earth, Electric] (Deep is always max dmg)
         """
-        # Obtener arrays de daño
+        # DMG Array
         dmg = item_data.get("DMG", [0, 0, 0, 0, 0])
         dmg_min = item_data.get("DMG_min", [0, 0, 0, 0])
-        
-        # Asegurar que los arrays tengan el tamaño correcto
-        if isinstance(dmg, list) and len(dmg) >= 5:
-            # New format - use as is
-            pass
-        elif isinstance(dmg, list) and len(dmg) == 2:
-            # Old format: [Physical, Magical] -> [Physical, Thermal, 0, 0, 0]
-            # Assign old "Magical" damage to Thermal (index 1)
-            dmg = [dmg[0], dmg[1], 0, 0, 0]
-        elif isinstance(dmg, (int, float)):
-            # Single number - only physical
-            dmg = [dmg, 0, 0, 0, 0]
-        else:
-            # Invalid or empty
-            dmg = [0, 0, 0, 0, 0]
-        
-        if isinstance(dmg_min, list) and len(dmg_min) >= 4:
-            # New format - use as is
-            pass
-        elif isinstance(dmg_min, list) and len(dmg_min) == 2:
-            # Old format: [Physical_min, Magical_min] -> [Physical, Thermal, 0, 0]
-            dmg_min = [dmg_min[0], dmg_min[1], 0, 0]
-        elif isinstance(dmg_min, (int, float)):
-            # Single number - only physical
-            dmg_min = [dmg_min, 0, 0, 0]
-        else:
-            # Invalid or empty
-            dmg_min = [0, 0, 0, 0]
-        
-        # El formato del constructor es: (ID, name, DMG, DMG_min, Gold_Cost, Description)
         return cWeapon(
             ID=item_data.get("STATIC_ID"),
             name=item_data.get("Name"),
@@ -213,24 +179,9 @@ class ItemManager:
         Nuevo formato:
         Defense: [Physical, Thermal, Earth, Electric, Deep]
         """
-        # Obtener array de defensa
+        # DEF Array
         defense = item_data.get("Defense", [0, 0, 0, 0, 0])
-        
-        # Asegurar formato correcto
-        if isinstance(defense, list) and len(defense) >= 5:
-            # New format - use as is
-            pass
-        elif isinstance(defense, list) and len(defense) == 2:
-            # Old format might have [Physical, Magical] - though this is rare for items
-            # Apply magical defense to all magic types
-            defense = [defense[0], defense[1], defense[1], defense[1], defense[1]]
-        elif isinstance(defense, (int, float)):
-            # Single number - backward compatibility
-            # Apply only to physical defense (old behavior)
-            defense = [defense, 0, 0, 0, 0]
-        else:
-            # Invalid or empty
-            defense = [0, 0, 0, 0, 0]
+
         
         return cEquippableItems(
             ID=item_data.get("STATIC_ID"),
@@ -255,6 +206,19 @@ class ItemManager:
             Description=item_data.get("Description", "")
         )
     
+    def _create_tool(self, item_data: Dict, cTool):
+        """Crea una Herramienta cTool"""
+        return cTool(
+            ID=item_data.get("STATIC_ID"),
+            ToolTypeStr=item_data.get("Tool_Type"),
+            Name=item_data.get("Name"),
+            Desc=item_data.get("Desc"),
+            Efficiency=item_data.get("Efficiency"),
+            Gold_Cost=item_data.get("Gold_Cost"),
+            MaxStack=item_data.get("MaxStack"),
+            Enchantments=item_data.get("Enchantments")
+        )
+
     def add_item(self, item_type: str, item_key: str, item_data: Dict) -> bool:
         """
         Agrega un nuevo item al JSON
@@ -517,7 +481,7 @@ def get_item_manager(items_path: str = "./Data/DataItems.json") -> ItemManager:
 
 
 # Funciones de conveniencia para usar en el juego
-def load_item_by_id(item_id: int, cWeapon, cEquippableItems, cObject):
+def load_item_by_id(item_id: Union[int, str], cWeapon, cEquippableItems, cObject):
     """
     Carga un item por ID y devuelve el objeto creado
     
