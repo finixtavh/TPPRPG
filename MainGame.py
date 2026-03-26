@@ -41,21 +41,7 @@ import sys
 from enum import Enum, auto
 
 # Game configuration
-CONFIG = {
-    "COMBAT": {
-        "DELAY_BETWEEN_ROUNDS": 3.5,  # Seconds between combat rounds
-        "CHANCE_TO_FLEE": 0.1,  # Base chance to successfully flee combat, TODO: Needs revision
-    },
-    "DISPLAY": {
-        "BAR_LENGTH": 25,  # Length of health/mana bars
-        "MENU_REFRESH_RATE": 0.5,  # Seconds to wait before refreshing menus
-        "SHOW_FULL_STATS": True,  # Shows Full cPlayer Main, Secondary Stats, including Gold and EXP
-    },
-    "DEBUG": {
-        "ENABLED": False,  # Enable debug mode, It does nothing, for now.
-    },
-}
-
+CONFIG = Read("config.json", None)
 
 # Game state management
 class GameState(Enum):
@@ -84,7 +70,6 @@ custom_theme = Theme(
 
 console = Console(theme=custom_theme)
 
-# Centralized logging (logs/) and console output mirroring
 app_logger = setup_logging(CONFIG["DEBUG"]["ENABLED"])
 attach_console_logging(console, app_logger)
 install_exception_hooks(app_logger)

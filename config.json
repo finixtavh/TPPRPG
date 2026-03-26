@@ -1,0 +1,22 @@
+{
+  "COMBAT": {
+    "DELAY_BETWEEN_ROUNDS": 3.5,
+    "CHANCE_TO_FLEE": 0.1
+  },
+  "DISPLAY": {
+    "BAR_LENGTH": 25,
+    "MENU_REFRESH_RATE": 0.5,
+    "SHOW_FULL_STATS": true
+  },
+  "DEBUG": {
+    "ENABLED": false
+  },
+  "GATHERING_MINIGAME_PARAMS": {
+    "ZONE_BONUS": 0.2,
+    "TICK_INTERVAL": 0.05,
+    "MARKER_SPEED": 0.035,
+    "ZONE_WIDTH_MIN": 0.12,
+    "ZONE_WIDTH_MAX": 0.22,
+    "ZONE_RESPAWN_TICKS": 60
+  }
+}
