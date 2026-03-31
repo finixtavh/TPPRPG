@@ -43,16 +43,6 @@ from enum import Enum, auto
 # Game configuration
 CONFIG = Read("config.json", None)
 
-# Game state management
-class GameState(Enum):
-    MAIN_MENU = auto()
-    EXPLORING = auto()
-    COMBAT = auto()
-    SHOP = auto()
-    INVENTORY = auto()
-    STATS = auto()
-    EQUIPMENT = auto()
-
 
 data_path = os.path.join("Data", "DataStats.json")
 
@@ -84,7 +74,6 @@ shop_objects: List[Any] = []
 zone_name: str = ""
 tick: int = 0
 chars: List[Any] = []
-current_state: GameState = GameState.MAIN_MENU
 
 
 item_manager = None
@@ -512,7 +501,6 @@ def main():
 
     elif main_input == 1:
         # Set current state
-        current_state = GameState.EXPLORING
         """Inspeccionar las zonas - VERSIÓN DINÁMICA"""
         try:
             from Modules.ZoneManager import get_all_zones
@@ -597,7 +585,6 @@ def main():
     elif main_input == 2:
         """Ir a una zona - VERSIÓN DINÁMICA"""
         # Set current state
-        current_state = GameState.EXPLORING
 
         try:
             from Modules.ZoneManager import get_zones_for_selector
@@ -717,7 +704,7 @@ def main():
 
     elif main_input == 3:
         # ===== TIENDA CON SISTEMA JSON =====
-        current_state = GameState.SHOP
+        
         console.print("[info]Entrando a la tienda...[/info]")
 
         try:
@@ -749,12 +736,12 @@ def main():
             "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
         )
         wait_for_enter()
-        current_state = GameState.MAIN_MENU
+         
     # ===================================
 
     elif main_input == 4:
         # Set current state
-        current_state = GameState.INVENTORY
+        
         console.print(Panel("Inventario", style="menu_title"))
 
         try:
@@ -767,11 +754,11 @@ def main():
             "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
         )
         wait_for_enter()
-        current_state = GameState.MAIN_MENU
+         
 
     elif main_input == 5:
         # Usar objetos consumibles
-        current_state = GameState.INVENTORY
+        
         console.print(Panel("Usar Objetos Consumibles", style="menu_title"))
 
         try:
@@ -843,11 +830,9 @@ def main():
             "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
         )
         wait_for_enter()
-        current_state = GameState.MAIN_MENU
 
     # ===== NUEVA OPCIÓN: GESTIÓN DE EQUIPAMIENTO =====
     elif main_input == 6:
-        current_state = GameState.EQUIPMENT
         console.clear()
 
         try:
@@ -857,7 +842,7 @@ def main():
                 f"[danger]Error en gestión de equipamiento: {str(e)}[/danger]"
             )
 
-        current_state = GameState.MAIN_MENU
+         
     # ===============================================
 
     elif main_input == 7:
@@ -872,7 +857,7 @@ def main():
             wait_for_enter()
         else:
             # Set current state
-            current_state = GameState.COMBAT
+             
             combat_round = 1
             combat_active = True
 
@@ -1145,7 +1130,7 @@ def main():
                 sp.sleep(CONFIG["COMBAT"]["DELAY_BETWEEN_ROUNDS"])
 
             # Reset state after combat
-            current_state = GameState.MAIN_MENU
+            
             console.print(
                 "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
             )
@@ -1153,7 +1138,7 @@ def main():
 
     elif main_input == 8:
         # Set current state
-        current_state = GameState.STATS
+         
 
         # ===== STATS CON EQUIPAMIENTO =====
         if CONFIG["DISPLAY"]["SHOW_FULL_STATS"]:
@@ -1237,7 +1222,7 @@ def main():
             "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
         )
         wait_for_enter()
-        current_state = GameState.MAIN_MENU
+         
 
     elif main_input == 9:
         # Gestión de Mods
@@ -1298,7 +1283,6 @@ def main():
             console.print("\n[info]Presiona Enter para continuar...[/info]")
             wait_for_enter()
 
-        current_state = GameState.MAIN_MENU
 
     # ===== NUEVA OPCIÓN: VER ITEMS DISPONIBLES =====
     elif main_input == 10:
@@ -1317,7 +1301,7 @@ def main():
             "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
         )
         wait_for_enter()
-        current_state = GameState.MAIN_MENU
+         
     # ==============================================
 
     elif main_input == 11:
