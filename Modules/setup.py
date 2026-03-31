@@ -52,6 +52,7 @@ class cPlayer:
         self.Mana_max = 100
         self.Mana = self.Mana_max
         self.Level = 1
+        self.lvlPoints = 0
         # Secondary Stats
         self.DEF = [0, 0, 0, 0, 0]  # [Phys, Thermal, Earth, Electric, Deep]
         self.AGI = 0
@@ -250,7 +251,8 @@ class cPlayer:
 
         while self.EXP >= self.EXP_M:  
             self.Level += 1
-            self.EXP_M *= 1.4
+            self.EXP_M *= 1.08
+
         if Before_Levelup != self.Level:
             console.print(f"Has subido de nivel!")
             console.print(f"Antes: {Before_Levelup}")
@@ -316,7 +318,13 @@ class cPlayer:
                 print(f"Se equipó {weapon_get.name}")
                 vInventory.addObject(weapon_get, False)
                 sp.sleep(3.5)
+    def Points(self):
+        try:
+            console.print("!!!!")
+            input_points = int(input("Selecciona que Atributos quieres subir:"))
 
+        except:
+            pass
 
 class cEnemy:
     def __init__ (self, NAME, 

@@ -481,7 +481,7 @@ def get_item_manager(items_path: str = "./Data/DataItems.json") -> ItemManager:
 
 
 # Funciones de conveniencia para usar en el juego
-def load_item_by_id(item_id: Union[int, str], cWeapon, cEquippableItems, cObject):
+def load_item_by_id(item_id: Union[int, str], cWeapon, cEquippableItems, cObject, cTool):
     """
     Carga un item por ID y devuelve el objeto creado
     
@@ -493,7 +493,7 @@ def load_item_by_id(item_id: Union[int, str], cWeapon, cEquippableItems, cObject
         Objeto del item o None
     """
     manager = get_item_manager()
-    return manager.create_item_object(item_id, cWeapon, cEquippableItems, cObject)
+    return manager.create_item_object(item_id, cWeapon, cEquippableItems, cObject, cTool)
 
 
 def load_items_by_type(item_type: str, cWeapon, cEquippableItems, cObject) -> List:

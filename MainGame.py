@@ -1224,7 +1224,7 @@ def main():
                 stats_lines.append(f"[bold]{display_name}:[/bold] {item_name}")
             else:
                 stats_lines.append(f"[bold]{display_name}:[/bold] [dim]Vacío[/dim]")
-        # ===============================
+
 
         # Create and display the panel
         stats_panel = Panel(
@@ -1335,8 +1335,8 @@ def main():
                   [4] LOOK Variables""")
         )
         if debug_input == 1:
-            vInventory.addObject(load_item_by_id(3, cWeapon, cEquippableItems, cObject))
-            vInventory.addObject(load_item_by_id(100, cWeapon, cEquippableItems, cObject))
+            vInventory.addObject(load_item_by_id(3, cWeapon, cEquippableItems, cObject, cTool))
+            vInventory.addObject(load_item_by_id(100, cWeapon, cEquippableItems, cObject, cTool))
 
         elif debug_input == 2:
             player.Gold += 9999999
@@ -1451,7 +1451,6 @@ def load_game() -> bool:
 
 # Game initialization function
 def init_game():
-    """Initialize the game and display welcome message"""
     global item_manager, shop_manager
 
     console.print(Panel("Bienvenido al Juego RPG", style="success"))
@@ -1467,7 +1466,7 @@ def init_game():
         console.print(
             "[warning]El juego continuará sin el sistema de items JSON[/warning]"
         )
-
+    print("\n")
     # Inicializar sistema de tiendas
     try:
         console.print("[info]Cargando sistema de tiendas desde JSON...[/info]")
@@ -1480,9 +1479,7 @@ def init_game():
         console.print(
             "[warning]El juego continuará sin el sistema de tiendas JSON[/warning]"
         )
-    # ==========================================
-
-    # Search for mods
+    print("\n")
     try:
         console.print("[info]Inicializando sistema de mods...[/info]")
         mod_loader_instance = get_mod_loader()
@@ -1498,6 +1495,7 @@ def init_game():
 
         if response == "s" or response == "si":
             load_game()
+    wait_for_enter()
 
 
 # Main Execution
