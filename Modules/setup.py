@@ -104,13 +104,12 @@ class cPlayer:
         # Get damage from weapon - returns [physical, thermal, earth, electric, deep]
         damage_array = self.weapon.use_weapon(self)
         
-        # Apply defense calculations for each damage type
+        # Apply defense calcs
         final_damage = [0, 0, 0, 0, 0]
         damage_type_names = ["Físico", "Térmico", "Tierra", "Eléctrico", "Profundo"]
         
         for i in range(5):
             if damage_array[i] > 0:
-                # Apply defense (you can customize the formula here)
                 enemy_def = enemy.DEF[i] if isinstance(enemy.DEF, (list, tuple)) else 0
                 final_damage[i] = max(0, damage_array[i] - (enemy_def / 2))
         
@@ -339,42 +338,12 @@ class cEnemy:
         self.NAME = NAME
         self.HP_M = HP_M
         self.HP = self.HP_M
-        
-        # Store damage arrays - DMG has 5 values, DMG_min has 4 (deep always max)
+
         # Format: [Physical, Thermal, Earth, Electric, Deep]
-        if isinstance(DMG, (list, tuple)) and len(DMG) >= 5:
-            self.DMG = list(DMG)
-        elif isinstance(DMG, (list, tuple)) and len(DMG) == 2:
-            # Old format: [Physical, Magical] -> [Physical, Thermal, Earth, Electric, Deep]
-            # Assign the old "Magical" damage to Thermal (index 1)
-            self.DMG = [DMG[0], DMG[1], 0, 0, 0]
-        else:
-            # Single value or other format
-            dmg_val = DMG if isinstance(DMG, (int, float)) else (DMG[0] if isinstance(DMG, (list, tuple)) and len(DMG) > 0 else 0)
-            self.DMG = [dmg_val, 0, 0, 0, 0]
-        
-        if isinstance(DMG_min, (list, tuple)) and len(DMG_min) >= 4:
-            self.DMG_min = list(DMG_min) + [self.DMG[4]]  # Deep damage always at max
-        elif isinstance(DMG_min, (list, tuple)) and len(DMG_min) == 2:
-            # Old format: [Physical_min, Magical_min] -> [Physical, Thermal, Earth, Electric]
-            # Assign the old "Magical_min" to Thermal (index 1)
-            self.DMG_min = [DMG_min[0], DMG_min[1], 0, 0, self.DMG[4]]
-        else:
-            # Single value or other format
-            dmg_min_val = DMG_min if isinstance(DMG_min, (int, float)) else (DMG_min[0] if isinstance(DMG_min, (list, tuple)) and len(DMG_min) > 0 else 0)
-            self.DMG_min = [dmg_min_val, 0, 0, 0, self.DMG[4]]
-        
-        # Defense is now array: [Physical, Thermal, Earth, Electric, Deep]
-        if isinstance(DEF, (list, tuple)) and len(DEF) >= 5:
-            self.DEF = list(DEF)
-        elif isinstance(DEF, (list, tuple)) and len(DEF) == 2:
-            # Old format: [Physical_def, Magical_def] -> apply magical_def to all magic types
-            # [Physical, Thermal, Earth, Electric, Deep]
-            self.DEF = [DEF[0], DEF[1], DEF[1], DEF[1], DEF[1]]
-        else:
-            # Single value applies to all defenses
-            def_value = DEF if isinstance(DEF, (int, float)) else (DEF[0] if isinstance(DEF, (list, tuple)) and len(DEF) > 0 else 0)
-            self.DEF = [def_value, def_value, def_value, def_value, def_value]
+
+        self.DMG = list(DMG)
+        self.DMG_min = list(DMG_min) + [self.DMG[4]]  # Deep damage always max
+        self.DEF = list(DEF)
         
         self.MP_M = MP_M
         self.MP = self.MP_M
@@ -425,8 +394,6 @@ class cEnemy:
     def TakeDamage(self, damage):
         """
         Reduces enemy HP.
-        Damage can be:
-        - A single number (backward compatibility)
         - A list/tuple of 5 damage values
         """
         if isinstance(damage, (list, tuple)):
@@ -459,28 +426,9 @@ class cWeapon:
         self.Gold_Cost = Gold_Cost
         self.Description = Description
         self.AppliedStats = False
-        
-        # Store damage arrays
-        # DMG format: [Physical, Thermal, Earth, Electric, Deep]
-        if isinstance(DMG, (list, tuple)) and len(DMG) >= 5:
-            self.DMG = list(DMG)
-        else:
-            # Backward compatibility
-            self.DMG = [DMG if not isinstance(DMG, (list, tuple)) else DMG[0], 0, 0, 0, 0]
-        
-        # DMG_min format: [Physical, Thermal, Earth, Electric]
-        # Deep damage is always at maximum (self.DMG[4])
-        if isinstance(DMG_min, (list, tuple)) and len(DMG_min) >= 4:
-            self.DMG_min = list(DMG_min)
-        else:
-            # Backward compatibility
-            self.DMG_min = [DMG_min if not isinstance(DMG_min, (list, tuple)) else DMG_min[0], 0, 0, 0]
-        
-        # For backward compatibility with old code
-        self.PHYSICAL_DMG = self.DMG[0]
-        self.PHYSICAL_DMG_min = self.DMG_min[0]
-        self.damage_min = self.DMG_min[0]
-        self.damage_max = self.DMG[0]
+
+        self.DMG = list(DMG)
+        self.DMG_min = list(DMG_min)
         
         LObject.append(self)
         
@@ -566,11 +514,9 @@ class InventorySlot:
         self.max_stack = getattr(item, 'MaxStack', 1)
     
     def can_add(self, amount: int = 1) -> bool:
-        """Verifica si se puede agregar más items a este slot"""
         return (self.quantity + amount) <= self.max_stack
     
     def add(self, amount: int = 1) -> int:
-        """Agrega items al slot. Returns: overflow"""
         space_available = self.max_stack - self.quantity
         can_add = min(amount, space_available)
         overflow = amount - can_add
@@ -578,7 +524,6 @@ class InventorySlot:
         return overflow
     
     def remove(self, amount: int = 1) -> int:
-        """Remueve items del slot. Returns: cantidad removida"""
         can_remove = min(amount, self.quantity)
         self.quantity -= can_remove
         return can_remove
@@ -587,13 +532,11 @@ class InventorySlot:
         return self.quantity <= 0
     
     def get_display_name(self) -> str:
-        """Nombre con cantidad si >1"""
         item_name = getattr(self.item, 'Name', getattr(self.item, 'name', 'Unknown'))
         return f"{item_name} x{self.quantity}" if self.quantity > 1 else item_name
 
 
 class cInventory:
-    """Sistema de inventario mejorado con stacks y menú interactivo"""
     
     def __init__(self):
         self.slots: List = []
@@ -614,7 +557,6 @@ class cInventory:
         item_id = getattr(item, 'ID', None)
         remaining = quantity
         
-        # Intentar apilar en slots existentes
         for slot in self.slots:
             if getattr(slot.item, 'ID', None) == item_id:
                 if slot.can_add(remaining):
@@ -627,7 +569,6 @@ class cInventory:
                     if remaining == 0:
                         break
         
-        # Crear nuevos slots si sobra
         while remaining > 0:
             max_stack = getattr(item, 'MaxStack', 1)
             slot_quantity = min(remaining, max_stack)
@@ -636,7 +577,6 @@ class cInventory:
             remaining -= slot_quantity
     
     def remove_item(self, item, quantity: int = 1) -> int:
-        """Remueve item del inventario"""
         item_id = item if isinstance(item, int) else getattr(item, 'ID', None)
         removed = 0
         slots_to_remove = []
@@ -656,7 +596,7 @@ class cInventory:
         return removed
     
     def get_item_count(self, item_id: int) -> int:
-        """Cantidad total de un item"""
+
         total = 0
         for slot in self.slots:
             if getattr(slot.item, 'ID', None) == item_id:
@@ -664,11 +604,9 @@ class cInventory:
         return total
     
     def has_item(self, item_id: int, quantity: int = 1) -> bool:
-        """Verifica si tiene suficiente cantidad"""
         return self.get_item_count(item_id) >= quantity
     
     def PrintObjects(self):
-        """Muestra inventario simple (compatibilidad)"""
         if not self.slots:
             print("[yellow]El inventario está vacío[/yellow]")
             wait_for_enter()
@@ -696,7 +634,6 @@ class cInventory:
     
     @property
     def lObjectsInventory(self):
-        """Compatibilidad: retorna lista plana de items"""
         items = []
         for slot in self.slots:
             for _ in range(slot.quantity):
@@ -705,55 +642,8 @@ class cInventory:
     
     @property
     def Objects(self):
-        """Alias para lObjectsInventory"""
         return self.lObjectsInventory
 
-
-    
-class cDebuff:
-    def __init__(self, name, PersistentDamageDebuff=None, HealDebuff=None, ArmorPierce=None, AgilityDebuff=None, MPDisruption=None, EvadeDebuff=None, CounterAttackDebuff=None): 
-        self.name = name
-        self.PersistentDamageDebuff = PersistentDamageDebuff
-        self.HealDebuff = HealDebuff
-        self.ArmorPierce = ArmorPierce
-        self.AgilityDebuff = AgilityDebuff
-        self.MPDisruption = MPDisruption
-        self.EvadeDebuff = EvadeDebuff
-        self.CounterAttackDebuff = CounterAttackDebuff
-
-    def Apply(self, Value, player):
-        if Value is not None:
-            if hasattr(self, Value):
-                debuff_value = getattr(self, Value, None)
-                if debuff_value is not None:
-                    if Value == "PersistentDamageDebuff":
-                        NotImplemented
-                    if Value == "HealDebuff":
-                        player.Health -= debuff_value
-                    if Value == "ArmorPierce":
-                        # Now handles defense arrays
-                        if isinstance(player.DEF, (list, tuple)):
-                            for i in range(5):
-                                player.DEF[i] -= debuff_value
-                        else:
-                            player.Defense -= debuff_value
-                    if Value == "AgilityDebuff":
-                        NotImplemented
-                    if Value == "MPDisruption":
-                        NotImplemented                    
-                    if Value == "EvadeDebuff":
-                        NotImplemented
-                    if Value == "CounterAttackDebuff":
-                        NotImplemented
-
-class cBuffs:
-    def __init__(self, name, EvadeBuff=None, Heal=None, MagicArmor=None, MPregen=None, Strenght=None):    
-        self.name = name
-        self.EvadeBuff = EvadeBuff
-        self.Heal = Heal
-        self.MagicArmor = MagicArmor
-        self.MPregen = MPregen
-        self.Strength = Strenght
 
 class cIDSorter:
     def __init__(self, lvObjects):

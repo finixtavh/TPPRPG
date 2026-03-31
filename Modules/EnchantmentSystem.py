@@ -1,9 +1,3 @@
-"""
-Sistema de Encantamientos para TPPRPG
-======================================
-Gestiona encantamientos para Armas, Equipamiento y Herramientas
-"""
-
 from typing import Dict, Any, List, Optional
 
 

@@ -1,9 +1,3 @@
-"""
-Sistema de Buffs y Debuffs para TPPRPG
-=======================================
-Gestiona todos los buffs/debuffs del juego con sistema de diminishing returns
-"""
-
 import json
 import os
 from typing import List, Dict, Optional, Any

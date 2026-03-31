@@ -1,11 +1,5 @@
 from Modules.input_utils import wait_for_enter
 
-"""
-Sistema de Equipamiento Mejorado para TPPRPG
-Permite equipar/desequipar items y aplicar/remover stats dinámicamente
-Actualizado para manejar sistema de defensa multi-tipo
-"""
-
 class EquipmentManager:
     """
     Gestor de equipamiento que maneja la aplicación y remoción de stats
