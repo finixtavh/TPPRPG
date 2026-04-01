@@ -8,6 +8,7 @@ import json
 import os
 from typing import List, Optional
 from Modules.input_utils import wait_for_enter
+from Modules.input_utils import interactive_menu_select
 
 
 class ShopManager:
@@ -212,17 +213,28 @@ def display_shop(shop_name: str, player, item_manager):
                 print(f"{i:2d}. [{can_afford}] {name:30s} - {cost:4d} oro ({item_type})")
         
         print("-"*70)
-        print("0. Salir de la tienda")
         print("="*70)
-        
+
         try:
-            choice = input("\nSelecciona un item (número): ").strip()
-            
-            if choice == "0":
+            menu_options = [(0, "Salir de la tienda")]
+            for i, _, item_data in items_info:
+                name = item_data.get("Name", "???")
+                cost = item_data.get("Gold_Cost", 0)
+                can_afford = "✓" if player.Gold >= cost else "✗"
+                menu_options.append((i, f"[{can_afford}] {name} - {cost} oro"))
+
+            choice_num = interactive_menu_select(
+                title=f"Tienda: {shop_name}",
+                subtitle=f"Oro: {player.Gold}",
+                options=menu_options,
+                prompt="Item: ",
+                default_value=1 if len(menu_options) > 1 else 0,
+                border_style="yellow",
+            )
+
+            if choice_num == 0:
                 print("Gracias por tu visita!")
                 break
-            
-            choice_num = int(choice)
             
             if 1 <= choice_num <= len(items_info):
                 _, item_id, item_data = items_info[choice_num - 1]
@@ -265,9 +277,16 @@ def display_shop(shop_name: str, player, item_manager):
                     wait_for_enter()
                     continue
                 
-                confirm = input(f"\n¿Comprar por {cost} oro? (s/n): ").strip().lower()
-                
-                if confirm in ['s', 'si', 'y', 'yes']:
+                confirm_choice = interactive_menu_select(
+                    title="Confirmar compra",
+                    subtitle=f"¿Comprar por {cost} oro?",
+                    options=[(1, "Sí"), (0, "No")],
+                    prompt="Confirmación: ",
+                    default_value=1,
+                    border_style="yellow",
+                )
+
+                if confirm_choice == 1:
                     # Crear el objeto del item
                     from Modules.setup import cWeapon, cEquippableItems, cObject
                     item_obj = item_manager.create_item_object(item_id, cWeapon, cEquippableItems, cObject)

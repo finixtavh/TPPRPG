@@ -13,6 +13,38 @@ player = None
 LObject = []
 console = Console()
 
+
+def _normalize_5_values(values):
+    """Normalize list input to 5 slots [Fisico, Termico, Electrico, Tierra, Profundo]."""
+    if not isinstance(values, (list, tuple)):
+        raise ValueError("Se esperaba una lista/tupla para valores de dano/defensa")
+    source = list(values)
+    if len(source) == 0:
+        return [0, 0, 0, 0, 0]
+    if len(source) == 1:
+        return [source[0], 0, 0, 0, 0]
+    if len(source) == 2:
+        return [source[0], source[1], 0, 0, 0]
+    if len(source) >= 5:
+        return source[:5]
+    return source + [0] * (5 - len(source))
+
+
+def _normalize_4_values(values):
+    """Normalize list input to 4 slots [Fisico, Termico, Electrico, Tierra]."""
+    if not isinstance(values, (list, tuple)):
+        raise ValueError("Se esperaba una lista/tupla para dano minimo")
+    source = list(values)
+    if len(source) == 0:
+        return [0, 0, 0, 0]
+    if len(source) == 1:
+        return [source[0], 0, 0, 0]
+    if len(source) == 2:
+        return [source[0], source[1], 0, 0]
+    if len(source) >= 4:
+        return source[:4]
+    return source + [0] * (4 - len(source))
+
 ##################      Classes
 class cPlayer:
     """
@@ -75,7 +107,8 @@ class cPlayer:
         self.ring = None
         self.ring2 = None
         self.ring3 = None
-        self.SecHand = None 
+        self.SecHand = None
+        self.tool = None 
 
         # Seems like this can changed fore something better
         self.items_in_PlayerClass = [self.weapon, self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3]
@@ -110,7 +143,7 @@ class cPlayer:
         
         for i in range(5):
             if damage_array[i] > 0:
-                enemy_def = enemy.DEF[i] if isinstance(enemy.DEF, (list, tuple)) else 0
+                enemy_def = enemy.DEF[i]
                 final_damage[i] = max(0, damage_array[i] - (enemy_def / 2))
         
         # Calculate total damage
@@ -142,14 +175,12 @@ class cPlayer:
     def TakeDamage(self, damage):
         """
         Reduces player's HP based on the {damage} variable.
-        Damage can be:
-        - A single number (backward compatibility)
-        - A list/tuple of 5 damage values [physical, thermal, earth, electric, deep]
+        Damage must be a list/tuple of 5 values
+        [physical, thermal, electric, earth, deep].
         """
-        if isinstance(damage, (list, tuple)):
-            total_damage = sum(damage)
-        else:
-            total_damage = damage
+        if not isinstance(damage, (list, tuple)):
+            raise ValueError("TakeDamage requiere una lista/tupla de dano")
+        total_damage = sum(damage)
             
         self.Health -= total_damage
         if self.Health < 0:
@@ -230,12 +261,8 @@ class cPlayer:
         for item in self.items_in_PlayerClass:
             if isinstance(item, cEquippableItems) and item.AppliedStats == False:
                 # Handle defense as array
-                if isinstance(item.Defense, (list, tuple)):
-                    for i in range(min(5, len(item.Defense))):
-                        self.DEF[i] += item.Defense[i]
-                else:
-                    # Backward compatibility - single value applies to physical defense
-                    self.DEF[0] += item.Defense
+                for i in range(min(5, len(item.Defense))):
+                    self.DEF[i] += item.Defense[i]
                     
                 self.Health_max += item.HealthBoost
                 
@@ -341,9 +368,9 @@ class cEnemy:
 
         # Format: [Physical, Thermal, Earth, Electric, Deep]
 
-        self.DMG = list(DMG)
-        self.DMG_min = list(DMG_min) + [self.DMG[4]]  # Deep damage always max
-        self.DEF = list(DEF)
+        self.DMG = _normalize_5_values(DMG)
+        self.DMG_min = _normalize_4_values(DMG_min)
+        self.DEF = _normalize_5_values(DEF)
         
         self.MP_M = MP_M
         self.MP = self.MP_M
@@ -368,7 +395,7 @@ class cEnemy:
                     raw_damage = random.randint(self.DMG_min[i], self.DMG[i])
                 
                 # Apply player defense
-                player_def = player.DEF[i] if isinstance(player.DEF, (list, tuple)) else 0
+                player_def = player.DEF[i]
                 damage_array[i] = max(0, raw_damage - (player_def / 2))
         
         total_damage = sum(damage_array)
@@ -396,10 +423,9 @@ class cEnemy:
         Reduces enemy HP.
         - A list/tuple of 5 damage values
         """
-        if isinstance(damage, (list, tuple)):
-            total_damage = sum(damage)
-        else:
-            total_damage = damage
+        if not isinstance(damage, (list, tuple)):
+            raise ValueError("TakeDamage requiere una lista/tupla de dano")
+        total_damage = sum(damage)
             
         self.HP -= total_damage
         if self.HP < 0:
@@ -427,8 +453,8 @@ class cWeapon:
         self.Description = Description
         self.AppliedStats = False
 
-        self.DMG = list(DMG)
-        self.DMG_min = list(DMG_min)
+        self.DMG = _normalize_5_values(DMG)
+        self.DMG_min = _normalize_4_values(DMG_min)
         
         LObject.append(self)
         
@@ -473,13 +499,7 @@ class cEquippableItems:
         self.ID = ID
         self.name = name
         
-        # Handle defense as array or single value
-        if isinstance(Defense, (list, tuple)) and len(Defense) >= 5:
-            self.Defense = list(Defense)
-        else:
-            # Single value applies only to physical defense
-            def_value = Defense if isinstance(Defense, (int, float)) else 0
-            self.Defense = [def_value, 0, 0, 0, 0]
+        self.Defense = _normalize_5_values(Defense)
         
         self.HealthBoost = HealthBoost
         self.HealthSteal = HealthSteal

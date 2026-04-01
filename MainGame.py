@@ -30,7 +30,8 @@ from Modules.debug import (
     log_imported_modules,
     dump_debug_snapshot,
 )
-from Modules.input_utils import wait_for_enter
+from Modules.input_utils import wait_for_enter, interactive_menu_select
+from Modules.InventoryMenu import open_inventory_menu
 
 # ---   ---
 import json
@@ -142,17 +143,17 @@ def load_test_items():
 
     try:
         # Cargar Espada Grande (ID: 3)
-        great_sword = load_item_by_id(3, cWeapon, cEquippableItems, cObject)
+        great_sword = load_item_by_id(3, cWeapon, cEquippableItems, cObject, cTool)
 
         # Cargar Bastón Mágico (ID: 4 o 5)
-        magic_staff = load_item_by_id(4, cWeapon, cEquippableItems, cObject)
+        magic_staff = load_item_by_id(4, cWeapon, cEquippableItems, cObject, cTool)
 
         # Cargar algunos anillos
-        ring_1 = load_item_by_id(40, cWeapon, cEquippableItems, cObject)
-        ring_2 = load_item_by_id(41, cWeapon, cEquippableItems, cObject)
+        ring_1 = load_item_by_id(40, cWeapon, cEquippableItems, cObject, cTool)
+        ring_2 = load_item_by_id(41, cWeapon, cEquippableItems, cObject, cTool)
 
         # Cargar pociones
-        health_potion = load_item_by_id(52, cWeapon, cEquippableItems, cObject)
+        health_potion = load_item_by_id(52, cWeapon, cEquippableItems, cObject, cTool)
 
         # Agregar al inventario para pruebas (opcional)
         if great_sword:
@@ -385,58 +386,30 @@ def display_zone_enemies(
 ############################## Main Menu Functions ##############################
 
 
-def display_main_menu() -> None:
-    groups = [
-        (
-            "[bold yellow]Explorar[/]",
-            [
-                ("1", "Inspeccionar las zonas"),
-                ("2", "Ir a una zona"),
-            ],
-        ),
-        (
-            "[bold yellow]Tienda[/]",
-            [
-                ("3", "Tienda"),
-            ],
-        ),
-        (
-            "[bold yellow]Personaje[/]",
-            [
-                ("4", "Inventario"),
-                ("5", "Usar objetos consumibles"),
-                ("6", "Gestión de Equipamiento"),
-                ("7", "Pelear"),
-                ("8", "Mirar Stats"),
-            ],
-        ),
-        (
-            "[bold yellow]Sistema[/]",
-            [
-                ("9", "Gestión de Mods"),
-                ("10", "Ver Items Disponibles"),
-                ("11", "Guardar"),
-                ("12", "DEBUG"),
-                ("0", "Salir del juego"),
-            ],
-        ),
+def display_main_menu() -> int:
+    options = [
+        (1, "Inspeccionar las zonas"),
+        (2, "Ir a una zona"),
+        (3, "Tienda"),
+        (4, "Inventario"),
+        (5, "Usar objetos consumibles"),
+        (6, "Gestión de Equipamiento"),
+        (7, "Acciones de Zona"),
+        (8, "Mirar Stats"),
+        (9, "Gestión de Mods"),
+        (10, "Ver Items Disponibles"),
+        (11, "Guardar"),
+        (12, "DEBUG"),
+        (0, "Salir del juego"),
     ]
-
-    header = Text.from_markup(
-        "[bold white]RPG Game Menu[/]\n[dim]Selecciona una opción[/]"
+    return interactive_menu_select(
+        title="RPG Game Menu",
+        subtitle="Selecciona una opción",
+        options=options,
+        prompt="Selecciona una opción: ",
+        default_value=7,
+        border_style="menu_title",
     )
-    panels = []
-    for title, options in groups:
-        t = Table(show_header=False, box=None, padding=(0, 2, 0, 0))
-        t.add_column(style="menu_option", width=6)
-        t.add_column(style="menu_option")
-        for num, label in options:
-            t.add_row(f"[{num}]", label)
-        panels.append(Panel(t, title=title, border_style="menu_title", padding=(0, 1)))
-
-    content = Group(header, "", *panels)
-    console.print(Panel(content, border_style="menu_title", padding=(1, 2)))
-    console.print()
 
 
 def get_validated_input(prompt: str, valid_options: List[int]) -> int:
@@ -445,11 +418,11 @@ def get_validated_input(prompt: str, valid_options: List[int]) -> int:
     Ignores entradas vacías (p. ej. Enter residual tras pause) para evitar
     mostrar "Por favor ingresa un número válido" al volver al menú.
     """
+    # Fallback numérico simple: se usa cuando no hay menú Rich asociado.
     while True:
         try:
             user_input = input(prompt).strip()
             if user_input == "":
-                # Enter residual tras "Presiona Enter para continuar" — ignorar y volver a pedir
                 continue
             value = int(user_input)
             if value in valid_options:
@@ -462,8 +435,71 @@ def get_validated_input(prompt: str, valid_options: List[int]) -> int:
         except (KeyboardInterrupt, EOFError):
             console.print("\n[info]Saliendo del juego...[/info]")
             sys.exit(0)
-        except Exception as e:
-            console.print(f"[danger]Error inesperado: {str(e)}[/danger]")
+
+
+def get_zone_shop_name(zone_key: str) -> str:
+    return f"{zone_key}Shop"
+
+
+def run_zone_gathering(zone_key: str) -> bool:
+    """Run gathering minigame using zone material IDs from DataStats."""
+    try:
+        zone_data = Read(os.path.join("Data", "DataStats.json"), zone_key, None)
+        if not zone_data or not isinstance(zone_data, list):
+            console.print("[warning]No se encontraron datos de recolección para esta zona.[/warning]")
+            return False
+
+        gathering_data = zone_data[0].get("Gathering", {})
+        materials_raw = gathering_data.get("Materials", [])
+        if not materials_raw:
+            console.print("[warning]Esta zona no tiene materiales para recolectar.[/warning]")
+            return False
+
+        material_ids = []
+        for token in materials_raw:
+            try:
+                material_ids.append(int(str(token).split("_")[0]))
+            except (ValueError, IndexError):
+                continue
+
+        if not material_ids:
+            console.print("[warning]No hay IDs de materiales validos en esta zona.[/warning]")
+            return False
+
+        all_items = Read(os.path.join("Data", "DataItems.json"), None, None)
+        materials_table = all_items.get("TYPE:Materials", {}) if isinstance(all_items, dict) else {}
+
+        candidates = []
+        for material_data in materials_table.values():
+            if material_data.get("MATERIAL_ID") in material_ids:
+                candidates.append(material_data)
+
+        if not candidates:
+            console.print("[warning]No se encontraron materiales configurados para esta zona.[/warning]")
+            return False
+
+        selected_data = random.choice(candidates)
+        material_obj = cMaterial(
+            MATERIAL_ID=selected_data.get("MATERIAL_ID"),
+            TypeStr=selected_data.get("Material_Type", "Unknown"),
+            Name=selected_data.get("Name", "Material"),
+            Hardness=selected_data.get("Hardness", 10),
+            SkillName=selected_data.get("SkillName", "mining"),
+        )
+        material_obj.ID = material_obj.MATERIAL_ID
+        material_obj.MaxStack = selected_data.get("MaxStack", 99)
+        material_obj.name = material_obj.Name
+
+        console.print(f"[info]Iniciando recolección de [bold]{material_obj.Name}[/bold]...[/info]")
+        ok = Gathering_init.gather(material_obj, getattr(player, 'tool', None), [])
+        if ok:
+            vInventory.addObject(material_obj)
+            console.print(f"[success]Material obtenido: {material_obj.Name}[/success]")
+            return True
+        return False
+    except Exception as e:
+        console.print(f"[danger]Error en recolección: {e}[/danger]")
+        return False
 
 
 ############################## Main Game Loop ##############################
@@ -476,7 +512,10 @@ def main():
     # Apply automatic regeneration and check inventory
     player.Check(vInventory)
     player.Mana = min(player.Mana + player.ManaRegen, player.Mana_max)
-
+    amd = int(input("asdasd::"))
+    if amd == 1:
+        open_inventory_menu(vInventory, player)
+    
     # Clear the screen for better UI
     os.system("cls" if os.name == "nt" else "clear")
 
@@ -484,11 +523,7 @@ def main():
     display_player_status()
 
     # Display main menu
-    display_main_menu()
-
-    # Get player choice with validation
-    valid_options = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    main_input = get_validated_input("Selecciona una opción: ", valid_options)
+    main_input = display_main_menu()
 
     # Process player choice
     if main_input == 0:
@@ -596,26 +631,18 @@ def main():
                 console.print("[warning]No hay zonas disponibles[/warning]")
                 wait_for_enter()
 
-            # Crear tabla dinámica con TODAS las zonas
-            zone_table = Table(title="Selección de Zona", show_header=False)
-            zone_table.add_column("Opción", style="bright_white")
-            zone_table.add_column("Zona", style="bright_white")
-
-            # Agregar cada zona dinámicamente
+            zone_options = []
             for idx, (zone_key, zone_name, zone_color) in enumerate(zones_list, 1):
-                zone_table.add_row(
-                    str(idx), f"[{zone_color}]{zone_name}[/{zone_color}]"
-                )
+                zone_options.append((idx, f"[{zone_color}]{zone_name}[/{zone_color}]"))
+            zone_options.append((len(zones_list) + 1, "Salir de la zona actual"))
 
-            # Agregar opción de salir
-            zone_table.add_row(str(len(zones_list) + 1), "Salir de la zona actual")
-
-            console.print(zone_table)
-
-            # Validar input dinámicamente
-            valid_options = list(range(1, len(zones_list) + 2))  # +1 para salir
-            zone_input = get_validated_input(
-                "Ingresa la zona a la que quieres ir: ", valid_options
+            zone_input = interactive_menu_select(
+                title="Selección de Zona",
+                subtitle="Usa ↑/↓ + Enter o escribe el número",
+                options=zone_options,
+                prompt="Zona: ",
+                default_value=1,
+                border_style="yellow",
             )
 
             # Opción de salir
@@ -651,40 +678,13 @@ def main():
                 except:
                     pass
 
-                # ===== TIENDA DE LA ZONA (DINÁMICA) =====
+                # La tienda de zona ahora se abre desde la opción 7 (submenú de zona).
                 if shop_manager:
-                    # Generar nombre de tienda dinámicamente: {ZoneName}Shop
-                    shop_name = f"{zone_key}Shop"
-
-                    # Verificar si existe tienda para esta zona
-                    shop_items = shop_manager.get_shop_items(shop_name)
-
+                    shop_items = shop_manager.get_shop_items(get_zone_shop_name(zone_key))
                     if shop_items:
-                        console.print(
-                            f"\n[info]¡Hay un mercader en {zone_name}![/info]"
-                        )
-                        try:
-                            choice = (
-                                input("¿Visitar la tienda? (s/n): ").strip().lower()
-                            )
-                            if choice in ["s", "si", "yes", "y"]:
-                                console.print(
-                                    f"[info]Abriendo tienda de {zone_name}...[/info]"
-                                )
-                                display_shop(shop_name, player, item_manager)
-                            else:
-                                console.print(
-                                    "[info]Continuando sin visitar la tienda...[/info]"
-                                )
-                        except Exception as e:
-                            console.print(
-                                f"[danger]Error al abrir la tienda: {str(e)}[/danger]"
-                            )
+                        console.print(f"[dim]La zona {zone_name} tiene tienda disponible.[/dim]")
                     else:
-                        console.print(
-                            f"[dim]No hay tiendas disponibles en {zone_name}[/dim]"
-                        )
-                # ====================================
+                        console.print(f"[dim]No hay tiendas disponibles en {zone_name}[/dim]")
             else:
                 console.print(
                     f"[warning]No se pudo cargar un enemigo de {zone_name}.[/warning]"
@@ -708,15 +708,20 @@ def main():
         console.print("[info]Entrando a la tienda...[/info]")
 
         try:
-            # Mostrar opciones de tiendas
-            console.print("\n¿Qué tienda quieres visitar?")
-            console.print("1. Tienda General")
-            console.print("2. Armería")
-            console.print("3. Tienda de Armaduras")
-            console.print("4. Tienda Mágica")
-            console.print("0. Cancelar")
-
-            shop_choice = get_validated_input("Selecciona tienda: ", [0, 1, 2, 3, 4])
+            shop_choice = interactive_menu_select(
+                title="Tiendas",
+                subtitle="Selecciona una tienda",
+                options=[
+                    (1, "Tienda General"),
+                    (2, "Armería"),
+                    (3, "Tienda de Armaduras"),
+                    (4, "Tienda Mágica"),
+                    (0, "Cancelar"),
+                ],
+                prompt="Tienda: ",
+                default_value=1,
+                border_style="yellow",
+            )
 
             if shop_choice == 1:
                 display_shop("GeneralStore", player, item_manager)
@@ -776,18 +781,17 @@ def main():
                     "[warning]No tienes objetos consumibles en el inventario.[/warning]"
                 )
             else:
-                console.print("\n[bold]Objetos Consumibles:[/bold]")
-                for idx, (original_idx, item) in enumerate(usable_items, 1):
+                options = [(0, "Cancelar")]
+                for idx, (_, item) in enumerate(usable_items, 1):
                     item_name = item.Name if hasattr(item, "Name") else item.name
-                    console.print(f"  [{idx}] {item_name}")
-                    if hasattr(item, "Description"):
-                        console.print(f"      {item.Description}")
-
-                console.print("\n0. Cancelar")
-
-                valid_choices = [0] + list(range(1, len(usable_items) + 1))
-                choice = get_validated_input(
-                    "\nSelecciona objeto para usar: ", valid_choices
+                    options.append((idx, item_name))
+                choice = interactive_menu_select(
+                    title="Objetos Consumibles",
+                    subtitle="Selecciona un objeto para usar",
+                    options=options,
+                    prompt="Objeto: ",
+                    default_value=1 if len(options) > 1 else 0,
+                    border_style="yellow",
                 )
 
                 if choice > 0:
@@ -846,8 +850,7 @@ def main():
     # ===============================================
 
     elif main_input == 7:
-        # Handle combat
-        if enemy is None:
+        if chosen_area is None:
             console.print(
                 "[danger]No has escogido ningún lugar. Debes ir a una zona primero.[/danger]"
             )
@@ -856,217 +859,196 @@ def main():
             )
             wait_for_enter()
         else:
-            # Set current state
-             
-            combat_round = 1
-            combat_active = True
+            zone_input = interactive_menu_select(
+                title=f"Zona actual: {chosen_area}",
+                subtitle="¿Qué quieres hacer?",
+                options=[
+                    (1, "Luchar"),
+                    (2, "Tienda actual de la zona"),
+                    (3, "Recolectar"),
+                    (4, "Devolverse al menú principal"),
+                ],
+                prompt="Acción: ",
+                default_value=1,
+                border_style="yellow",
+            )
 
-            # Combat loop
-            while combat_active:
-                # Display combat UI (jugador vs enemigo + acciones)
-                render_combat_menu(player, enemy, combat_round)
+            if zone_input == 1:
+                if enemy is None:
+                    enemy = zone_loader(chosen_area)
+                    if enemy is None:
+                        console.print("[danger]No hay enemigo disponible en esta zona.[/danger]")
+                        wait_for_enter()
+                        return
 
-                # Apply active debuffs
-                player_debuffs = apply_debuffs(player)
-                if player_debuffs:
-                    debuff_text = ", ".join(
-                        [f"{attr}: {val}" for attr, val in player_debuffs.items()]
+                combat_round = 1
+                combat_active = True
+                while combat_active:
+                    render_combat_menu(player, enemy, combat_round)
+                    player_debuffs = apply_debuffs(player)
+                    if player_debuffs:
+                        debuff_text = ", ".join(
+                            [f"{attr}: {val}" for attr, val in player_debuffs.items()]
+                        )
+                        console.print(f"[warning]Debuffs activos: {debuff_text}[/warning]")
+
+                    combat_action = interactive_menu_select(
+                        title="Acciones de Combate",
+                        subtitle="Selecciona tu acción",
+                        options=[
+                            (1, "Atacar"),
+                            (2, "Usar objeto"),
+                            (3, "Intentar huir"),
+                        ],
+                        prompt="Acción: ",
+                        default_value=1,
+                        border_style="danger",
                     )
-                    console.print(f"[warning]Debuffs activos: {debuff_text}[/warning]")
-
-                # Get combat action
-                combat_action = get_validated_input("Elige tu acción: ", [1, 2, 3])
-                os.system("cls" if os.name == "nt" else "clear")
-                if combat_action == 1:
-                    # Player attacks first
-                    console.print("\n[bold]¡Tu turno![/bold]")
-                    sp.sleep(2.5)
-
-                    # Player attack
-                    damage_dealt = player.attack(enemy)
-                    if damage_dealt is not None:
-                        console.print(
-                            f"[success]¡Has atacado a {enemy.NAME} por {damage_dealt} puntos de daño![/success]"
-                        )
-
-                    # Check if enemy is defeated
-                    if enemy.HP <= 0:
-                        console.print(
-                            f"[success]¡Has derrotado a {enemy.NAME}![/success]"
-                        )
-                        # Calculate rewards
-                        exp_gain = enemy.EXP_TO_PLAYER
-                        gold_gain = enemy.GOLD
-
-                        player.EXP += exp_gain
-                        player.Gold += gold_gain
-
-                        console.print(
-                            f"[success]Ganaste {exp_gain} puntos de experiencia y {gold_gain} de oro.[/success]"
-                        )
-
-                        # ===== SISTEMA DE LOOT DESDE JSON =====
-                        # Probabilidad de drop de item
-                        if random.random() < 0.3:  # 30% de probabilidad
-                            # Items según el nivel del enemigo
-                            loot_table = {
-                                1: [1, 10, 20, 30, 40, 50],  # Items básicos
-                                2: [2, 11, 21, 31, 41, 51],  # Items intermedios
-                                3: [3, 12, 22, 32, 42, 52],  # Items avanzados
-                            }
-
-                            enemy_level = min(3, max(1, player.Level // 3))
-                            possible_loot = loot_table.get(enemy_level, [1])
-                            loot_id = random.choice(possible_loot)
-
-                            loot_item = load_item_by_id(
-                                loot_id, cWeapon, cEquippableItems, cObject
+                    os.system("cls" if os.name == "nt" else "clear")
+                    if combat_action == 1:
+                        console.print("\n[bold]¡Tu turno![/bold]")
+                        sp.sleep(2.5)
+                        damage_dealt = player.attack(enemy)
+                        if damage_dealt is not None:
+                            console.print(
+                                f"[success]¡Has atacado a {enemy.NAME} por {damage_dealt} puntos de daño![/success]"
                             )
-                            if loot_item:
-                                console.print(
-                                    f"[success]¡El enemigo dejó caer: {getattr(loot_item, 'Name', getattr(loot_item, 'name', 'Objeto'))}![/success]"
+                        if enemy.HP <= 0:
+                            console.print(f"[success]¡Has derrotado a {enemy.NAME}![/success]")
+                            exp_gain = enemy.EXP_TO_PLAYER
+                            gold_gain = enemy.GOLD
+                            player.EXP += exp_gain
+                            player.Gold += gold_gain
+                            console.print(
+                                f"[success]Ganaste {exp_gain} puntos de experiencia y {gold_gain} de oro.[/success]"
+                            )
+                            if random.random() < 0.3:
+                                loot_table = {
+                                    1: [1, 10, 20, 30, 40, 50],
+                                    2: [2, 11, 21, 31, 41, 51],
+                                    3: [3, 12, 22, 32, 42, 52],
+                                }
+                                enemy_level = min(3, max(1, player.Level // 3))
+                                possible_loot = loot_table.get(enemy_level, [1])
+                                loot_id = random.choice(possible_loot)
+                                loot_item = load_item_by_id(
+                                    loot_id, cWeapon, cEquippableItems, cObject, cTool
                                 )
-                                vInventory.addObject(loot_item)
-                        # =====================================
+                                if loot_item:
+                                    console.print(
+                                        f"[success]¡El enemigo dejó caer: {getattr(loot_item, 'Name', getattr(loot_item, 'name', 'Objeto'))}![/success]"
+                                    )
+                                    vInventory.addObject(loot_item)
+                            if player.EXP >= player.EXP_M:
+                                while player.EXP >= player.EXP_M:
+                                    player.Level += 1
+                                    player.EXP -= player.EXP_M
+                                    player.EXP_M = int(player.EXP_M * 1.5)
+                                    player.Health_max += 20
+                                    player.Mana_max += 10
+                                    player.Health = player.Health_max
+                                    player.Mana = player.Mana_max
+                                    console.print(
+                                        f"[success]¡Subiste al nivel {player.Level}![/success]"
+                                    )
+                            input_done = input("Seguir?:: ")
+                            if input_done:
+                                enemy = zone_loader(chosen_area)
+                            combat_active = False
+                            break
 
-                        # Check for level up
-                        if player.EXP >= player.EXP_M:
-                            while player.EXP >= player.EXP_M:
-                                player.Level += 1
-                                player.EXP -= player.EXP_M
-                                player.EXP_M = int(player.EXP_M * 1.5)
-                                player.Health_max += 20
-                                player.Mana_max += 10
-                                player.Health = player.Health_max
-                                player.Mana = player.Mana_max
+                        console.print("\n[bold]¡Turno del enemigo![/bold]")
+                        sp.sleep(2.5)
+                        damage_taken = enemy.attack(player)
+                        if damage_taken is not None:
+                            console.print(
+                                f"[danger]{enemy.NAME} te ha atacado por {damage_taken} puntos de daño![/danger]"
+                            )
+                        if player.Health <= 0:
+                            console.print(
+                                f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
+                            )
+                            console.print("[danger]Game Over[/danger]")
+                            player.Health = max(1, int(player.Health_max * 0.1))
+                            player.Gold = max(1, (player.Gold - (player.Health * 0.6)))
+                            combat_active = False
+                            break
 
-                                console.print(
-                                    f"[success]¡Subiste al nivel {player.Level}![/success]"
-                                )
-                        input_done = input("Seguir?:: ")
-                        if input_done:
-                            enemy = zone_loader(chosen_area)
-
-                        combat_active = False
-                        break
-
-                    # Enemy's turn
-                    console.print("\n[bold]¡Turno del enemigo![/bold]")
-                    sp.sleep(2.5)
-
-                    # Enemy attack
-                    damage_taken = enemy.attack(player)
-                    if damage_taken is not None:
+                    elif combat_action == 2:
+                        console.print("[info]Inventario:[/info]")
+                        usable_items = []
+                        for i, item in enumerate(vInventory.Objects):
+                            if hasattr(item, "isUsable") and item.isUsable:
+                                usable_items.append(item)
+                                console.print(f"[{i + 1}] {item.Name}")
+                        if not usable_items:
+                            console.print("[warning]No tienes objetos utilizables.[/warning]")
+                            sp.sleep(2)
+                            continue
+                        valid_items = list(range(1, len(usable_items) + 1))
+                        item_options = [(0, "Cancelar")]
+                        for i, it in enumerate(usable_items, 1):
+                            item_options.append((i, getattr(it, "Name", getattr(it, "name", "Objeto"))))
+                        item_choice = interactive_menu_select(
+                            title="Usar objeto",
+                            subtitle="Selecciona un consumible",
+                            options=item_options,
+                            prompt="Objeto: ",
+                            default_value=1 if len(item_options) > 1 else 0,
+                            border_style="yellow",
+                        )
+                        if item_choice == 0:
+                            console.print("[info]Cancelando uso de objeto...[/info]")
+                            continue
+                        selected_item = usable_items[item_choice - 1]
+                        if hasattr(selected_item, "use"):
+                            selected_item.use(player)
+                        elif hasattr(selected_item, "HealthRestore"):
+                            player.Health = min(
+                                player.Health + getattr(selected_item, "HealthRestore", 0),
+                                player.Health_max,
+                            )
+                        if (
+                            hasattr(selected_item, "ManaRestore")
+                            and getattr(selected_item, "ManaRestore", 0) > 0
+                        ):
+                            player.Mana = min(
+                                player.Mana + selected_item.ManaRestore, player.Mana_max
+                            )
+                        vInventory.remove_item(selected_item, 1)
+                        console.print(
+                            f"[success]Has usado {getattr(selected_item, 'Name', getattr(selected_item, 'name', 'objeto'))}[/success]"
+                        )
+                        console.print("\n[bold]¡Turno del enemigo![/bold]")
+                        sp.sleep(1)
+                        damage_taken = enemy.attack(player)
                         console.print(
                             f"[danger]{enemy.NAME} te ha atacado por {damage_taken} puntos de daño![/danger]"
                         )
+                        if player.Health <= 0:
+                            console.print(
+                                f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
+                            )
+                            console.print("[danger]Game Over[/danger]")
+                            player.Health = max(1, int(player.Health_max * 0.1))
+                            combat_active = False
+                            break
 
-                    # Check if player is defeated
-                    if player.Health <= 0:
-                        console.print(
-                            f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
-                        )
-                        console.print("[danger]Game Over[/danger]")
-
-                        # Restore some health to allow continuing
-                        player.Health = max(1, int(player.Health_max * 0.1))
-                        player.Gold = max(1, (player.Gold - (player.Health * 0.6)))
-                        combat_active = False
-                        break
-
-                elif combat_action == 2:
-                    # Use object option
-                    console.print("[info]Inventario:[/info]")
-                    usable_items = []
-
-                    # Display usable items
-                    for i, item in enumerate(vInventory.Objects):
-                        if hasattr(item, "isUsable") and item.isUsable:
-                            usable_items.append(item)
-                            console.print(f"[{i + 1}] {item.Name}")
-
-                    if not usable_items:
-                        console.print(
-                            "[warning]No tienes objetos utilizables.[/warning]"
-                        )
-                        sp.sleep(2)
-                        continue
-
-                    # Get item selection
-                    valid_items = list(range(1, len(usable_items) + 1))
-                    item_choice = get_validated_input(
-                        "Selecciona un objeto para usar (0 para cancelar): ",
-                        [0] + valid_items,
-                    )
-
-                    if item_choice == 0:
-                        console.print("[info]Cancelando uso de objeto...[/info]")
-                        continue
-
-                    # Use the selected item
-                    selected_item = usable_items[item_choice - 1]
-                    if hasattr(selected_item, "use"):
-                        selected_item.use(player)
-                    elif hasattr(selected_item, "HealthRestore"):
-                        player.Health = min(
-                            player.Health + getattr(selected_item, "HealthRestore", 0),
-                            player.Health_max,
-                        )
-                    if (
-                        hasattr(selected_item, "ManaRestore")
-                        and getattr(selected_item, "ManaRestore", 0) > 0
-                    ):
-                        player.Mana = min(
-                            player.Mana + selected_item.ManaRestore, player.Mana_max
-                        )
-                    vInventory.remove_item(selected_item, 1)
-                    console.print(
-                        f"[success]Has usado {getattr(selected_item, 'Name', getattr(selected_item, 'name', 'objeto'))}[/success]"
-                    )
-
-                    # Enemy still gets a turn
-                    console.print("\n[bold]¡Turno del enemigo![/bold]")
-                    sp.sleep(1)
-
-                    # Enemy attack
-                    damage_taken = enemy.attack(player)
-                    console.print(
-                        f"[danger]{enemy.NAME} te ha atacado por {damage_taken} puntos de daño![/danger]"
-                    )
-
-                    # Check if player is defeated
-                    if player.Health <= 0:
-                        console.print(
-                            f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
-                        )
-                        console.print("[danger]Game Over[/danger]")
-
-                        # Restore some health to allow continuing
-                        player.Health = max(1, int(player.Health_max * 0.1))
-                        combat_active = False
-                        break
-
-                elif combat_action == 3:
-                    # Try to flee: base chance + player AGI - enemy AGI (en porcentaje)
-                    flee_chance = CONFIG["COMBAT"]["CHANCE_TO_FLEE"]
-                    player_agi = getattr(player, "AGI", 0) or 0
-                    enemy_agi = getattr(enemy, "AGI", 0) or 0
-                    flee_chance = flee_chance + (player_agi - enemy_agi) / 100
-                    flee_chance = max(0.05, min(0.95, flee_chance))
-                    if random.random() < flee_chance:
-                        console.print(
-                            "[success]¡Has logrado escapar del combate![/success]"
-                        )
-                        combat_active = False
-                        break
-                    else:
+                    elif combat_action == 3:
+                        flee_chance = CONFIG["COMBAT"]["CHANCE_TO_FLEE"]
+                        player_agi = getattr(player, "AGI", 0) or 0
+                        enemy_agi = getattr(enemy, "AGI", 0) or 0
+                        flee_chance = flee_chance + (player_agi - enemy_agi) / 100
+                        flee_chance = max(0.05, min(0.95, flee_chance))
+                        if random.random() < flee_chance:
+                            console.print("[success]¡Has logrado escapar del combate![/success]")
+                            combat_active = False
+                            break
                         console.print("[danger]¡No pudiste escapar![/danger]")
                         console.print(
                             "\n[bold]¡El enemigo te ataca mientras intentas huir![/bold]"
                         )
                         sp.sleep(1)
-
-                        # Enemy attack with bonus damage (1.2x) for failed flee
                         damage_taken = enemy.attack(player)
                         bonus_damage = damage_taken * 0.2
                         player.Health = max(0, player.Health - bonus_damage)
@@ -1074,67 +1056,72 @@ def main():
                         console.print(
                             f"[danger]{enemy.NAME} te ha atacado por {damage_taken:.1f} puntos de daño![/danger]"
                         )
-
-                        # Check if player is defeated
                         if player.Health <= 0:
                             console.print(
                                 f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
                             )
                             console.print("[danger]Game Over[/danger]")
-
-                            # Restore some health to allow continuing
                             player.Health = max(1, int(player.Health_max * 0.1))
                             combat_active = False
                             break
 
-                # Display updated status after combat round
-                print("\n")
-                player_hp_bar, player_hp_percent = create_status_bar(
-                    player.Health, player.Health_max, "green", True
+                    print("\n")
+                    player_hp_bar, player_hp_percent = create_status_bar(
+                        player.Health, player.Health_max, "green", True
+                    )
+                    player_mp_bar, player_mp_percent = create_status_bar(
+                        player.Mana, player.Mana_max, "blue", True
+                    )
+                    enemy_hp_bar, enemy_hp_percent = create_status_bar(
+                        enemy.HP, enemy.HP_M, "red", True
+                    )
+                    enemy_mp_bar, enemy_mp_percent = create_status_bar(
+                        enemy.MP, enemy.MP_M, "blue", True
+                    )
+                    status_table = Table(show_header=False, box=None)
+                    status_table.add_column("Entity", style="bright_white")
+                    status_table.add_column("HP", style="bright_white")
+                    status_table.add_column("MP", style="bright_white")
+                    status_table.add_row(
+                        f"[bold]{player.name}[/bold]",
+                        f"{player_hp_bar} {player_hp_percent}%",
+                        f"{player_mp_bar} {player_mp_percent}%",
+                    )
+                    status_table.add_row(
+                        f"[bold red]{enemy.NAME}[/bold red]",
+                        f"{enemy_hp_bar} {enemy_hp_percent}%",
+                        f"{enemy_mp_bar} {enemy_mp_percent}%",
+                    )
+                    console.print(status_table)
+                    combat_round += 1
+                    sp.sleep(CONFIG["COMBAT"]["DELAY_BETWEEN_ROUNDS"])
+
+                console.print(
+                    "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
                 )
-                player_mp_bar, player_mp_percent = create_status_bar(
-                    player.Mana, player.Mana_max, "blue", True
+                wait_for_enter()
+
+            elif zone_input == 2:
+                if not shop_manager:
+                    console.print("[warning]El sistema de tiendas no esta inicializado.[/warning]")
+                else:
+                    zone_shop = get_zone_shop_name(chosen_area)
+                    shop_items = shop_manager.get_shop_items(zone_shop)
+                    if shop_items:
+                        display_shop(zone_shop, player, item_manager)
+                    else:
+                        console.print("[warning]Esta zona no tiene tienda disponible.[/warning]")
+                wait_for_enter()
+
+            elif zone_input == 3:
+                run_zone_gathering(chosen_area)
+                console.print(
+                    "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
                 )
+                wait_for_enter()
 
-                enemy_hp_bar, enemy_hp_percent = create_status_bar(
-                    enemy.HP, enemy.HP_M, "red", True
-                )
-                enemy_mp_bar, enemy_mp_percent = create_status_bar(
-                    enemy.MP, enemy.MP_M, "blue", True
-                )
-
-                # Create status table
-                status_table = Table(show_header=False, box=None)
-                status_table.add_column("Entity", style="bright_white")
-                status_table.add_column("HP", style="bright_white")
-                status_table.add_column("MP", style="bright_white")
-
-                status_table.add_row(
-                    f"[bold]{player.name}[/bold]",
-                    f"{player_hp_bar} {player_hp_percent}%",
-                    f"{player_mp_bar} {player_mp_percent}%",
-                )
-
-                status_table.add_row(
-                    f"[bold red]{enemy.NAME}[/bold red]",
-                    f"{enemy_hp_bar} {enemy_hp_percent}%",
-                    f"{enemy_mp_bar} {enemy_mp_percent}%",
-                )
-
-                console.print(status_table)
-
-                # Increment combat round
-                combat_round += 1
-
-                # Delay between rounds
-                sp.sleep(CONFIG["COMBAT"]["DELAY_BETWEEN_ROUNDS"])
-
-            # Reset state after combat
-            
-            console.print(
-                "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
-            )
-            wait_for_enter()
+            elif zone_input == 4:
+                console.print("[info]Regresando al menu principal...[/info]")
 
     elif main_input == 8:
         # Set current state

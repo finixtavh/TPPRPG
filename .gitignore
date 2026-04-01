@@ -7,8 +7,11 @@ __pycache__/
 
 # Other
 settings.json
-Docs/*
+mods/*
 Docs/ 
+.vscode/
+abc.py
+test.py
 
 # C extensions
 *.so

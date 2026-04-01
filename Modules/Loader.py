@@ -116,13 +116,7 @@ def _handle_datastats(data, Object, Content):
             for item in data[Object]:
                 for key in item.keys():
                     if key == Content:
-                        # Ensure DMG and DMG_min are handled as [Physical, Magical]
-                        enemy_data = item[key]
-                        if "DMG" in enemy_data and not isinstance(enemy_data["DMG"], list):
-                            enemy_data["DMG"] = [enemy_data["DMG"], 0]  # Default to 0 magical damage
-                        if "DMG_min" in enemy_data and not isinstance(enemy_data["DMG_min"], list):
-                            enemy_data["DMG_min"] = [enemy_data["DMG_min"], 0]  # Default to 0 magical damage
-                        return enemy_data
+                        return item[key]
             
             # If the specific enemy wasn't found
             console.print(f"[yellow]Warning:[/] '{Content}' not found in {Object}")
@@ -154,11 +148,6 @@ def _handle_weapons(data, Object, Content):
         # Return specific weapon data
         if Content in data[Object]:
             weapon_data = data[Object][Content]
-            # Ensure DMG and DMG_min are handled as [Physical, Magical]
-            if "DMG" in weapon_data and not isinstance(weapon_data["DMG"], list):
-                weapon_data["DMG"] = [weapon_data["DMG"], 0]
-            if "DMG_min" in weapon_data and not isinstance(weapon_data["DMG_min"], list):
-                weapon_data["DMG_min"] = [weapon_data["DMG_min"], 0]
             return weapon_data
         else:
             console.print(f"[yellow]Warning:[/] Weapon '{Content}' not found in {Object}")

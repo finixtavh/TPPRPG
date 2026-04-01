@@ -1,4 +1,4 @@
-from Modules.input_utils import wait_for_enter
+from Modules.input_utils import wait_for_enter, interactive_menu_select
 
 class EquipmentManager:
     """
@@ -30,12 +30,7 @@ class EquipmentManager:
         
         # Para items equipables (cEquippableItems)
         if hasattr(item, 'Defense'):
-            # Defense ahora es un array de 5 valores
-            if isinstance(item.Defense, (list, tuple)):
-                stats['DEF'] = item.Defense
-            else:
-                # Backward compatibility - valor único aplica solo a física
-                stats['DEF'] = [item.Defense, 0, 0, 0, 0]
+            stats['DEF'] = item.Defense
             
         if hasattr(item, 'HealthBoost') and item.HealthBoost > 0:
             stats['Health_max'] = item.HealthBoost
@@ -66,20 +61,11 @@ class EquipmentManager:
         
         for stat_name, stat_value in stats.items():
             if stat_name == 'DEF':
-                # Manejar defensa como array
-                if isinstance(stat_value, (list, tuple)) and isinstance(player.DEF, (list, tuple)):
-                    print(f"  + Defensa:")
-                    for i in range(min(5, len(stat_value))):
-                        if stat_value[i] > 0:
-                            player.DEF[i] += stat_value[i]
-                            print(f"    - {damage_type_names[i]}: +{stat_value[i]}")
-                elif isinstance(stat_value, (list, tuple)):
-                    # Player tiene DEF viejo (no array), convertir
-                    old_def = player.DEF if isinstance(player.DEF, (int, float)) else 0
-                    player.DEF = [old_def, 0, 0, 0, 0]
-                    for i in range(min(5, len(stat_value))):
+                print(f"  + Defensa:")
+                for i in range(min(5, len(stat_value))):
+                    if stat_value[i] > 0:
                         player.DEF[i] += stat_value[i]
-                    print(f"  + Defensa: {stat_value}")
+                        print(f"    - {damage_type_names[i]}: +{stat_value[i]}")
             elif hasattr(player, stat_name):
                 current_value = getattr(player, stat_name)
                 setattr(player, stat_name, current_value + stat_value)
@@ -107,13 +93,11 @@ class EquipmentManager:
         
         for stat_name, stat_value in stats.items():
             if stat_name == 'DEF':
-                # Manejar defensa como array
-                if isinstance(stat_value, (list, tuple)) and isinstance(player.DEF, (list, tuple)):
-                    print(f"  - Defensa:")
-                    for i in range(min(5, len(stat_value))):
-                        if stat_value[i] > 0:
-                            player.DEF[i] -= stat_value[i]
-                            print(f"    - {damage_type_names[i]}: -{stat_value[i]}")
+                print(f"  - Defensa:")
+                for i in range(min(5, len(stat_value))):
+                    if stat_value[i] > 0:
+                        player.DEF[i] -= stat_value[i]
+                        print(f"    - {damage_type_names[i]}: -{stat_value[i]}")
             elif hasattr(player, stat_name):
                 current_value = getattr(player, stat_name)
                 setattr(player, stat_name, current_value - stat_value)
@@ -148,6 +132,36 @@ class EquipmentManager:
         Returns:
             True si se equipó correctamente, False en caso contrario
         """
+        # Manejo especial para herramientas (cTool)
+        from Modules.GatheringMasterySystem import cTool
+        if isinstance(item, cTool):
+            current_tool = getattr(player, "tool", None)
+            if current_tool is not None:
+                tool_name = current_tool.Name if hasattr(current_tool, "Name") else str(current_tool)
+                print(f"\nDesequipando {tool_name}...")
+                if inventory is not None:
+                    inventory.addObject(current_tool)
+            item_name = item.Name if hasattr(item, "Name") else str(item)
+            print(f"\nEquipando {item_name}...")
+            player.tool = item
+            print(f"\u2713 {item_name} equipado en herramienta!")
+            return True
+
+        # Manejo especial para armas (cWeapon, que no tiene objectcheck)
+        from Modules.setup import cWeapon
+        if isinstance(item, cWeapon):
+            current_weapon = getattr(player, "weapon", None)
+            if current_weapon is not None:
+                w_name = current_weapon.Name if hasattr(current_weapon, "Name") else current_weapon.name
+                print(f"\nDesequipando {w_name}...")
+                if inventory is not None:
+                    inventory.addObject(current_weapon)
+            item_name = item.Name if hasattr(item, "Name") else item.name
+            print(f"\nEquipando {item_name}...")
+            player.weapon = item
+            print(f"\u2713 {item_name} equipado en weapon!")
+            return True
+
         if not hasattr(item, 'objectcheck'):
             print(f"Error: {item.Name if hasattr(item, 'Name') else 'Item'} no es equipable")
             return False
@@ -156,11 +170,34 @@ class EquipmentManager:
         
         # Determinar el slot a usar
         if item_type == "Ring":
-            # Buscar slot de anillo disponible
-            slot_name = EquipmentManager.find_available_ring_slot(player)
-            if slot_name is None:
-                print("Todos los slots de anillo están ocupados. Desequipa uno primero.")
+            # Mostrar men\u00fa interactivo para elegir slot de anillo
+            ring_slots_list = ["ring", "ring2", "ring3"]
+            ring_options = []
+            default_slot = 1
+            first_empty_found = False
+            for i, rslot in enumerate(ring_slots_list, 1):
+                current_r = getattr(player, rslot, None)
+                if current_r is not None:
+                    cur_rname = current_r.Name if hasattr(current_r, "Name") else current_r.name
+                    ring_options.append((i, f"Slot {i}: {cur_rname}  (reemplazar)"))
+                else:
+                    ring_options.append((i, f"Slot {i}: [Vac\u00edo]"))
+                    if not first_empty_found:
+                        default_slot = i
+                        first_empty_found = True
+            ring_options.append((0, "Cancelar"))
+
+            slot_choice = interactive_menu_select(
+                title="\u00bfEn qu\u00e9 slot equipar el anillo?",
+                subtitle="Selecciona una posici\u00f3n para el anillo",
+                options=ring_options,
+                prompt="Slot: ",
+                default_value=default_slot,
+                border_style="yellow",
+            )
+            if slot_choice == 0:
                 return False
+            slot_name = ring_slots_list[slot_choice - 1]
         elif item_type in ["Weapon", "Helmet", "Armor", "Boots"]:
             slot_name = EquipmentManager.VALID_SLOTS[item_type]
         else:
@@ -248,7 +285,8 @@ class EquipmentManager:
             ("boots", "Botas"),
             ("ring", "Anillo 1"),
             ("ring2", "Anillo 2"),
-            ("ring3", "Anillo 3")
+            ("ring3", "Anillo 3"),
+            ("tool",  "Herramienta"),
         ]
         
         for slot, display_name in slots_to_check:
@@ -323,21 +361,27 @@ def equip_menu(player, inventory):
         inventory: El objeto inventario
     """
     while True:
-        print("\n" + "="*70)
-        print("MENÚ DE EQUIPAMIENTO".center(70))
-        print("="*70)
-        print("\n1. Equipar item del inventario")
-        print("2. Desequipar item")
-        print("3. Ver equipamiento actual")
-        print("0. Volver")
-        
-        choice = input("\nSelecciona una opción: ")
-        
-        if choice == "1":
+        choice = interactive_menu_select(
+            title="MENÚ DE EQUIPAMIENTO",
+            subtitle="Selecciona una opción",
+            options=[
+                (1, "Equipar item del inventario"),
+                (2, "Desequipar item"),
+                (3, "Ver equipamiento actual"),
+                (0, "Volver"),
+            ],
+            prompt="Opción: ",
+            default_value=1,
+            border_style="yellow",
+        )
+
+        if choice == 1:
             # Mostrar items equipables del inventario
+            from Modules.GatheringMasterySystem import cTool
+            from Modules.setup import cWeapon
             equipable_items = [
-                item for item in inventory.lObjectsInventory 
-                if hasattr(item, 'objectcheck')
+                item for item in inventory.lObjectsInventory
+                if hasattr(item, 'objectcheck') or isinstance(item, (cTool, cWeapon))
             ]
             
             if not equipable_items:
@@ -345,20 +389,34 @@ def equip_menu(player, inventory):
                 wait_for_enter()
                 continue
             
-            print("\nITEMS DISPONIBLES:")
-            for i, item in enumerate(equipable_items, 1):
-                item_name = item.Name if hasattr(item, 'Name') else item.name
-                item_type = item.objectcheck
-                print(f"{i}. {item_name} ({item_type})")
-            
             try:
-                selection = int(input("\nSelecciona item (número): ")) - 1
+                equip_options = [(0, "Cancelar")]
+                for i, item in enumerate(equipable_items, 1):
+                    item_name = item.Name if hasattr(item, 'Name') else item.name
+                    if isinstance(item, cWeapon):
+                        item_type_label = "Arma"
+                    elif isinstance(item, cTool):
+                        item_type_label = "Herramienta"
+                    else:
+                        item_type_label = getattr(item, 'objectcheck', '?')
+                    equip_options.append((i, f"{item_name} ({item_type_label})"))
+
+                pick = interactive_menu_select(
+                    title="Equipar item",
+                    subtitle="Selecciona un item del inventario",
+                    options=equip_options,
+                    prompt="Item: ",
+                    default_value=1 if len(equip_options) > 1 else 0,
+                    border_style="yellow",
+                )
+
+                selection = pick - 1
                 
                 if 0 <= selection < len(equipable_items):
                     selected_item = equipable_items[selection]
                     
-                    # Equipar el item
-                    if EquipmentManager.equip_item(player, selected_item, None):
+                    # Equipar el item (pasar inventory para que el item desplazado vuelva)
+                    if EquipmentManager.equip_item(player, selected_item, inventory):
                         # Remover del inventario (1 unidad)
                         inventory.remove_item(selected_item, 1)
                     
@@ -370,28 +428,37 @@ def equip_menu(player, inventory):
                 print("Entrada inválida.")
                 wait_for_enter()
         
-        elif choice == "2":
-            print("\n¿Qué quieres desequipar?")
-            print("1. Arma")
-            print("2. Casco")
-            print("3. Armadura")
-            print("4. Botas")
-            print("5. Anillo 1")
-            print("6. Anillo 2")
-            print("7. Anillo 3")
-            
-            slot_choice = input("\nSelecciona slot: ")
-            
+        elif choice == 2:
             slot_map = {
-                "1": "weapon",
-                "2": "helmet",
-                "3": "armor",
-                "4": "boots",
-                "5": "ring",
-                "6": "ring2",
-                "7": "ring3"
+                1: "weapon",
+                2: "helmet",
+                3: "armor",
+                4: "boots",
+                5: "ring",
+                6: "ring2",
+                7: "ring3",
+                8: "tool",
             }
-            
+
+            slot_choice = interactive_menu_select(
+                title="Desequipar",
+                subtitle="Selecciona un slot",
+                options=[
+                    (1, "Arma"),
+                    (2, "Casco"),
+                    (3, "Armadura"),
+                    (4, "Botas"),
+                    (5, "Anillo 1"),
+                    (6, "Anillo 2"),
+                    (7, "Anillo 3"),
+                    (8, "Herramienta"),
+                    (0, "Cancelar"),
+                ],
+                prompt="Slot: ",
+                default_value=1,
+                border_style="yellow",
+            )
+
             if slot_choice in slot_map:
                 EquipmentManager.unequip_item(player, slot_map[slot_choice], inventory)
                 wait_for_enter()
@@ -399,11 +466,11 @@ def equip_menu(player, inventory):
                 print("Selección inválida.")
                 wait_for_enter()
         
-        elif choice == "3":
+        elif choice == 3:
             EquipmentManager.show_equipment(player)
             wait_for_enter()
         
-        elif choice == "0":
+        elif choice == 0:
             break
         else:
             print("Opción inválida.")

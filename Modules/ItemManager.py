@@ -210,7 +210,7 @@ class ItemManager:
         """Crea una Herramienta cTool"""
         return cTool(
             ID=item_data.get("STATIC_ID"),
-            ToolTypeStr=item_data.get("Tool_Type"),
+            TypeStr=item_data.get("Tool_Type"),
             Name=item_data.get("Name"),
             Desc=item_data.get("Desc"),
             Efficiency=item_data.get("Efficiency"),
