@@ -3,6 +3,8 @@ from rich.theme import Theme
 from Modules.Loader import Write, Read
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
+from rich.panel import Panel
+from rich.box import ROUNDED
 
 import random
 import time as sp
@@ -699,13 +701,16 @@ SLObject = sorted(LObject, key=lambda x: x.ID)
 ##################      Defs
 def setup_player():
     try:
-        NamePlayer = input("N:: ") 
+        console.print(Panel("[italic]Escribe tu nombre:  [/italic]", title="[bold green]Entrada[/bold green]", expand=False, box=ROUNDED))
+        NamePlayer = input("> ")
+
     except Exception as e:
         NameLoop = True
         print(f"Error descnonocido\n Exception:\n{e}")
         while NameLoop == True:
                 try:
-                    NamePlayer = input("\nN:: ")
+                    console.print(Panel("[italic]Escribe tu nombre:  [/italic]", title="[bold green]Entrada[/bold green]", expand=False, box=ROUNDED))
+                    NamePlayer = input("> ")
                     NameLoop = False
                 except Exception as e:
                     Write("\\logs\\logs.txt", None, None, "[Crit]", e, True, True)

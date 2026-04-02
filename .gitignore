@@ -3,7 +3,6 @@ __pycache__/
 *.py[codz]
 *$py.class
 *.pyc*
-__pycache__/
 
 # Other
 settings.json
@@ -11,7 +10,7 @@ mods/*
 Docs/ 
 .vscode/
 abc.py
-test.py
+test*.py
 
 # C extensions
 *.so

@@ -4,20 +4,14 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.columns import Columns
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.align import Align
 from typing import List, Dict, Optional, Tuple, Any, Union
-from Modules.Loader import Write, Read
-from Modules.setup import (
-    cEnemy,
-    cWeapon,
-    cEquippableItems,
-    cObject,
-    setup_player,
-    vInventory,
-    enemy_loader,
-)
+
 
 
 # Modules/ 
+from Modules.Loader import Write, Read
 from Modules.ModLoader import get_mod_loader, get_mod_api
 from Modules.ItemManager import get_item_manager, load_item_by_id, load_items_by_type
 from Modules.ShopManager import get_shop_manager, display_shop
@@ -30,9 +24,18 @@ from Modules.debug import (
     log_imported_modules,
     dump_debug_snapshot,
 )
+from Modules.setup import (
+    cEnemy,
+    cWeapon,
+    cEquippableItems,
+    cObject,
+    setup_player,
+    vInventory,
+    enemy_loader,
+)
 from Modules.input_utils import wait_for_enter, interactive_menu_select
 from Modules.InventoryMenu import open_inventory_menu
-
+from rich.progress import Progress, SpinnerColumn, TextColumn
 # ---   ---
 import json
 import random
@@ -40,6 +43,7 @@ import time as sp
 import os
 import sys
 from enum import Enum, auto
+import contextlib, io
 
 # Game configuration
 CONFIG = Read("config.json", None)
@@ -1419,46 +1423,16 @@ def load_game() -> bool:
         console.print(f"[danger]Error al cargar la partida: {str(e)}[/danger]")
         return False
 
+console = Console()
 
-# Game initialization function
 def init_game():
     global item_manager, shop_manager
+    
+    item_manager = get_item_manager()
+    shop_manager = get_shop_manager()
+    mod_loader_instance = get_mod_loader()
+    mod_loader_instance.load_all_mods()
 
-    console.print(Panel("Bienvenido al Juego RPG", style="success"))
-    console.print("[info]Iniciando juego...[/info]")
-
-    # ===== INICIALIZAR SISTEMA DE ITEMS JSON =====
-    try:
-        console.print("[info]Cargando sistema de items desde JSON...[/info]")
-        item_manager = get_item_manager()
-        console.print("[success]Sistema de items cargado correctamente.[/success]")
-    except Exception as e:
-        console.print(f"[warning]Error al cargar sistema de items: {str(e)}[/warning]")
-        console.print(
-            "[warning]El juego continuará sin el sistema de items JSON[/warning]"
-        )
-    print("\n")
-    # Inicializar sistema de tiendas
-    try:
-        console.print("[info]Cargando sistema de tiendas desde JSON...[/info]")
-        shop_manager = get_shop_manager()
-        console.print("[success]Sistema de tiendas cargado correctamente.[/success]")
-    except Exception as e:
-        console.print(
-            f"[warning]Error al cargar sistema de tiendas: {str(e)}[/warning]"
-        )
-        console.print(
-            "[warning]El juego continuará sin el sistema de tiendas JSON[/warning]"
-        )
-    print("\n")
-    try:
-        console.print("[info]Inicializando sistema de mods...[/info]")
-        mod_loader_instance = get_mod_loader()
-        mod_loader_instance.load_all_mods()
-    except Exception as e:
-        console.print(f"[warning]Error al cargar mods: {str(e)}[/warning]")
-
-    # Check for saved games
     if os.path.exists("./Data/SaveGame.json"):
         console.print("[info]Se ha encontrado una partida guardada.[/info]")
         console.print("¿Deseas cargar la partida guardada? (s/n)")
@@ -1467,7 +1441,7 @@ def init_game():
         if response == "s" or response == "si":
             load_game()
     wait_for_enter()
-
+    resultados = []
 
 # Main Execution
 if __name__ == "__main__":
@@ -1485,6 +1459,5 @@ if __name__ == "__main__":
                 sp.sleep(2)
     except Exception as e:
         console.print(f"[danger]Error: {str(e)}[/danger]")
-
         sys.exit(1)
 

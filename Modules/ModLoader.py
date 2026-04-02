@@ -394,11 +394,10 @@ class ModLoader:
             return False
     
     def load_all_mods(self):
-        """Carga todos los mods descubiertos"""
-        if Panel is not None:
-            console.print(Panel("Cargando Mods", style="cyan"))
-        else:
-            console.print("Cargando Mods")
+
+
+        console.print(Panel("Loading...", style="cyan"))
+
         
         discovered_mods = self.discover_mods()
         
