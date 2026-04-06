@@ -48,7 +48,6 @@ import contextlib, io
 # Game configuration
 CONFIG = Read("config.json", None)
 
-
 data_path = os.path.join("Data", "DataStats.json")
 
 # Initialize console with custom theme
@@ -79,7 +78,6 @@ shop_objects: List[Any] = []
 zone_name: str = ""
 tick: int = 0
 chars: List[Any] = []
-
 
 item_manager = None
 shop_manager = None
@@ -515,10 +513,7 @@ def main():
 
     # Apply automatic regeneration and check inventory
     player.Check(vInventory)
-    player.Mana = min(player.Mana + player.ManaRegen, player.Mana_max)
-    amd = int(input("asdasd::"))
-    if amd == 1:
-        open_inventory_menu(vInventory, player)
+
     
     # Clear the screen for better UI
     os.system("cls" if os.name == "nt" else "clear")
@@ -539,12 +534,10 @@ def main():
             sys.exit(0)
 
     elif main_input == 1:
-        # Set current state
-        """Inspeccionar las zonas - VERSIÓN DINÁMICA"""
         try:
             from Modules.ZoneManager import get_all_zones
 
-            # Obtener TODAS las zonas (JSON + Mods)
+
             all_zones = get_all_zones()
 
             if not all_zones:
@@ -707,7 +700,6 @@ def main():
         wait_for_enter()
 
     elif main_input == 3:
-        # ===== TIENDA CON SISTEMA JSON =====
         
         console.print("[info]Entrando a la tienda...[/info]")
 
@@ -749,13 +741,9 @@ def main():
     # ===================================
 
     elif main_input == 4:
-        # Set current state
         
-        console.print(Panel("Inventario", style="menu_title"))
-
         try:
-            player.Check(vInventory)
-            vInventory.PrintObjects()
+            open_inventory_menu(vInventory, player)
         except Exception as e:
             console.print(f"[danger]Error al mostrar el inventario: {str(e)}[/danger]")
 
@@ -839,7 +827,6 @@ def main():
         )
         wait_for_enter()
 
-    # ===== NUEVA OPCIÓN: GESTIÓN DE EQUIPAMIENTO =====
     elif main_input == 6:
         console.clear()
 

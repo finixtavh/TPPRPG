@@ -7,9 +7,9 @@ Las tiendas cargan sus inventarios desde DataShops.json
 import json
 import os
 from typing import List, Optional
-from Modules.input_utils import wait_for_enter
-from Modules.input_utils import interactive_menu_select
-
+from Modules.input_utils import wait_for_enter, interactive_menu_select
+from Modules.setup import cWeapon, cEquippableItems, cObject
+from Modules.GatheringMasterySystem import cTool
 
 class ShopManager:
     """Gestor de tiendas que carga inventarios desde JSON"""
@@ -288,8 +288,8 @@ def display_shop(shop_name: str, player, item_manager):
 
                 if confirm_choice == 1:
                     # Crear el objeto del item
-                    from Modules.setup import cWeapon, cEquippableItems, cObject
-                    item_obj = item_manager.create_item_object(item_id, cWeapon, cEquippableItems, cObject)
+                    
+                    item_obj = item_manager.create_item_object(item_id, cWeapon, cEquippableItems, cObject, cTool)
                     
                     if item_obj:
                         # Descontar oro

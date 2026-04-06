@@ -298,75 +298,62 @@ class cMaterial:
         Rarity:       str   = "Common",
         Level_Req:    Optional[int] = None,   # None → se deriva de Rarity
     ):
-        # ── MATERIAL_ID ───────────────────────────────────────────────────
+
         if not isinstance(MATERIAL_ID, int) or MATERIAL_ID < 0:
             raise ValueError(f"MATERIAL_ID debe ser un entero >= 0, recibido: {MATERIAL_ID!r}")
         self.MATERIAL_ID: int = MATERIAL_ID
 
-        # ── TypeStr → Material_Types (con validación) ─────────────────────
-        raw_types: List[str] = [TypeStr] if isinstance(TypeStr, str) else list(TypeStr)
+        raw_types: List[str] = [TypeStr.lower()] if isinstance(TypeStr.lower(), str) else list(TypeStr.lower())
         if not raw_types:
             raise ValueError("TypeStr no puede estar vacío.")
-        invalid = [t for t in raw_types.lower() if t not in self.VALID_TYPES]
+        invalid = [t for t in raw_types if t not in self.VALID_TYPES]
         if invalid:
             raise ValueError(
                 f"Tipo(s) de material desconocido(s): {invalid}. "
                 f"Válidos: {list(self.VALID_TYPES)}"
             )
         self.Material_Types: List[str] = ["TYPE_M:" + t for t in raw_types]
-        # Alias de compatibilidad con código anterior
-        self.Material_Type:  str       = self.Material_Types[0]
 
-        # ── Name ──────────────────────────────────────────────────────────
         if not isinstance(Name, str) or not Name.strip():
             raise ValueError("Name debe ser una cadena no vacía.")
         self.Name: str = Name.strip()
 
-        # ── Hardness ──────────────────────────────────────────────────────
         hardness_f = float(Hardness)
         if hardness_f <= 0:
             raise ValueError(f"Hardness debe ser > 0, recibido: {Hardness!r}")
         self.Hardness: float = hardness_f
 
-        # ── SkillName (integración con cFarm.GATHERING_SKILLS) ────────────
         normalized_skill = self.SKILL_ALIASES.get(SkillName.lower())
         if normalized_skill is None:
             raise ValueError(
                 f"SkillName desconocida: {SkillName!r}. "
                 f"Aliases válidos: {list(self.SKILL_ALIASES.keys())}"
             )
-        self.SkillName: str = normalized_skill   # siempre guardado en forma canónica
+        self.SkillName: str = normalized_skill   
 
-        # ── Rarity ────────────────────────────────────────────────────────
         if Rarity not in self.VALID_RARITIES:
             raise ValueError(
                 f"Rarity inválida: {Rarity!r}. Válidas: {list(self.VALID_RARITIES)}"
             )
         self.Rarity: str = Rarity
 
-        # ── Level_Req (integración con cSkill.current_level) ─────────────
         if Level_Req is not None:
             if not isinstance(Level_Req, int) or Level_Req < 1:
                 raise ValueError(f"Level_Req debe ser un entero >= 1, recibido: {Level_Req!r}")
             self.Level_Req: int = Level_Req
         else:
-            # Derivar automáticamente del nivel mínimo asociado a la rareza
             self.Level_Req = self.RARITY_LEVEL_REQ[Rarity]
 
-        # ── Description ───────────────────────────────────────────────────
         self.Description: str = str(Description) if Description else "Sin descripción."
 
-        # ── Gold_Cost ─────────────────────────────────────────────────────
         if not isinstance(Gold_Cost, int) or Gold_Cost < 0:
             raise ValueError(f"Gold_Cost debe ser un entero >= 0, recibido: {Gold_Cost!r}")
         self.Gold_Cost: int = Gold_Cost
 
-        # ── MaxStack ──────────────────────────────────────────────────────
         if not isinstance(MaxStack, int) or MaxStack < 1:
             raise ValueError(f"MaxStack debe ser un entero >= 1, recibido: {MaxStack!r}")
         self.MaxStack: int = MaxStack
 
-    # ── helpers ────────────────────────────────────────────────────────────
 
     def has_type(self, type_str: str) -> bool:
         """Comprueba si este material pertenece a un tipo dado (con o sin prefijo TYPE_M:)."""

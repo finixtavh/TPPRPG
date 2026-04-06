@@ -205,30 +205,6 @@ class cPlayer:
                 self.Health += round(self.Health_max/3.18*1.145)
                 print(f"{self.name} sube de Level y ahora es Level {self.Level}!")
 
-    def PlayerObjects(self):
-        """ Prints atrributes of the player's equipment """
-
-        for item in self.items_in_PlayerClass:
-            if isinstance(item, cEquippableItems):
-                print(f"{item.name}", end=" ")
-                for attr_name in ["ID", "Defense", "HealthBoost", "HealthSteal", "DmgBoost", "Description"]:
-                    attr_value = getattr(item, attr_name, None)
-                    if attr_value is not None:
-                        if attr_name == "Defense" and isinstance(attr_value, (list, tuple)):
-                            # Display defense array
-                            defense_str = "/".join([str(d) for d in attr_value])
-                            print(f"-Defense: [{defense_str}]", end=" ")
-                        elif isinstance(attr_value, (int, float)) and attr_value > 0:
-                            if attr_name == "Description":
-                                print(f"-Description: {attr_value}\n")
-                            else:
-                                print(f"-{attr_name}: {attr_value}", end=" ")
-
-                        
-            elif isinstance(item, cWeapon):
-                dmg_str = "/".join([f"{item.DMG[i]}" for i in range(5)])
-                print(f"{item.name} -ID: {item.ID} -Daño: [{dmg_str}] -Description: {item.Description}")
-                print("\n")
                 
     def Check(self, lInventory):
         """Valida estado del jugador, equipamiento e inventario. Recibe lInventory (cInventory)."""
@@ -243,6 +219,8 @@ class cPlayer:
             (self.ring2, "Ring"),
             (self.ring3, "Ring")
         ]
+
+        self.Mana = min(self.Mana + self.ManaRegen, self.Mana_max)
 
         Companion_Updater(self)
         Before_Levelup = self.Level
@@ -279,7 +257,7 @@ class cPlayer:
 
         while self.EXP >= self.EXP_M:  
             self.Level += 1
-            self.EXP_M *= 1.08
+            self.EXP_M *= 1.07
 
         if Before_Levelup != self.Level:
             console.print(f"Has subido de nivel!")
@@ -627,32 +605,6 @@ class cInventory:
     
     def has_item(self, item_id: int, quantity: int = 1) -> bool:
         return self.get_item_count(item_id) >= quantity
-    
-    def PrintObjects(self):
-        if not self.slots:
-            print("[yellow]El inventario está vacío[/yellow]")
-            wait_for_enter()
-            return
-        
-        print("\n[cyan]Inventario:[/cyan]\n")
-        for slot in self.slots:
-            item = slot.item
-            display_name = slot.get_display_name()
-            
-            if hasattr(item, 'DMG'):
-                dmg_str = "/".join([str(d) for d in item.DMG])
-                print(f"  • {display_name} - Daño: [{dmg_str}]")
-            elif hasattr(item, 'Defense'):
-                if isinstance(item.Defense, (list, tuple)):
-                    defense_str = "/".join([str(d) for d in item.Defense])
-                    print(f"  • {display_name} - DEF: [{defense_str}]")
-                else:
-                    print(f"  • {display_name} - DEF: {item.Defense}")
-            else:
-                print(f"  • {display_name}")
-        
-        print("\nPresiona enter ↵")
-        wait_for_enter()
     
     @property
     def lObjectsInventory(self):
