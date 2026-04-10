@@ -8,6 +8,9 @@
             "Rarity": "Common",
             "MaxLevel": 5,
             "GoldCost": 100,
+            "family_id": "sharpness",
+            "max_level_name": "Destrucción",
+            "max_level_description": "El filo se ha vuelto una fuerza de la naturaleza",
             "Effects": {
                 "dmg_bonus": [5, 0, 0, 0, 0],
                 "dmg_min_bonus": [3, 0, 0, 0]
@@ -754,6 +757,164 @@
                 "fortune": 3,
                 "exp_bonus": 2.0,
                 "special_effect": "master_gatherer"
+            }
+        }
+    },
+    "Espada": {
+        "filo_sagrado": {
+            "ENCHANT_ID": 101,
+            "Name": "Filo Sagrado",
+            "TargetClass": "Espada",
+            "Description": "El acero es bendecido, ignorando parte de la armadura enemiga",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 280,
+            "family_id": "filo_sagrado",
+            "max_level_name": "Juicio Divino",
+            "max_level_description": "La hoja resplandece con la furia de los cielos",
+            "Effects": {
+                "dmg_bonus": [8, 0, 0, 0, 3],
+                "special_effect": "armor_pierce"
+            }
+        },
+        "sangre_hambrienta": {
+            "ENCHANT_ID": 102,
+            "Name": "Sangre Hambrienta",
+            "TargetClass": "Espada",
+            "Description": "Cada corte drena vida del enemigo",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 220,
+            "Effects": {
+                "lifesteal": 0.08,
+                "dmg_bonus": [3, 0, 0, 0, 0]
+            }
+        },
+        "tormenta_acero": {
+            "ENCHANT_ID": 103,
+            "Name": "Tormenta de Acero",
+            "TargetClass": "Espada",
+            "Description": "La hoja vibra a velocidad sobrenatural, aumentando críticos",
+            "Rarity": "Epic",
+            "MaxLevel": 2,
+            "GoldCost": 500,
+            "family_id": "tormenta_acero",
+            "max_level_name": "Huracán de Hojas",
+            "max_level_description": "La velocidad de la hoja supera la barrera del sonido",
+            "Effects": {
+                "crit_chance": 0.2,
+                "crit_damage": 1.8
+            }
+        },
+        "corte_infernal": {
+            "ENCHANT_ID": 104,
+            "Name": "Corte Infernal",
+            "TargetClass": "Espada",
+            "Description": "La hoja está imbuida en llamas, añadiendo daño térmico",
+            "Rarity": "Uncommon",
+            "MaxLevel": 4,
+            "GoldCost": 200,
+            "Effects": {
+                "dmg_bonus": [0, 10, 0, 0, 0],
+                "special_effect": "burning"
+            }
+        },
+        "golpe_de_tierra": {
+            "ENCHANT_ID": 105,
+            "Name": "Golpe de Tierra",
+            "TargetClass": "Espada",
+            "Description": "Cada golpe hace temblar el suelo bajo los pies del enemigo",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 270,
+            "Effects": {
+                "dmg_bonus": [0, 0, 12, 0, 0],
+                "special_effect": "stun"
+            }
+        }
+    },
+    "Baston": {
+        "canalizar_mana": {
+            "ENCHANT_ID": 201,
+            "Name": "Canalizar Maná",
+            "TargetClass": "Baston",
+            "Description": "El bastón amplifica el flujo de maná, reduciendo el coste de habilidades",
+            "Rarity": "Common",
+            "MaxLevel": 5,
+            "GoldCost": 120,
+            "Effects": {
+                "mana_reduction": 0.1
+            }
+        },
+        "tormenta_de_relampagos": {
+            "ENCHANT_ID": 202,
+            "Name": "Tormenta de Relámpagos",
+            "TargetClass": "Baston",
+            "Description": "El bastón lanza chispas eléctricas en cada golpe",
+            "Rarity": "Rare",
+            "MaxLevel": 3,
+            "GoldCost": 350,
+            "Effects": {
+                "dmg_bonus": [0, 0, 0, 15, 0],
+                "special_effect": "chain_lightning"
+            }
+        },
+        "caos_arcano": {
+            "ENCHANT_ID": 203,
+            "Name": "Caos Arcano",
+            "TargetClass": "Baston",
+            "Description": "Libera energía aleatoria en cada ataque, con efecto impredecible",
+            "Rarity": "Epic",
+            "MaxLevel": 2,
+            "GoldCost": 600,
+            "family_id": "caos_arcano",
+            "max_level_name": "Singularidad del Caos",
+            "max_level_description": "La realidad misma se distorsiona alrededor del bastón",
+            "Effects": {
+                "elemental_boost": {
+                    "thermal": 1.3,
+                    "earth": 1.3,
+                    "electric": 1.3
+                },
+                "special_effect": "chaos_burst"
+            }
+        },
+        "alma_del_abismo": {
+            "ENCHANT_ID": 204,
+            "Name": "Alma del Abismo",
+            "TargetClass": "Baston",
+            "Description": "El bastón absorbe energía oscura, añadiendo daño profundo devastador",
+            "Rarity": "Legendary",
+            "MaxLevel": 1,
+            "GoldCost": 1200,
+            "Effects": {
+                "dmg_bonus": [0, 0, 0, 0, 20],
+                "special_effect": "void_drain"
+            }
+        },
+        "llama_primordial": {
+            "ENCHANT_ID": 205,
+            "Name": "Llama Primordial",
+            "TargetClass": "Baston",
+            "Description": "El bastón arde con un fuego más antiguo que el mundo mismo",
+            "Rarity": "Rare",
+            "MaxLevel": 4,
+            "GoldCost": 400,
+            "Effects": {
+                "dmg_bonus": [0, 18, 0, 0, 0],
+                "special_effect": "burning"
+            }
+        },
+        "mente_brillante": {
+            "ENCHANT_ID": 206,
+            "Name": "Mente Brillante",
+            "TargetClass": "Baston",
+            "Description": "Potencia la inteligencia del portador, regenerando maná en combate",
+            "Rarity": "Uncommon",
+            "MaxLevel": 3,
+            "GoldCost": 250,
+            "Effects": {
+                "mana_regen": 5.0
             }
         }
     }

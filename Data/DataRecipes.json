@@ -1,0 +1,40 @@
+{
+    "recipes": [
+        {
+            "recipe_id": "espada_hierro_1",
+            "name": "Espada de Acero",
+            "result_item_id": 2,
+            "result_item_type": "Weapon",
+            "materials_required": {
+                "Mineral de Hierro": 4,
+                "Madera de Roble": 2
+            },
+            "description": "Una espada básica forjada con hierro y madera.",
+            "gold_cost": 25
+        },
+        {
+            "recipe_id": "hacha_acero_1",
+            "name": "Hacha de Plata Profunda",
+            "result_item_id": 3,
+            "result_item_type": "Weapon",
+            "materials_required": {
+                "Mineral de Hierro": 8,
+                "Mineral de Plata": 2
+            },
+            "description": "Hacha pesada de plata y hierro.",
+            "gold_cost": 50
+        },
+        {
+            "recipe_id": "pocion_origen_1",
+            "name": "Poción de Vida Menor",
+            "result_item_id": 1,
+            "result_item_type": "Object",
+            "materials_required": {
+                "Flor de Sol": 2,
+                "Hierba de Rocío": 1
+            },
+            "description": "Mezcla de componentes orgánicos capaz de sanar heridas.",
+            "gold_cost": 5
+        }
+    ]
+}

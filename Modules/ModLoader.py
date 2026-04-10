@@ -48,6 +48,7 @@ class ModAPI:
         self.item_injections = {}
         self.stats_injections = {}
         self.shop_injections = {}
+        self.enchantment_injections = {}
         
         # NUEVO: Almacenar datos crudos de JSONs de mods
         self.mod_data_files = {}  # {mod_name: json_data}
@@ -137,7 +138,11 @@ class ModAPI:
                 self.shop_injections[shop_name] = shop_data
                 logger.info(f"[{mod_name}] Tienda auto-inyectada: {shop_name}")
         
-        console.print(f"[green]✓ Datos del mod '{mod_name}' inyectados automáticamente[/green]")
+        # Inyectar encantamientos
+        if "enchantments" in mod_data:
+            for ench_key, ench_data in mod_data["enchantments"].items():
+                self.enchantment_injections[ench_key] = ench_data
+                logger.info(f"[{mod_name}] Encantamiento auto-inyectado: {ench_key}")
     
     # =========================================================================
     # REGISTRO DE ITEMS (mantenido para compatibilidad)
@@ -278,6 +283,21 @@ class ModAPI:
         
         console.print(f"[green]✓ {len(self.shop_injections)} tiendas integradas[/green]")
     
+    def integrate_with_enchantment_system(self):
+        """Integra encantamientos interactuando con EnchantmentSystem"""
+        try:
+            from Modules.EnchantmentSystem import register_enchantment, load_enchantment_from_json
+            count = 0
+            for ench_key, ench_data in self.enchantment_injections.items():
+                ench_instance = load_enchantment_from_json(ench_data)
+                register_enchantment(ench_instance)
+                logger.info(f"Encantamiento integrado: {ench_key}")
+                count += 1
+            if count > 0:
+                logger.info(f"{count} encantamientos integrados.")
+        except ImportError:
+            logger.warning("No se pudo cargar EnchantmentSystem para la integración de encantamientos")
+    
     def get_all_items(self) -> Dict:
         """Retorna todos los items inyectados"""
         return self.item_injections
@@ -384,7 +404,6 @@ class ModLoader:
                 'data': mod_data
             }
             
-            console.print(f"[green]✓ Mod cargado: {mod_name}[/green]")
             logger.info(f"Mod cargado exitosamente: {mod_name}")
             return True
             
@@ -394,23 +413,30 @@ class ModLoader:
             return False
     
     def load_all_mods(self):
-
-
-        console.print(Panel("Loading...", style="cyan"))
-
+        from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
         
         discovered_mods = self.discover_mods()
         
         if not discovered_mods:
-            console.print("[yellow]No se encontraron mods[/yellow]")
+            console.print("[yellow]No se encontraron mods para cargar.[/yellow]")
             return
+            
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console
+        ) as progress:
+            task = progress.add_task("[cyan]Cargando Mods...", total=len(discovered_mods))
+            
+            loaded_count = 0
+            for mod_name, mod_info in discovered_mods.items():
+                if mod_info.enabled and self.load_mod(mod_info):
+                    loaded_count += 1
+                progress.advance(task)
         
-        loaded_count = 0
-        for mod_name, mod_info in discovered_mods.items():
-            if mod_info.enabled and self.load_mod(mod_info):
-                loaded_count += 1
-        
-        console.print(f"[green]Cargados {loaded_count} de {len(discovered_mods)} mods[/green]")
+        console.print(Panel(f"[bold green]✓ Carga Completada[/bold green]\nMods activos: {loaded_count} de {len(discovered_mods)}", style="cyan"))
     
     def unload_mod(self, mod_name: str) -> bool:
         """Descarga un mod"""

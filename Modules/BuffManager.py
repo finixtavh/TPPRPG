@@ -345,7 +345,17 @@ def apply_buff_to_player(player, buff_id: str, source: str = "skill",
             player.active_buffs = []
         
         player.active_buffs.append(buff)
-        print(f"[SUCCESS] {buff.get_display_name()} aplicado a {player.name}")
+        
+        from rich.console import Console
+        c = Console()
+        color = "green" if not buff.is_debuff else "red"
+        
+        effects_desc = []
+        for stat, val in buff.effects.items():
+            sign = "+" if float(str(val).replace('%', '').strip('[]').split(',')[0]) >= 0 else ""
+            effects_desc.append(f"{stat}: {sign}{val}")
+            
+        c.print(f"[{color}] {buff.get_display_name()} ha sido aplicado a {getattr(player, 'name', 'Entidad')} ({', '.join(effects_desc)})[/]")
         
         return True
     return False

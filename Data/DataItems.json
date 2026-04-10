@@ -80,6 +80,24 @@
             "DMG_min": [12, 7, 7, 7],
             "Gold_Cost": 600,
             "Description": "Espada que domina múltiples elementos"
+        },
+        "healer_staff": {
+            "STATIC_ID": 90,
+            "Name": "Bastón de Curandero",
+            "Type": "Weapon",
+            "DMG": [5, 5, 0, 0, 0],
+            "DMG_min": [2, 2, 0, 0],
+            "Gold_Cost": 250,
+            "Description": "Báculo que potencia la curación y la regeneración de magia"
+        },
+        "support_staff": {
+            "STATIC_ID": 91,
+            "Name": "Bastón de Soporte",
+            "Type": "Weapon",
+            "DMG": [8, 0, 0, 0, 0],
+            "DMG_min": [4, 0, 0, 0],
+            "Gold_Cost": 250,
+            "Description": "Báculo enfocado en debilitar a los enemigos"
         }
     },
     "TYPE:Armor": {

@@ -270,6 +270,32 @@ def _render_item_detail(slot, player=None) -> Panel:
         if mat_types:
             lines.append(Text(f"  📦 Tipo(s):     {', '.join(mat_types)}", style="dim"))
 
+    # ── Encantamientos (para Armas, Equipo y Herramientas) ──
+    if itype in ("cWeapon", "cEquippableItems", "cTool"):
+        try:
+            from Modules.EnchantmentSystem import (
+                get_item_enchants, format_enchant_display,
+                ENCHANTMENTS_CATALOG, MAX_ENCHANT_SLOTS
+            )
+            enchant_entries = get_item_enchants(item)
+            if enchant_entries:
+                lines.append(Text(""))
+                lines.append(Rule(style="grey35"))
+                n_fam = len({e["family_id"] for e in enchant_entries})
+                lines.append(Text(f"  ✨ Encantamientos ({n_fam}/{MAX_ENCHANT_SLOTS}):", style="bold bright_magenta"))
+                for entry in enchant_entries:
+                    display = format_enchant_display(entry, ENCHANTMENTS_CATALOG)
+                    # Color by family rarity
+                    fam_id = entry["family_id"]
+                    color = "bright_magenta"
+                    for ench in ENCHANTMENTS_CATALOG.values():
+                        if ench.family_id == fam_id:
+                            color = ench.get_rarity_color()
+                            break
+                    lines.append(Text(f"    ✦ {display}", style=f"bold {color}"))
+        except Exception:
+            pass
+
     lines.append(Text(""))
 
     # ── Precio ──
@@ -397,13 +423,28 @@ def _show_item_info_screen(item, console: Console):
     elif itype == "cTool":
         efficiency = getattr(item, "Efficiency", 1.0)
         tool_type  = getattr(item, "ToolTypeStr", "").replace("TYPE_M:", "")
-        enchants   = getattr(item, "Enchantments", []) or []
         lines.append(Text("  ─── Estadísticas de Herramienta ───", style="bold"))
         lines.append(Text(f"    ⚡ Eficiencia:   {efficiency:.1f}x", style="dim"))
         if tool_type:
             lines.append(Text(f"    🪵 Tipo matl.:  {tool_type}", style="dim"))
-        if enchants:
-            lines.append(Text(f"    ✨ Encantamientos: {', '.join(enchants)}", style="bright_magenta"))
+
+    # ── Encantamientos (universal para armas, equipo y herramientas) ──
+    if itype in ("cWeapon", "cEquippableItems", "cTool"):
+        try:
+            from Modules.EnchantmentSystem import (
+                get_item_enchants, format_enchant_display,
+                ENCHANTMENTS_CATALOG, MAX_ENCHANT_SLOTS
+            )
+            enchant_entries = get_item_enchants(item)
+            if enchant_entries:
+                n_fam = len({e["family_id"] for e in enchant_entries})
+                lines.append(Text(""))
+                lines.append(Text(f"  ✨ Encantamientos ({n_fam}/{MAX_ENCHANT_SLOTS}):", style="bold bright_magenta"))
+                for entry in enchant_entries:
+                    display = format_enchant_display(entry, ENCHANTMENTS_CATALOG)
+                    lines.append(Text(f"    ✦ {display}", style="bright_magenta"))
+        except Exception:
+            pass
 
     cost = _item_cost(item)
     if cost:

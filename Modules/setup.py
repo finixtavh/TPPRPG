@@ -87,10 +87,11 @@ class cPlayer:
         self.Mana = self.Mana_max
         self.Level = 1
         self.lvlPoints = 0
+        self.skills_purchased = []
         # Secondary Stats
         self.DEF = [0, 0, 0, 0, 0]  # [Phys, Thermal, Earth, Electric, Deep]
         self.AGI = 0
-        self.DefensePercentage = 0
+        self.DefensePercentage = [0.0, 0.0, 0.0, 0.0, 0.0]
         self.CounterAttack = 0
         self.Evasion = 0
         self.ManaRegen = 2.5
@@ -203,7 +204,9 @@ class cPlayer:
                 self.EXP -= self.EXP_M
                 self.Health_max += 10
                 self.Health += round(self.Health_max/3.18*1.145)
+                self.lvlPoints += 1
                 print(f"{self.name} sube de Level y ahora es Level {self.Level}!")
+                console.print("[bold #FFFF99]¡Has ganado 1 Punto de Habilidad para mejorar tus atributos![/]")
 
                 
     def Check(self, lInventory):
@@ -258,11 +261,14 @@ class cPlayer:
         while self.EXP >= self.EXP_M:  
             self.Level += 1
             self.EXP_M *= 1.07
+            self.lvlPoints += 1
 
         if Before_Levelup != self.Level:
             console.print(f"Has subido de nivel!")
             console.print(f"Antes: {Before_Levelup}")
             console.print(f"Ahora: {self.Level}")
+            pts_ganados = self.Level - Before_Levelup
+            console.print(f"[bold #FFFF99]¡Has ganado {pts_ganados} Punto(s) de Habilidad para mejorar tus atributos![/]")
 
             exp_formated = "{:,.2f}".format(self.EXP)
             exp_m_formated = "{:,.2f}".format(self.EXP_M)
@@ -274,63 +280,9 @@ class cPlayer:
 
             wait_for_enter()
 
-    def Equip(self, vInventory, InventorySortervar, player):
-        print("\nInventario: \n")
-        try:
-            EquipInput = int(input("[1]- Equipa [2]-Desequipar"))
-        except Exception as e:
-            print(f"\nException\n{e}") # Necesita revision 08/02/2024
-        if EquipInput == 1:
-            for i, var in enumerate(vInventory.lObjectsInventory, start=1):
-                if var is not None:
-                    if i % 2 == 0:
-                        print(f"ID: {var.ID} | {var.name}\t", end=" ")
-                    else:
-                        print(f"ID: {var.ID} | {var.name}\t", end="\n")
-            print("\nIngresa el ID del Objeto: \n")
-        elif EquipInput == 2:
-            for i, var in enumerate(vInventory.lObjectsInventory, start=1):
-                if var is not None:
-                    if i % 2 == 0:
-                        print(f"ID: {var.ID} | {var.name}\t", end=" ")
-                    else:
-                        print(f"ID: {var.ID} | {var.name}\t", end="\n")
-            print("\nIngresa el ID del Objeto: \n")
-
-            EquipInput = int(input("ID:: "))
-            weapon_get = InventorySortervar.SearchObject(EquipInput)
-            print(weapon_get.name)
-
-            if isinstance(weapon_get, cEquippableItems):
-                if weapon_get.objectcheck == "Ring" or weapon_get.objectcheck == "ring":
-                    for ring in [self.ring, self.ring2, self.ring3]:
-                        if ring is None:
-                            ring = InventorySortervar
-                            break
-                        elif ring is not None:
-                            vInventory.addObject(ring)
-                            ring = InventorySortervar
-                            break
-                else:
-                    setattr(self, weapon_get.objectcheck.lower(), InventorySortervar)
-
-            elif isinstance(weapon_get, cWeapon):
-                if self.weapon is not None:
-                    vInventory.addObject(self.weapon)
-                    print(f"Se desequipó {self.weapon.name}")
-
-                player.weapon = weapon_get
-                
-                print(f"Se equipó {weapon_get.name}")
-                vInventory.addObject(weapon_get, False)
-                sp.sleep(3.5)
     def Points(self):
-        try:
-            console.print("!!!!")
-            input_points = int(input("Selecciona que Atributos quieres subir:"))
-
-        except:
-            pass
+        from Modules.SkillTreeSystem import skill_tree_manager
+        skill_tree_manager.open_menu(self)
 
 class cEnemy:
     def __init__ (self, NAME, 
@@ -376,7 +328,9 @@ class cEnemy:
                 
                 # Apply player defense
                 player_def = player.DEF[i]
-                damage_array[i] = max(0, raw_damage - (player_def / 2))
+                remaining_dmg = max(0, raw_damage - (player_def / 2))
+                block_ratio = min(1.0, player.DefensePercentage[i] / 100.0)
+                damage_array[i] = remaining_dmg * (1.0 - block_ratio)
         
         total_damage = sum(damage_array)
         
@@ -670,9 +624,16 @@ def setup_player():
     return(cPlayer(NamePlayer, None))
 
 def Companion_Updater(player):
-    Chars = []
+    """
+    Se llama desde cPlayer.Check() cada tick.
+    Regenera mana de los compañeros vivos.
+    """
     for c in player.companion:
-        Chars.append(c)
+        if getattr(c, "is_alive", False):
+            c.Mana = min(
+                getattr(c, "Mana", 0) + getattr(c, "ManaRegen", 0),
+                getattr(c, "Mana_max", 0),
+            )
 
 def enemy_loader(data_npc, return_single=False):
     """

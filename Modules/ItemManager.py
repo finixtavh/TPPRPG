@@ -113,15 +113,17 @@ class ItemManager:
             ]
         return []
     
-    def create_item_object(self, item_id: Union[int, str], cWeapon, cEquippableItems, cObject, cTool):
+    def create_item_object(self, item_id: Union[int, str], cWeapon=None, cEquippableItems=None, cObject=None, cTool=None, cMaterial=None):
         """
-        Crea un objeto de item (cWeapon, cEquippableItems, o cObject) desde JSON
+        Crea un objeto de item (cWeapon, cEquippableItems, cObject, cTool o cMaterial) desde JSON
         
         Args:
             item_id: ID del item a crear
             cWeapon: Clase cWeapon importada
             cEquippableItems: Clase cEquippableItems importada
             cObject: Clase cObject importada
+            cTool: Clase cTool importada
+            cMaterial: Clase cMaterial importada
             
         Returns:
             Objeto del tipo apropiado o None si no existe
@@ -143,6 +145,11 @@ class ItemManager:
                 return self._create_consumable(item_data, cObject)
             elif item_type == "Tool":
                 return self._create_tool(item_data, cTool)
+            elif item_type == "Material":
+                if cMaterial is None:
+                    # Intentar importar si no se pasó
+                    from Modules.GatheringMasterySystem import cMaterial
+                return self._create_material(item_data, cMaterial)
 
             else:
                 print(f"[ERROR] Tipo de item desconocido: {item_type}")
@@ -217,6 +224,20 @@ class ItemManager:
             Gold_Cost=item_data.get("Gold_Cost"),
             MaxStack=item_data.get("MaxStack"),
             Enchantments=item_data.get("Enchantments")
+        )
+
+    def _create_material(self, item_data: Dict, cMaterial):
+        """Crea un Material cMaterial"""
+        return cMaterial(
+            MATERIAL_ID=item_data.get("MATERIAL_ID", item_data.get("STATIC_ID")),
+            TypeStr=item_data.get("Material_Type", "Unknown"),
+            Name=item_data.get("Name"),
+            Hardness=item_data.get("Hardness", 10),
+            SkillName=item_data.get("SkillName", "mining"),
+            Description=item_data.get("Description", "Sin descripción"),
+            MaxStack=item_data.get("MaxStack", 99),
+            Rarity=item_data.get("Rarity", "Common"),
+            Level_Req=item_data.get("Level_Req", None)
         )
 
     def add_item(self, item_type: str, item_key: str, item_data: Dict) -> bool:
@@ -481,19 +502,19 @@ def get_item_manager(items_path: str = "./Data/DataItems.json") -> ItemManager:
 
 
 # Funciones de conveniencia para usar en el juego
-def load_item_by_id(item_id: Union[int, str], cWeapon, cEquippableItems, cObject, cTool):
+def load_item_by_id(item_id: Union[int, str], cWeapon=None, cEquippableItems=None, cObject=None, cTool=None, cMaterial=None):
     """
     Carga un item por ID y devuelve el objeto creado
     
     Args:
         item_id: ID del item
-        cWeapon, cEquippableItems, cObject: Clases de items
+        cWeapon, cEquippableItems, cObject, cTool, cMaterial: Clases de items
         
     Returns:
         Objeto del item o None
     """
     manager = get_item_manager()
-    return manager.create_item_object(item_id, cWeapon, cEquippableItems, cObject, cTool)
+    return manager.create_item_object(item_id, cWeapon, cEquippableItems, cObject, cTool, cMaterial)
 
 
 def load_items_by_type(item_type: str, cWeapon, cEquippableItems, cObject) -> List:

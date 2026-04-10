@@ -1,0 +1,94 @@
+{
+    "nodes": {
+        "root": {
+            "name": "Núcleo de Clase",
+            "desc": "El comienzo de tu linaje.",
+            "cost": 0,
+            "cost_increment": 0,
+            "max_level": 1,
+            "requires": [],
+            "effects": {}
+        },
+        "war_1": {
+            "name": "Sangre Guerrera",
+            "desc": "+20 Salud Máxima, +1 Daño Profundo Estático (Por Nivel)",
+            "cost": 1,
+            "cost_increment": 1,
+            "max_level": 3,
+            "requires": ["root"],
+            "effects": {"Health_max": 20, "DEF": [0, 0, 0, 0, 1]}
+        },
+        "war_2": {
+            "name": "Bravura",
+            "desc": "+5% Bloqueo Físico (Por Nivel)",
+            "cost": 1,
+            "cost_increment": 1,
+            "max_level": 5,
+            "requires": ["war_1"],
+            "effects": {"DefensePercentage": [5.0, 0, 0, 0, 0]}
+        },
+        "war_3": {
+            "name": "Furia Ciega",
+            "desc": "+2% Agilidad, +10 Salud Máxima (Único)",
+            "cost": 2,
+            "cost_increment": 0,
+            "max_level": 1,
+            "requires": ["war_2"],
+            "effects": {"AGI": 2.0, "Health_max": 10}
+        },
+        "def_1": {
+            "name": "Piel Curdida",
+            "desc": "+2 Defensa Física (Por Nivel)",
+            "cost": 1,
+            "cost_increment": 0,
+            "max_level": 5,
+            "requires": ["root"],
+            "effects": {"DEF": [2, 0, 0, 0, 0]}
+        },
+        "def_2": {
+            "name": "Resistencia Elemental",
+            "desc": "+3 Def. Térmica, +3 Def. Terra (Por Nivel)",
+            "cost": 2,
+            "cost_increment": 1,
+            "max_level": 3,
+            "requires": ["def_1"],
+            "effects": {"DEF": [0, 3, 3, 0, 0]}
+        },
+        "def_3": {
+            "name": "Absorción",
+            "desc": "+5% Bloqueo Eléctrico y Térmico (Único)",
+            "cost": 3,
+            "cost_increment": 0,
+            "max_level": 1,
+            "requires": ["def_2"],
+            "effects": {"DefensePercentage": [0, 5.0, 0, 5.0, 0]}
+        },
+        "mag_1": {
+            "name": "Aura de Cristal",
+            "desc": "+20 Maná Máximo (Por Nivel)",
+            "cost": 1,
+            "cost_increment": 0,
+            "max_level": 5,
+            "requires": ["root"],
+            "effects": {"Mana_max": 20}
+        },
+        "mag_2": {
+            "name": "Mente Lúcida",
+            "desc": "+1.0 Regeneración de Maná (Por Nivel)",
+            "cost": 1,
+            "cost_increment": 1,
+            "max_level": 3,
+            "requires": ["mag_1"],
+            "effects": {"ManaRegen": 1.0}
+        },
+        "mag_3": {
+            "name": "Sabiduría Profunda",
+            "desc": "+50 Maná, -10 Salud (Único)",
+            "cost": 2,
+            "cost_increment": 0,
+            "max_level": 1,
+            "requires": ["mag_2"],
+            "effects": {"Mana_max": 50, "Health_max": -10}
+        }
+    }
+}

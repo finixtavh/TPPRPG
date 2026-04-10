@@ -35,6 +35,13 @@ from Modules.setup import (
 )
 from Modules.input_utils import wait_for_enter, interactive_menu_select
 from Modules.InventoryMenu import open_inventory_menu
+from Modules.CompanionSystem import (
+    cCompanion,
+    companion_management_menu,
+    try_revive_with_gold,
+    try_revive_with_item,
+    COMPANION_REVIVAL_GOLD_COST,
+)
 from rich.progress import Progress, SpinnerColumn, TextColumn
 # ---   ---
 import json
@@ -254,16 +261,37 @@ def create_status_bar(
 
 
 def render_combat_menu(player, enemy, combat_round: int) -> None:
-    """UI de combate: jugador vs enemigo + acciones (inspirado en Interfaces/03_combat_ui.py)."""
-    # Cabecera de ronda
+    """UI de combate con soporte de compañeros: [comp…] [jugador] vs [enemigo]."""
     header = Text.from_markup(f"[bold]Combate - Ronda {combat_round}[/]")
 
-    # Barras de vida/mana
+    # ── Bloques de aliados (compañeros primero, jugador al final) ────────────
+    ally_blocks = []
+
+    for comp in player.companion:
+        if comp.is_alive:
+            c_hp_bar, c_hp_pct = create_status_bar(comp.Health, comp.Health_max, "green")
+            c_mp_bar, c_mp_pct = create_status_bar(comp.Mana, comp.Mana_max, "blue")
+            weapon_tag = f" [{comp.weapon.name}]" if comp.weapon else ""
+            comp_block = Panel(
+                f"[bold cyan]{comp.name}[/bold cyan]{weapon_tag}\n"
+                f"[red]HP:[/red] {c_hp_bar} [dim]{c_hp_pct}%[/]\n"
+                f"[blue]MP:[/blue] {c_mp_bar} [dim]{c_mp_pct}%[/]",
+                border_style="cyan",
+                padding=(0, 1),
+            )
+        else:
+            comp_block = Panel(
+                f"[dim]{comp.name}[/dim]\n"
+                f"[bold red]💀 KO[/bold red]\n"
+                f"[dim]Necesita ser revivido[/dim]",
+                border_style="dim",
+                padding=(0, 1),
+            )
+        ally_blocks.append(comp_block)
+
+    # ── Bloque del jugador ───────────────────────────────────────────────────
     p_hp_bar, p_hp_pct = create_status_bar(player.Health, player.Health_max, "green")
     p_mp_bar, p_mp_pct = create_status_bar(player.Mana, player.Mana_max, "blue")
-    e_hp_bar, e_hp_pct = create_status_bar(enemy.HP, enemy.HP_M, "red")
-    e_mp_bar, e_mp_pct = create_status_bar(enemy.MP, enemy.MP_M, "blue")
-
     player_block = Panel(
         f"[bold]{player.name}[/]\n"
         f"[red]HP:[/red] {p_hp_bar} [dim]{p_hp_pct}%[/]\n"
@@ -271,6 +299,11 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
         border_style="success",
         padding=(0, 1),
     )
+    ally_blocks.append(player_block)
+
+    # ── Bloque del enemigo ───────────────────────────────────────────────────
+    e_hp_bar, e_hp_pct = create_status_bar(enemy.HP, enemy.HP_M, "red")
+    e_mp_bar, e_mp_pct = create_status_bar(enemy.MP, enemy.MP_M, "blue")
     enemy_block = Panel(
         f"[bold red]{enemy.NAME}[/bold red]\n"
         f"[red]HP:[/red] {e_hp_bar} [dim]{e_hp_pct}%[/]\n"
@@ -279,7 +312,7 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
         padding=(0, 1),
     )
 
-    top = Columns([player_block, enemy_block], equal=True, expand=True)
+    top = Columns(ally_blocks + [enemy_block], equal=True, expand=True)
 
     actions = Table(show_header=False, box=None, padding=(0, 2))
     actions.add_column("Opción", style="bright_white")
@@ -393,15 +426,17 @@ def display_main_menu() -> int:
         (1, "Inspeccionar las zonas"),
         (2, "Ir a una zona"),
         (3, "Tienda"),
-        (4, "Inventario"),
-        (5, "Usar objetos consumibles"),
-        (6, "Gestión de Equipamiento"),
+        (4, "Inventario Universal"),
         (7, "Acciones de Zona"),
         (8, "Mirar Stats"),
         (9, "Gestión de Mods"),
         (10, "Ver Items Disponibles"),
         (11, "Guardar"),
         (12, "DEBUG"),
+        (13, "Compañeros"),
+        (14, "Árbol de Habilidades"),
+        (15, "Mesa de Encantamientos"),
+        (16, "Yunque de Crafteo"),
         (0, "Salir del juego"),
     ]
     return interactive_menu_select(
@@ -468,12 +503,15 @@ def run_zone_gathering(zone_key: str) -> bool:
             console.print("[warning]No hay IDs de materiales validos en esta zona.[/warning]")
             return False
 
-        all_items = Read(os.path.join("Data", "DataItems.json"), None, None)
-        materials_table = all_items.get("TYPE:Materials", {}) if isinstance(all_items, dict) else {}
+        from Modules.ItemManager import get_item_manager
+        item_manager_inst = get_item_manager()
+        materials_table = item_manager_inst.items_data.get("TYPE:Materials", {})
 
         candidates = []
         for material_data in materials_table.values():
-            if material_data.get("MATERIAL_ID") in material_ids:
+            # Algunos mods podrían inyectar items con STATIC_ID, otros con MATERIAL_ID
+            mat_id = material_data.get("MATERIAL_ID", material_data.get("STATIC_ID"))
+            if mat_id in material_ids:
                 candidates.append(material_data)
 
         if not candidates:
@@ -481,15 +519,16 @@ def run_zone_gathering(zone_key: str) -> bool:
             return False
 
         selected_data = random.choice(candidates)
-        material_obj = cMaterial(
-            MATERIAL_ID=selected_data.get("MATERIAL_ID"),
-            TypeStr=selected_data.get("Material_Type", "Unknown"),
-            Name=selected_data.get("Name", "Material"),
-            Hardness=selected_data.get("Hardness", 10),
-            SkillName=selected_data.get("SkillName", "mining"),
+        # Usar el ItemManager para instanciar el material correctamente, o hacerlo manual
+        mat_id = selected_data.get("MATERIAL_ID", selected_data.get("STATIC_ID"))
+        material_obj = item_manager_inst.create_item_object(
+            item_id=mat_id, cMaterial=cMaterial
         )
+        if not material_obj:
+            console.print("[danger]Error instanciando el material.[/danger]")
+            return False
+            
         material_obj.ID = material_obj.MATERIAL_ID
-        material_obj.MaxStack = selected_data.get("MaxStack", 99)
         material_obj.name = material_obj.Name
 
         console.print(f"[info]Iniciando recolección de [bold]{material_obj.Name}[/bold]...[/info]")
@@ -509,7 +548,7 @@ def run_zone_gathering(zone_key: str) -> bool:
 
 def main():
     """Main game loop function that handles player actions and game state"""
-    global chosen_area, tick, enemy, player, current_state, item_manager, shop_manager
+    global chosen_area, tick, enemy, player, item_manager, shop_manager
 
     # Apply automatic regeneration and check inventory
     player.Check(vInventory)
@@ -738,7 +777,6 @@ def main():
         )
         wait_for_enter()
          
-    # ===================================
 
     elif main_input == 4:
         
@@ -753,92 +791,91 @@ def main():
         wait_for_enter()
          
 
-    elif main_input == 5:
-        # Usar objetos consumibles
-        
-        console.print(Panel("Usar Objetos Consumibles", style="menu_title"))
-
-        try:
-            # Mostrar solo objetos consumibles/usables
-            usable_items = []
-
-            for i, item in enumerate(vInventory.Objects):
-                if isinstance(item, cObject) or (
-                    hasattr(item, "isUsable") and item.isUsable
-                ):
-                    usable_items.append((i, item))
-
-            if not usable_items:
-                console.print(
-                    "[warning]No tienes objetos consumibles en el inventario.[/warning]"
-                )
-            else:
-                options = [(0, "Cancelar")]
-                for idx, (_, item) in enumerate(usable_items, 1):
-                    item_name = item.Name if hasattr(item, "Name") else item.name
-                    options.append((idx, item_name))
-                choice = interactive_menu_select(
-                    title="Objetos Consumibles",
-                    subtitle="Selecciona un objeto para usar",
-                    options=options,
-                    prompt="Objeto: ",
-                    default_value=1 if len(options) > 1 else 0,
-                    border_style="yellow",
-                )
-
-                if choice > 0:
-                    selected_item = usable_items[choice - 1][1]
-
-                    # Usar el objeto
-                    if hasattr(selected_item, "use"):
-                        selected_item.use(player)
-                        console.print(
-                            f"[success]Has usado {selected_item.Name if hasattr(selected_item, 'Name') else selected_item.name}[/success]"
-                        )
-                    elif hasattr(selected_item, "HealthRestore"):
-                        player.Health = min(
-                            player.Health + selected_item.HealthRestore,
-                            player.Health_max,
-                        )
-                        console.print(
-                            f"[success]Restauraste {selected_item.HealthRestore} HP![/success]"
-                        )
-                    if (
-                        hasattr(selected_item, "ManaRestore")
-                        and selected_item.ManaRestore > 0
-                    ):
-                        player.Mana = min(
-                            player.Mana + selected_item.ManaRestore, player.Mana_max
-                        )
-                        console.print(
-                            f"[success]Restauraste {selected_item.ManaRestore} MP![/success]"
-                        )
-
-                    # Remover del inventario (1 unidad)
-                    vInventory.remove_item(selected_item, 1)
-                else:
-                    console.print("[info]Cancelado.[/info]")
-
-        except Exception as e:
-            console.print(f"[danger]Error al usar objeto: {str(e)}[/danger]")
-
-        console.print(
-            "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
-        )
-        wait_for_enter()
-
-    elif main_input == 6:
+    elif main_input == 5 or main_input == 6:
+            pass
+            
+    elif main_input == 8:
+        os.system("cls" if os.name == "nt" else "clear")
         console.clear()
 
-        try:
-            equip_menu(player, vInventory)
-        except Exception as e:
-            console.print(
-                f"[danger]Error en gestión de equipamiento: {str(e)}[/danger]"
-            )
+        # ── Defensas ──
+        def_names = ["Física", "Térmica", "Tierra", "Eléctrica", "Profunda"]
+        def_str = " | ".join([f"{name}: {player.DEF[i]}" for i, name in enumerate(def_names) if player.DEF[i] > 0])
+        if not def_str:
+            def_str = "Ninguna"
 
-         
-    # ===============================================
+        # ── Bloqueo % formateado ──
+        block_parts = []
+        for i, name in enumerate(def_names):
+            val = player.DefensePercentage[i] if isinstance(player.DefensePercentage, list) else 0
+            if val > 0:
+                block_parts.append(f"{name}: {val:.1f}%")
+        block_str = " | ".join(block_parts) if block_parts else "0%"
+
+        # ── Arma equipada ──
+        weapon_name = "Puños (sin arma)"
+        if player.weapon:
+            weapon_name = getattr(player.weapon, "name", getattr(player.weapon, "Name", "???"))
+
+        # ── Armadura equipada ──
+        armor_parts = []
+        for slot_name, slot_label in [("helmet", "Casco"), ("armor", "Armadura"), ("boots", "Botas"),
+                                       ("ring", "Anillo 1"), ("ring2", "Anillo 2"), ("ring3", "Anillo 3")]:
+            eq = getattr(player, slot_name, None)
+            if eq:
+                eq_name = getattr(eq, "name", getattr(eq, "Name", "???"))
+                armor_parts.append(f"  {slot_label}: [bright_white]{eq_name}[/]")
+        armor_str = "\n".join(armor_parts) if armor_parts else "  [dim]Nada equipado[/]"
+
+        # ── Compañeros ──
+        companion_parts = []
+        for comp in getattr(player, "companion", []):
+            comp_name = getattr(comp, "name", getattr(comp, "Name", "???"))
+            comp_class = getattr(comp, "companion_class", "?")
+            comp_hp = getattr(comp, "Health", 0)
+            comp_hp_max = getattr(comp, "Health_max", 0)
+            alive = "💚" if getattr(comp, "is_alive", True) else "💀"
+            companion_parts.append(f"  {alive} {comp_name} ({comp_class}) - HP: {comp_hp}/{comp_hp_max}")
+        companion_str = "\n".join(companion_parts) if companion_parts else "  [dim]Ninguno[/]"
+
+        # ── Buffs activos ──
+        buff_parts = []
+        for buff in getattr(player, "appliedbuffs", []):
+            bname = getattr(buff, "Name", getattr(buff, "name", "???"))
+            buff_parts.append(f"  ▲ [green]{bname}[/]")
+        for debuff in getattr(player, "applieddebuffs", []):
+            dname = getattr(debuff, "Name", getattr(debuff, "name", "???"))
+            buff_parts.append(f"  ▼ [red]{dname}[/]")
+        buffs_str = "\n".join(buff_parts) if buff_parts else "  [dim]Ninguno[/]"
+
+        # ── EXP bar ──
+        exp_pct = (player.EXP / player.EXP_M * 100) if player.EXP_M > 0 else 0
+        exp_bar_len = min(int(exp_pct / 100 * 20), 20)
+        exp_bar = "█" * exp_bar_len + "░" * (20 - exp_bar_len)
+
+        stats_text = (
+            f"[bold yellow]━━━ Atributos Principales ━━━[/]\n"
+            f"[bold red]♥ HP:[/] {player.Health:.0f}/{player.Health_max:.0f}\n"
+            f"[bold blue]♦ MP:[/] {player.Mana:.0f}/{player.Mana_max:.0f}  [dim](Regen: +{player.ManaRegen:.1f}/turno)[/]\n"
+            f"[bold yellow]⭐ Nivel:[/] {player.Level}   [dim]Puntos sin gastar: {player.lvlPoints}[/]\n"
+            f"[green]⚡ EXP:[/] {exp_bar}  {int(player.EXP)}/{int(player.EXP_M)} ({exp_pct:.1f}%)\n"
+            f"[gold1]💰 Oro:[/] {int(player.Gold):,}\n"
+            f"\n[bold cyan]━━━ Combate ━━━[/]\n"
+            f"[purple]🗡️ Arma:[/] {weapon_name}\n"
+            f"[cyan]🛡️ Defensa Plana:[/] {def_str}\n"
+            f"[cyan]🛡️ Bloqueo %:[/] {block_str}\n"
+            f"[cyan]🏃 Evasión:[/] {player.Evasion}%\n"
+            f"[cyan]⚔️ Contra-ataque:[/] {player.CounterAttack}%\n"
+            f"\n[bold bright_magenta]━━━ Equipamiento ━━━[/]\n"
+            f"{armor_str}\n"
+            f"\n[bold bright_green]━━━ Compañeros ━━━[/]\n"
+            f"{companion_str}\n"
+            f"\n[bold bright_yellow]━━━ Efectos Activos ━━━[/]\n"
+            f"{buffs_str}"
+        )
+
+        console.print(Panel(stats_text, title=f"[bold]📋 Estado del Jugador: {player.name}[/]", border_style="cyan", padding=(1, 2)))
+        wait_for_enter()
 
     elif main_input == 7:
         if chosen_area is None:
@@ -888,7 +925,7 @@ def main():
                         subtitle="Selecciona tu acción",
                         options=[
                             (1, "Atacar"),
-                            (2, "Usar objeto"),
+                            (2, "Abrir Inventario"),
                             (3, "Intentar huir"),
                         ],
                         prompt="Acción: ",
@@ -904,6 +941,60 @@ def main():
                             console.print(
                                 f"[success]¡Has atacado a {enemy.NAME} por {damage_dealt} puntos de daño![/success]"
                             )
+
+                        # ── Acción de los Compañeros ────────────────────────────
+                        for comp in player.companion:
+                            if comp.is_alive and enemy.HP > 0:
+                                console.print(f"\n[cyan]>> Turno de {comp.name} (Clase: {getattr(comp, 'c_class', 'Daño')}) <<[/cyan]")
+                                sp.sleep(0.5)
+                                c_opts = [(1, "Atacar")]
+                                c_class = getattr(comp, 'c_class', 'Daño')
+                                
+                                if c_class == "Curandero":
+                                    c_opts.extend([(2, "Curar al jugador (+20% MAX HP)"), (3, "Curar a todo el equipo (+15% MAX HP)")])
+                                elif c_class == "Soporte":
+                                    c_opts.append((2, f"Debilitar a {enemy.NAME} (Debuff/Defesa -10%)"))
+                                
+                                c_action = interactive_menu_select(
+                                    title=f"Acción de {comp.name}",
+                                    subtitle="Selecciona habilidad:",
+                                    options=c_opts,
+                                    prompt="Acción: ",
+                                    default_value=1,
+                                    border_style="cyan"
+                                )
+                                
+                                if c_action == 1:
+                                    comp.attack(enemy)
+                                    
+                                elif c_action == 2 and c_class == "Curandero":
+                                    cura = player.Health_max * 0.20
+                                    player.Health = min(player.Health_max, player.Health + cura)
+                                    console.print(f"[success]{comp.name} usó magia sagrada curando a {player.name} por {cura:.1f} HP![/success]")
+                                    
+                                elif c_action == 3 and c_class == "Curandero":
+                                    cura_p = player.Health_max * 0.15
+                                    player.Health = min(player.Health_max, player.Health + cura_p)
+                                    for c in player.companion:
+                                        if c.is_alive:
+                                            c.Health = min(c.Health_max, c.Health + c.Health_max * 0.15)
+                                    console.print(f"[success]{comp.name} emanó un aura sanadora, curando a todo el equipo.[/success]")
+                                    
+                                elif c_action == 2 and c_class == "Soporte":
+                                    from Modules.BuffManager import get_buff_manager
+                                    bm = get_buff_manager()
+                                    # Intentar aplicar debuff 5_debuff u otro
+                                    debuff = bm.create_buff("5_debuff", "companion_skill")
+                                    if not debuff:
+                                        # Generic fallback
+                                        enemy.DEF = [max(0, d * 0.9) for d in enemy.DEF]
+                                        console.print(f"[warning]{comp.name} lanzó una maldición, bajando un 10% las defensas de {enemy.NAME}.[/warning]")
+                                    else:
+                                        if not hasattr(enemy, 'active_buffs'): enemy.active_buffs = []
+                                        enemy.active_buffs.append(debuff)
+                                        console.print(f"[warning]{comp.name} aplicó {debuff.name} a {enemy.NAME}![/warning]")
+
+                        # ── ¿Murió el enemigo? ────────────────────────────────
                         if enemy.HP <= 0:
                             console.print(f"[success]¡Has derrotado a {enemy.NAME}![/success]")
                             exp_gain = enemy.EXP_TO_PLAYER
@@ -948,82 +1039,45 @@ def main():
                             combat_active = False
                             break
 
+                        # ── Turno del enemigo: elige objetivo aleatorio ────────
                         console.print("\n[bold]¡Turno del enemigo![/bold]")
                         sp.sleep(2.5)
-                        damage_taken = enemy.attack(player)
-                        if damage_taken is not None:
+
+                        alive_companions = [c for c in player.companion if c.is_alive]
+                        possible_targets = [player] + alive_companions
+                        attack_target = random.choice(possible_targets)
+
+                        damage_taken = enemy.attack(attack_target)
+
+                        if attack_target is player:
+                            if damage_taken is not None:
+                                console.print(
+                                    f"[danger]{enemy.NAME} te ataca a ti por {damage_taken:.1f} puntos de daño![/danger]"
+                                )
+                            if player.Health <= 0:
+                                console.print(
+                                    f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
+                                )
+                                console.print("[danger]Game Over[/danger]")
+                                player.Health = max(1, int(player.Health_max * 0.1))
+                                player.Gold = max(1, (player.Gold - (player.Health * 0.6)))
+                                combat_active = False
+                                break
+                        else:
+                            # El enemigo atacó a un compañero
                             console.print(
-                                f"[danger]{enemy.NAME} te ha atacado por {damage_taken} puntos de daño![/danger]"
+                                f"[danger]{enemy.NAME} ataca a {attack_target.name} por {damage_taken:.1f} puntos de daño![/danger]"
                             )
-                        if player.Health <= 0:
-                            console.print(
-                                f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
-                            )
-                            console.print("[danger]Game Over[/danger]")
-                            player.Health = max(1, int(player.Health_max * 0.1))
-                            player.Gold = max(1, (player.Gold - (player.Health * 0.6)))
-                            combat_active = False
-                            break
+                            if not attack_target.is_alive:
+                                console.print(
+                                    f"[bold red]💀 {attack_target.name} ha caído en combate! "
+                                    f"Puedes revivirlo con {COMPANION_REVIVAL_GOLD_COST} oro o un ítem de resurrección.[/bold red]"
+                                )
 
                     elif combat_action == 2:
-                        console.print("[info]Inventario:[/info]")
-                        usable_items = []
-                        for i, item in enumerate(vInventory.Objects):
-                            if hasattr(item, "isUsable") and item.isUsable:
-                                usable_items.append(item)
-                                console.print(f"[{i + 1}] {item.Name}")
-                        if not usable_items:
-                            console.print("[warning]No tienes objetos utilizables.[/warning]")
-                            sp.sleep(2)
-                            continue
-                        valid_items = list(range(1, len(usable_items) + 1))
-                        item_options = [(0, "Cancelar")]
-                        for i, it in enumerate(usable_items, 1):
-                            item_options.append((i, getattr(it, "Name", getattr(it, "name", "Objeto"))))
-                        item_choice = interactive_menu_select(
-                            title="Usar objeto",
-                            subtitle="Selecciona un consumible",
-                            options=item_options,
-                            prompt="Objeto: ",
-                            default_value=1 if len(item_options) > 1 else 0,
-                            border_style="yellow",
-                        )
-                        if item_choice == 0:
-                            console.print("[info]Cancelando uso de objeto...[/info]")
-                            continue
-                        selected_item = usable_items[item_choice - 1]
-                        if hasattr(selected_item, "use"):
-                            selected_item.use(player)
-                        elif hasattr(selected_item, "HealthRestore"):
-                            player.Health = min(
-                                player.Health + getattr(selected_item, "HealthRestore", 0),
-                                player.Health_max,
-                            )
-                        if (
-                            hasattr(selected_item, "ManaRestore")
-                            and getattr(selected_item, "ManaRestore", 0) > 0
-                        ):
-                            player.Mana = min(
-                                player.Mana + selected_item.ManaRestore, player.Mana_max
-                            )
-                        vInventory.remove_item(selected_item, 1)
-                        console.print(
-                            f"[success]Has usado {getattr(selected_item, 'Name', getattr(selected_item, 'name', 'objeto'))}[/success]"
-                        )
-                        console.print("\n[bold]¡Turno del enemigo![/bold]")
-                        sp.sleep(1)
-                        damage_taken = enemy.attack(player)
-                        console.print(
-                            f"[danger]{enemy.NAME} te ha atacado por {damage_taken} puntos de daño![/danger]"
-                        )
-                        if player.Health <= 0:
-                            console.print(
-                                f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
-                            )
-                            console.print("[danger]Game Over[/danger]")
-                            player.Health = max(1, int(player.Health_max * 0.1))
-                            combat_active = False
-                            break
+                        open_inventory_menu(vInventory, player)
+                        console.print("[info]Has revisado tu inventario.[/info]")
+                        # In this rewrite we don't automatically make the enemy attack after viewing inventory so the player can actually equip or check items safely.
 
                     elif combat_action == 3:
                         flee_chance = CONFIG["COMBAT"]["CHANCE_TO_FLEE"]
@@ -1195,6 +1249,12 @@ def main():
         )
         console.print(stats_panel)
 
+        if player.lvlPoints > 0:
+            console.print(f"\n[bold #FFFF99]¡Tienes {player.lvlPoints} Puntos de Habilidad disponibles![/]")
+            assign = interactive_menu_select("Puntos de Habilidad", "¿Deseas gastarlos ahora?", [(1, "Sí, asignar puntos"), (0, "No, en otro momento")], "Opción: ", 0, "yellow")
+            if assign == 1:
+                player.Points()
+
         # Wait for user input to continue
         console.print(
             "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
@@ -1288,13 +1348,35 @@ def main():
         if save_response == "s" or save_response == "si":
             save_game()
 
+    elif main_input == 13:
+        # ── Gestión de compañeros ────────────────────────────────────────────
+        try:
+            companion_management_menu(
+                player, vInventory, console,
+                interactive_menu_select, wait_for_enter
+            )
+        except Exception as e:
+            console.print(f"[danger]Error en gestión de compañeros: {e}[/danger]")
+
+    elif main_input == 14:
+        player.Points()
+
+    elif main_input == 15:
+        from Modules.EnchantmentSystem import open_enchantment_menu
+        open_enchantment_menu(player, vInventory)
+
+    elif main_input == 16:
+        from Modules.CraftingSystem import open_crafting_menu
+        open_crafting_menu(player, vInventory)
+
     elif main_input == 12:
         debug_input = int(
             input("""DEBUG: 
                   [1] ARMAS
                   [2] GOLD Y EXP
                   [3] Mastery & Gathering
-                  [4] LOOK Variables""")
+                  [4] LOOK Variables
+                  [5] AÑADIR COMPAÑERO DE PRUEBA""")
         )
         if debug_input == 1:
             vInventory.addObject(load_item_by_id(3, cWeapon, cEquippableItems, cObject, cTool))
@@ -1316,11 +1398,27 @@ def main():
                 inventory=vInventory,
                 mod_loader=get_mod_loader(),
                 mod_api=None,
-                current_state=current_state,
+                current_state=None,
                 chosen_area=chosen_area,
             )
             console.print(Panel(debug_text, title="Debug Variables", border_style="magenta"))
             app_logger.debug("Debug snapshot requested from in-game debug menu.")
+            wait_for_enter()
+        elif debug_input == 5:
+            # Añadir compañero de prueba
+            test_comp = cCompanion(
+                companion_id="lyra",
+                name="Lyra",
+                health_max=75,
+                mana_max=50,
+            )
+            # Darle un arma básica si hay en el inventario
+            for slot in vInventory.slots:
+                if isinstance(slot.item, cWeapon):
+                    test_comp.equip_weapon(slot.item)
+                    break
+            player.companion.append(test_comp)
+            console.print(f"[success]Compañero de prueba '{test_comp.name}' añadido.[/success]")
             wait_for_enter()
 
 
@@ -1410,7 +1508,6 @@ def load_game() -> bool:
         console.print(f"[danger]Error al cargar la partida: {str(e)}[/danger]")
         return False
 
-console = Console()
 
 def init_game():
     global item_manager, shop_manager
@@ -1427,7 +1524,7 @@ def init_game():
 
         if response == "s" or response == "si":
             load_game()
-    wait_for_enter()
+            
     resultados = []
 
 # Main Execution

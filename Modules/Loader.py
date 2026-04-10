@@ -57,6 +57,8 @@ def Read(FilePath, Object, Content=None, Values=None):
                     return _handle_saves(data, Object, Content)
                 elif "databuffs.json" in filename:
                     return _handle_buffs(data, Object, Content)
+                elif "datacompanions.json" in filename:
+                    return _handle_companions(data, Object, Content)
                 else:
                     # Generic handling for other JSON files
                     return _handle_generic_json(data, Object, Content)
@@ -281,6 +283,46 @@ def _handle_buffs(data, Object, Content):
             logger.warning(f"'{Object}' not found")
             return {}
 
+def _handle_companions(data, Object, Content):
+    """
+    Handle DataCompanions.json structure.
+
+    Usage examples:
+        Read(path, "COMPANIONS", None)          → dict with all companions
+        Read(path, "COMPANIONS", "lyra")        → single companion dict
+        Read(path, "lyra", None)                → single companion dict (shorthand)
+
+    Args:
+        data:    The loaded JSON data
+        Object:  "COMPANIONS" or a direct companion ID
+        Content: Specific companion ID (when Object == "COMPANIONS") or None
+    """
+    # Shorthand: Read(path, "lyra", None) → look inside COMPANIONS directly
+    if Object != "COMPANIONS" and "COMPANIONS" in data:
+        companion_dict = data["COMPANIONS"]
+        if Object in companion_dict:
+            return companion_dict[Object]
+        else:
+            console.print(f"[yellow]Warning:[/] Companion '{Object}' not found in COMPANIONS")
+            logger.warning(f"Companion '{Object}' not found in COMPANIONS")
+            return {}
+
+    # Standard: Object == "COMPANIONS"
+    companions = data.get("COMPANIONS", {})
+
+    if Content is None:
+        # Return the full companions dict
+        return companions
+    else:
+        # Return a single companion by ID
+        if Content in companions:
+            return companions[Content]
+        else:
+            console.print(f"[yellow]Warning:[/] Companion '{Content}' not found")
+            logger.warning(f"Companion '{Content}' not found")
+            return {}
+
+
 def _handle_generic_json_old(data, Object, Content):
     """
     Generic handler for other JSON files.
@@ -372,6 +414,8 @@ def Write(FilePath, Object=None, Content=None, ToWrite=None, isplaintext=False):
                     _write_saves(data, Object, Content, ToWrite)
                 elif "databuffs.json" in filename:
                     _write_buffs(data, Object, Content, ToWrite)
+                elif "datacompanions.json" in filename:
+                    _write_generic_json(data, Object, Content, ToWrite)
                 else:
                     # Default handling for generic JSON
                     _write_generic_json(data, Object, Content, ToWrite)
