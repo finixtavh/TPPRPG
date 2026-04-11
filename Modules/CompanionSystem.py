@@ -128,6 +128,7 @@ class cCompanion:
         self.AGI: float = float(agi)
         self.DefensePercentage: List[float] = [0.0, 0.0, 0.0, 0.0, 0.0]
         self.ManaRegen: float = float(mana_regen)
+        self.Barrier: float = 0  # Barrera: absorbe daño bruto, sin resistencias
 
         # ── Equipamiento ─────────────────────────────────────────────────────
         self._default_weapon = _DefaultWeapon(default_weapon_data) if default_weapon_data else None
@@ -248,7 +249,33 @@ class cCompanion:
             return
         if not isinstance(damage, (list, tuple)):
             damage = [float(damage), 0, 0, 0, 0]
-        self.Health = max(0.0, self.Health - sum(damage))
+
+        raw_total = sum(damage)
+
+        # ── Barrera absorbe daño bruto (sin resistencias) ──
+        if self.Barrier > 0:
+            if raw_total <= self.Barrier:
+                self.Barrier -= raw_total
+                return  # Barrera absorbió todo
+            else:
+                absorbed = self.Barrier
+                self.Barrier = 0
+                if raw_total > 0:
+                    ratio = (raw_total - absorbed) / raw_total
+                    damage = [d * ratio for d in damage]
+
+        # ── Aplicar defensas al daño restante ──
+        final_damage = 0.0
+        for i in range(min(len(damage), 5)):
+            if damage[i] > 0:
+                comp_def = self.DEF[i] if i < len(self.DEF) else 0
+                remaining = max(0, damage[i] - (comp_def / 2))
+                block_ratio = 0.0
+                if i < len(self.DefensePercentage):
+                    block_ratio = min(1.0, self.DefensePercentage[i] / 100.0)
+                final_damage += remaining * (1.0 - block_ratio)
+
+        self.Health = max(0.0, self.Health - final_damage)
         if self.Health <= 0:
             self.is_alive = False
 

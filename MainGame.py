@@ -191,19 +191,24 @@ def display_player_status() -> None:
     )
     header.add_row(left, right)
 
-    # Barras HP / MP
-    health_bar, health_percent = create_status_bar(
-        player.Health, player.Health_max, "red"
-    )
+    # Barras HP (con barrera) / MP
+    if player.Barrier >= 0:
+        health_bar, health_percent = create_hp_barrier_bar(
+            player.Health, player.Health_max, player.Barrier
+        )
+    else:
+        health_bar, health_percent = create_status_bar(
+            player.Health, player.Health_max, "red"
+        )
     mana_bar, mana_percent = create_status_bar(player.Mana, player.Mana_max, "blue")
 
     bars = Table.grid(padding=(0, 1))
     bars.add_column()
-    bars.add_row(
-        Text.from_markup(
-            f"[bold red]HP:[/bold red] {health_bar} [dim]{health_percent}%[/]"
-        )
-    )
+    
+    hp_label = f"[bold red]HP:[/bold red] {health_bar} [dim]{health_percent}%[/]"
+    if player.Barrier > 0:
+        hp_label += f" [bright_cyan]+{int(player.Barrier)} 🛡️[/bright_cyan]"    
+    bars.add_row(Text.from_markup(hp_label))
     bars.add_row(
         Text.from_markup(
             f"[bold blue]MP:[/bold blue] {mana_bar} [dim]{mana_percent}%[/]"
@@ -260,6 +265,51 @@ def create_status_bar(
     return bar, percentage
 
 
+def create_hp_barrier_bar(
+    health: float, health_max: float, barrier: float, _unused=None
+) -> Tuple[str, int]:
+    """
+    Create an HP bar with a bright_cyan barrier overlay (like League of Legends shields).
+
+    Visual: [CYAN_barrier | GREEN_hp | EMPTY]
+    The barrier overlays from the LEFT of the bar, covering HP.
+    Barrier is proportional to health_max.
+
+    Returns:
+        Tuple of (bar_string, health_percentage)
+    """
+    health = min(health, health_max)
+    if health_max <= 0:
+        health_max = 1
+    barrier = max(0, barrier)
+
+    bar_length = CONFIG["DISPLAY"]["BAR_LENGTH"]
+
+    health_pct = health / health_max
+    barrier_pct = barrier / health_max
+
+    health_cells = int(bar_length * health_pct)
+    barrier_cells = int(bar_length * barrier_pct)
+
+    # Total filled = health + barrier (barrier extends beyond current HP)
+    total_filled = min(health_cells + barrier_cells, bar_length)
+
+    # Barrier overlays FROM THE LEFT, on top of HP
+    barrier_shown = min(barrier_cells, total_filled)
+    health_shown = total_filled - barrier_shown
+    empty = bar_length - total_filled
+
+    bar = (
+        "["
+        + f"[bright_cyan]#[/bright_cyan]" * barrier_shown
+        + f"[green]#[/green]" * health_shown
+        + "-" * empty
+        + "]"
+    )
+    percentage = int(health_pct * 100)
+    return bar, percentage
+
+
 def render_combat_menu(player, enemy, combat_round: int) -> None:
     """UI de combate con soporte de compañeros: [comp…] [jugador] vs [enemigo]."""
     header = Text.from_markup(f"[bold]Combate - Ronda {combat_round}[/]")
@@ -269,12 +319,18 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
 
     for comp in player.companion:
         if comp.is_alive:
-            c_hp_bar, c_hp_pct = create_status_bar(comp.Health, comp.Health_max, "green")
+            comp_barrier = getattr(comp, "Barrier", 0)
+            if comp_barrier > 0:
+                c_hp_bar, c_hp_pct = create_hp_barrier_bar(comp.Health, comp.Health_max, comp_barrier)
+                barrier_line = f"\n[bright_cyan]🛡️ Barrera: {int(comp_barrier)}[/bright_cyan]"
+            else:
+                c_hp_bar, c_hp_pct = create_status_bar(comp.Health, comp.Health_max, "green")
+                barrier_line = ""
             c_mp_bar, c_mp_pct = create_status_bar(comp.Mana, comp.Mana_max, "blue")
             weapon_tag = f" [{comp.weapon.name}]" if comp.weapon else ""
             comp_block = Panel(
                 f"[bold cyan]{comp.name}[/bold cyan]{weapon_tag}\n"
-                f"[red]HP:[/red] {c_hp_bar} [dim]{c_hp_pct}%[/]\n"
+                f"[red]HP:[/red] {c_hp_bar} [dim]{c_hp_pct}%[/]{barrier_line}\n"
                 f"[blue]MP:[/blue] {c_mp_bar} [dim]{c_mp_pct}%[/]",
                 border_style="cyan",
                 padding=(0, 1),
@@ -290,11 +346,18 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
         ally_blocks.append(comp_block)
 
     # ── Bloque del jugador ───────────────────────────────────────────────────
-    p_hp_bar, p_hp_pct = create_status_bar(player.Health, player.Health_max, "green")
+    if player.Barrier > 0:
+        p_hp_bar, p_hp_pct = create_hp_barrier_bar(
+            player.Health, player.Health_max, player.Barrier
+        )
+        barrier_text = f"\n[bright_cyan]🛡️ Barrera: {int(player.Barrier)}[/bright_cyan]"
+    else:
+        p_hp_bar, p_hp_pct = create_status_bar(player.Health, player.Health_max, "green")
+        barrier_text = ""
     p_mp_bar, p_mp_pct = create_status_bar(player.Mana, player.Mana_max, "blue")
     player_block = Panel(
         f"[bold]{player.name}[/]\n"
-        f"[red]HP:[/red] {p_hp_bar} [dim]{p_hp_pct}%[/]\n"
+        f"[red]HP:[/red] {p_hp_bar} [dim]{p_hp_pct}%[/]{barrier_text}\n"
         f"[blue]MP:[/blue] {p_mp_bar} [dim]{p_mp_pct}%[/]",
         border_style="success",
         padding=(0, 1),
@@ -864,6 +927,7 @@ def main():
             f"[purple]🗡️ Arma:[/] {weapon_name}\n"
             f"[cyan]🛡️ Defensa Plana:[/] {def_str}\n"
             f"[cyan]🛡️ Bloqueo %:[/] {block_str}\n"
+            f"[bright_cyan]🛡️ Barrera:[/] {int(player.Barrier)} [dim](Se regenera al iniciar combate)[/]\n"
             f"[cyan]🏃 Evasión:[/] {player.Evasion}%\n"
             f"[cyan]⚔️ Contra-ataque:[/] {player.CounterAttack}%\n"
             f"\n[bold bright_magenta]━━━ Equipamiento ━━━[/]\n"
@@ -911,6 +975,12 @@ def main():
 
                 combat_round = 1
                 combat_active = True
+
+                # ── Regenerar barrera al inicio del combate ──
+                # Los buffs/habilidades definen player.Barrier; aquí se
+                # restaura al valor que tengan otorgado.
+                # La barrera la setean los buffs/skills antes del combate.
+
                 while combat_active:
                     render_combat_menu(player, enemy, combat_round)
                     player_debuffs = apply_debuffs(player)
@@ -1111,9 +1181,16 @@ def main():
                             break
 
                     print("\n")
-                    player_hp_bar, player_hp_percent = create_status_bar(
-                        player.Health, player.Health_max, "green", True
-                    )
+                    if player.Barrier > 0:
+                        player_hp_bar, player_hp_percent = create_hp_barrier_bar(
+                            player.Health, player.Health_max, player.Barrier
+                        )
+                        barrier_tag = f" [bright_cyan]+{int(player.Barrier)}🛡️[/bright_cyan]"
+                    else:
+                        player_hp_bar, player_hp_percent = create_status_bar(
+                            player.Health, player.Health_max, "green", True
+                        )
+                        barrier_tag = ""
                     player_mp_bar, player_mp_percent = create_status_bar(
                         player.Mana, player.Mana_max, "blue", True
                     )
@@ -1129,7 +1206,7 @@ def main():
                     status_table.add_column("MP", style="bright_white")
                     status_table.add_row(
                         f"[bold]{player.name}[/bold]",
-                        f"{player_hp_bar} {player_hp_percent}%",
+                        f"{player_hp_bar} {player_hp_percent}%{barrier_tag}",
                         f"{player_mp_bar} {player_mp_percent}%",
                     )
                     status_table.add_row(
@@ -1322,7 +1399,7 @@ def main():
             wait_for_enter()
 
 
-    # ===== NUEVA OPCIÓN: VER ITEMS DISPONIBLES =====
+
     elif main_input == 10:
         console.clear()
         console.print(Panel("Items Disponibles en el Juego", style="menu_title"))
@@ -1340,7 +1417,7 @@ def main():
         )
         wait_for_enter()
          
-    # ==============================================
+
 
     elif main_input == 11:
         console.print("\n[warning]¿Deseas guardar antes de salir? (s/n)[/warning]")

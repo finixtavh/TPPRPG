@@ -97,7 +97,7 @@ class cPlayer:
         self.ManaRegen = 2.5
         self.RAC = 0
         self.Control = 0
-        self.Barrier = 0
+        self.Barrier = 50
         # Gold and Experience
         self.Gold = 50
         self.EXP = 15
@@ -180,12 +180,44 @@ class cPlayer:
         Reduces player's HP based on the {damage} variable.
         Damage must be a list/tuple of 5 values
         [physical, thermal, electric, earth, deep].
+
+        Flujo de daño:
+        1. Se calcula el daño bruto total.
+        2. La BARRERA absorbe daño BRUTO (sin resistencias).
+        3. Si queda exceso, se aplican las defensas/resistencias del jugador
+           al daño restante, y el resultado impacta HP.
         """
         if not isinstance(damage, (list, tuple)):
             raise ValueError("TakeDamage requiere una lista/tupla de dano")
-        total_damage = sum(damage)
-            
-        self.Health -= total_damage
+
+        raw_total = sum(damage)
+
+        # ── Paso 1: Barrera absorbe daño bruto ──
+        if self.Barrier > 0:
+            if raw_total <= self.Barrier:
+                self.Barrier -= raw_total
+                return  # Barrera absorbió todo, 0 daño a HP
+            else:
+                # Barrera destruida, calcular porcentaje restante
+                absorbed = self.Barrier
+                self.Barrier = 0
+                # Reducir proporcionalmente cada tipo de daño
+                if raw_total > 0:
+                    ratio = (raw_total - absorbed) / raw_total
+                    damage = [d * ratio for d in damage]
+
+        # ── Paso 2: Aplicar defensas al daño restante ──
+        final_damage = 0.0
+        for i in range(min(len(damage), 5)):
+            if damage[i] > 0:
+                player_def = self.DEF[i] if i < len(self.DEF) else 0
+                remaining = max(0, damage[i] - (player_def / 2))
+                block_ratio = 0.0
+                if isinstance(self.DefensePercentage, list) and i < len(self.DefensePercentage):
+                    block_ratio = min(1.0, self.DefensePercentage[i] / 100.0)
+                final_damage += remaining * (1.0 - block_ratio)
+
+        self.Health -= final_damage
         if self.Health < 0:
             self.Health = 0
 
@@ -313,44 +345,39 @@ class cEnemy:
         self.BUFF_RECEIVED = BUFF_RECEIVED
         self.GOLD = GOLD
 
-    def attack(self, player):
-        """Attack player with multi-type damage"""
-        damage_array = [0, 0, 0, 0, 0]
+    def attack(self, target):
+        """Attack target with multi-type RAW damage.
+        La defensa la aplica el target en su propio TakeDamage."""
+        raw_damage = [0, 0, 0, 0, 0]
         damage_type_names = ["Físico", "Térmico", "Tierra", "Eléctrico", "Profundo"]
-        
-        # Calculate damage for each type
+
+        # Calculate raw damage for each type
         for i in range(5):
             if self.DMG[i] > 0:
                 if i == 4:  # Deep damage is always maximum
-                    raw_damage = self.DMG[4]
+                    raw_damage[i] = self.DMG[4]
                 else:
-                    raw_damage = random.randint(self.DMG_min[i], self.DMG[i])
-                
-                # Apply player defense
-                player_def = player.DEF[i]
-                remaining_dmg = max(0, raw_damage - (player_def / 2))
-                block_ratio = min(1.0, player.DefensePercentage[i] / 100.0)
-                damage_array[i] = remaining_dmg * (1.0 - block_ratio)
-        
-        total_damage = sum(damage_array)
-        
-        # Apply damage to player
-        player.TakeDamage(damage_array)
-        
+                    raw_damage[i] = random.randint(self.DMG_min[i], self.DMG[i])
+
+        total_raw = sum(raw_damage)
+
+        # Apply damage to target (target handles its own barrier + defense)
+        target.TakeDamage(raw_damage)
+
         # Display damage breakdown
-        print(f"\n{self.NAME} ataca a {player.name} causando {total_damage:.1f} puntos de daño!", end=" ")
-        
+        print(f"\n{self.NAME} ataca a {target.name} causando {total_raw:.1f} puntos de daño!", end=" ")
+
         damage_breakdown = []
-        for i, dmg in enumerate(damage_array):
+        for i, dmg in enumerate(raw_damage):
             if dmg > 0:
                 damage_breakdown.append(f"{damage_type_names[i]}: {dmg:.1f}")
-        
+
         if damage_breakdown:
             print(f"({', '.join(damage_breakdown)})")
         else:
             print()
-        
-        return total_damage
+
+        return total_raw
 
     def TakeDamage(self, damage):
         """
