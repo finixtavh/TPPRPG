@@ -1,0 +1,312 @@
+{
+    "BUILDINGS": {
+        "storage": {
+            "BUILDING_ID": "storage",
+            "Name": "Almacén",
+            "Icon": "🏚️",
+            "Description": "Amplía la capacidad de almacenamiento del inventario. Cada nivel otorga +5 slots adicionales.",
+            "MaxLevel": 10,
+            "PassiveEffect": "inventory_slots",
+            "PassiveValuePerLevel": 5,
+            "HasMinigame": false,
+            "Levels": {
+                "1": {
+                    "Materials": {"Madera": 10, "Piedra Caliza": 5},
+                    "GoldCost": 50,
+                    "Bonus": "+5 Slots de Inventario"
+                },
+                "2": {
+                    "Materials": {"Madera": 20, "Piedra Caliza": 15},
+                    "GoldCost": 150,
+                    "Bonus": "+10 Slots de Inventario"
+                },
+                "3": {
+                    "Materials": {"Madera": 35, "Piedra Caliza": 30, "Hierro": 5},
+                    "GoldCost": 300,
+                    "Bonus": "+15 Slots de Inventario"
+                },
+                "4": {
+                    "Materials": {"Madera": 50, "Hierro": 20},
+                    "GoldCost": 500,
+                    "Bonus": "+20 Slots de Inventario"
+                },
+                "5": {
+                    "Materials": {"Hierro": 40, "Cristal": 5},
+                    "GoldCost": 800,
+                    "Bonus": "+25 Slots de Inventario"
+                },
+                "6": {
+                    "Materials": {"Hierro": 60, "Cristal": 15},
+                    "GoldCost": 1200,
+                    "Bonus": "+30 Slots de Inventario"
+                },
+                "7": {
+                    "Materials": {"Cristal": 30, "Mineral Profundo": 10},
+                    "GoldCost": 2000,
+                    "Bonus": "+35 Slots de Inventario"
+                },
+                "8": {
+                    "Materials": {"Cristal": 50, "Mineral Profundo": 25},
+                    "GoldCost": 3000,
+                    "Bonus": "+40 Slots de Inventario"
+                },
+                "9": {
+                    "Materials": {"Mineral Profundo": 50, "Cristal": 80},
+                    "GoldCost": 5000,
+                    "Bonus": "+45 Slots de Inventario"
+                },
+                "10": {
+                    "Materials": {"Mineral Profundo": 100, "Cristal": 100},
+                    "GoldCost": 8000,
+                    "Bonus": "+50 Slots de Inventario (MÁXIMO)"
+                }
+            }
+        },
+        "weapon_training": {
+            "BUILDING_ID": "weapon_training",
+            "Name": "Campo de Entrenamiento",
+            "Icon": "⚔️",
+            "Description": "Un área para practicar el combate con armas. El minijuego aumenta el EXP de mastery de todas las armas. La EXP ganada escala con el nivel del edificio.",
+            "MaxLevel": 8,
+            "PassiveEffect": null,
+            "HasMinigame": true,
+            "MinigameType": "timing",
+            "MinigameDescription": "Presiona Enter en el momento exacto del indicador para impactar al maniquí de entrenamiento.",
+            "Levels": {
+                "1": {
+                    "Materials": {"Madera": 20, "Hierro": 5},
+                    "GoldCost": 200,
+                    "MasteryExpGain": 15,
+                    "Bonus": "+15 EXP de Mastery de Armas"
+                },
+                "2": {
+                    "Materials": {"Madera": 35, "Hierro": 15},
+                    "GoldCost": 500,
+                    "MasteryExpGain": 30,
+                    "Bonus": "+30 EXP de Mastery de Armas"
+                },
+                "3": {
+                    "Materials": {"Hierro": 30, "Piedra Caliza": 25},
+                    "GoldCost": 900,
+                    "MasteryExpGain": 50,
+                    "Bonus": "+50 EXP de Mastery de Armas"
+                },
+                "4": {
+                    "Materials": {"Hierro": 50, "Cristal": 10},
+                    "GoldCost": 1500,
+                    "MasteryExpGain": 80,
+                    "Bonus": "+80 EXP de Mastery de Armas"
+                },
+                "5": {
+                    "Materials": {"Hierro": 80, "Cristal": 25},
+                    "GoldCost": 2500,
+                    "MasteryExpGain": 120,
+                    "Bonus": "+120 EXP de Mastery de Armas"
+                },
+                "6": {
+                    "Materials": {"Cristal": 50, "Mineral Profundo": 15},
+                    "GoldCost": 4000,
+                    "MasteryExpGain": 180,
+                    "Bonus": "+180 EXP de Mastery de Armas"
+                },
+                "7": {
+                    "Materials": {"Cristal": 80, "Mineral Profundo": 35},
+                    "GoldCost": 6000,
+                    "MasteryExpGain": 250,
+                    "Bonus": "+250 EXP de Mastery de Armas"
+                },
+                "8": {
+                    "Materials": {"Mineral Profundo": 80, "Cristal": 100},
+                    "GoldCost": 10000,
+                    "MasteryExpGain": 350,
+                    "Bonus": "+350 EXP de Mastery de Armas (MÁXIMO)"
+                }
+            }
+        },
+        "armor_training": {
+            "BUILDING_ID": "armor_training",
+            "Name": "Arena de Resistencia",
+            "Icon": "🛡️",
+            "Description": "Una arena para entrenar la resistencia bajo el fuego enemigo. El minijuego aumenta el EXP de mastery de todas las armaduras.",
+            "MaxLevel": 8,
+            "PassiveEffect": null,
+            "HasMinigame": true,
+            "MinigameType": "endurance",
+            "MinigameDescription": "Sobrevive oleadas de ataques reducidos con tu armadura equipada.",
+            "Levels": {
+                "1": {
+                    "Materials": {"Piedra Caliza": 20, "Hierro": 5},
+                    "GoldCost": 200,
+                    "MasteryExpGain": 15,
+                    "Bonus": "+15 EXP de Mastery de Armaduras"
+                },
+                "2": {
+                    "Materials": {"Piedra Caliza": 35, "Hierro": 15},
+                    "GoldCost": 500,
+                    "MasteryExpGain": 30,
+                    "Bonus": "+30 EXP de Mastery de Armaduras"
+                },
+                "3": {
+                    "Materials": {"Hierro": 30, "Madera": 25},
+                    "GoldCost": 900,
+                    "MasteryExpGain": 50,
+                    "Bonus": "+50 EXP de Mastery de Armaduras"
+                },
+                "4": {
+                    "Materials": {"Hierro": 50, "Cristal": 10},
+                    "GoldCost": 1500,
+                    "MasteryExpGain": 80,
+                    "Bonus": "+80 EXP de Mastery de Armaduras"
+                },
+                "5": {
+                    "Materials": {"Hierro": 80, "Cristal": 25},
+                    "GoldCost": 2500,
+                    "MasteryExpGain": 120,
+                    "Bonus": "+120 EXP de Mastery de Armaduras"
+                },
+                "6": {
+                    "Materials": {"Cristal": 50, "Mineral Profundo": 15},
+                    "GoldCost": 4000,
+                    "MasteryExpGain": 180,
+                    "Bonus": "+180 EXP de Mastery de Armaduras"
+                },
+                "7": {
+                    "Materials": {"Cristal": 80, "Mineral Profundo": 35},
+                    "GoldCost": 6000,
+                    "MasteryExpGain": 250,
+                    "Bonus": "+250 EXP de Mastery de Armaduras"
+                },
+                "8": {
+                    "Materials": {"Mineral Profundo": 80, "Cristal": 100},
+                    "GoldCost": 10000,
+                    "MasteryExpGain": 350,
+                    "Bonus": "+350 EXP de Mastery de Armaduras (MÁXIMO)"
+                }
+            }
+        },
+        "experience_hall": {
+            "BUILDING_ID": "experience_hall",
+            "Name": "Salón de Sabiduría",
+            "Icon": "📚",
+            "Description": "Una biblioteca arcana que incrementa pasivamente TODA la EXP que gana el jugador en todas las fuentes.",
+            "MaxLevel": 10,
+            "PassiveEffect": "exp_bonus_percent",
+            "PassiveValuePerLevel": 2.5,
+            "HasMinigame": false,
+            "Levels": {
+                "1": {
+                    "Materials": {"Madera": 15, "Cristal": 3},
+                    "GoldCost": 300,
+                    "Bonus": "+2.5% EXP Global"
+                },
+                "2": {
+                    "Materials": {"Madera": 30, "Cristal": 10},
+                    "GoldCost": 700,
+                    "Bonus": "+5.0% EXP Global"
+                },
+                "3": {
+                    "Materials": {"Madera": 50, "Cristal": 20, "Hierro": 10},
+                    "GoldCost": 1200,
+                    "Bonus": "+7.5% EXP Global"
+                },
+                "4": {
+                    "Materials": {"Cristal": 35, "Hierro": 25},
+                    "GoldCost": 2000,
+                    "Bonus": "+10.0% EXP Global"
+                },
+                "5": {
+                    "Materials": {"Cristal": 55, "Hierro": 40},
+                    "GoldCost": 3000,
+                    "Bonus": "+12.5% EXP Global"
+                },
+                "6": {
+                    "Materials": {"Cristal": 80, "Mineral Profundo": 10},
+                    "GoldCost": 4500,
+                    "Bonus": "+15.0% EXP Global"
+                },
+                "7": {
+                    "Materials": {"Cristal": 100, "Mineral Profundo": 25},
+                    "GoldCost": 6500,
+                    "Bonus": "+17.5% EXP Global"
+                },
+                "8": {
+                    "Materials": {"Mineral Profundo": 40, "Cristal": 120},
+                    "GoldCost": 9000,
+                    "Bonus": "+20.0% EXP Global"
+                },
+                "9": {
+                    "Materials": {"Mineral Profundo": 65, "Cristal": 150},
+                    "GoldCost": 13000,
+                    "Bonus": "+22.5% EXP Global"
+                },
+                "10": {
+                    "Materials": {"Mineral Profundo": 100, "Cristal": 200},
+                    "GoldCost": 20000,
+                    "Bonus": "+25.0% EXP Global (MÁXIMO)"
+                }
+            }
+        },
+        "gold_vault": {
+            "BUILDING_ID": "gold_vault",
+            "Name": "Tesorería",
+            "Icon": "💰",
+            "Description": "Una bóveda que aumenta pasivamente TODO el oro ganado en batallas.",
+            "MaxLevel": 10,
+            "PassiveEffect": "gold_bonus_percent",
+            "PassiveValuePerLevel": 3.0,
+            "HasMinigame": false,
+            "Levels": {
+                "1": {
+                    "Materials": {"Hierro": 10, "Madera": 10},
+                    "GoldCost": 400,
+                    "Bonus": "+3% Oro en Batallas"
+                },
+                "2": {
+                    "Materials": {"Hierro": 20, "Madera": 20},
+                    "GoldCost": 900,
+                    "Bonus": "+6% Oro en Batallas"
+                },
+                "3": {
+                    "Materials": {"Hierro": 35, "Cristal": 5},
+                    "GoldCost": 1500,
+                    "Bonus": "+9% Oro en Batallas"
+                },
+                "4": {
+                    "Materials": {"Hierro": 55, "Cristal": 15},
+                    "GoldCost": 2500,
+                    "Bonus": "+12% Oro en Batallas"
+                },
+                "5": {
+                    "Materials": {"Hierro": 80, "Cristal": 30},
+                    "GoldCost": 4000,
+                    "Bonus": "+15% Oro en Batallas"
+                },
+                "6": {
+                    "Materials": {"Cristal": 50, "Mineral Profundo": 10},
+                    "GoldCost": 6000,
+                    "Bonus": "+18% Oro en Batallas"
+                },
+                "7": {
+                    "Materials": {"Cristal": 80, "Mineral Profundo": 25},
+                    "GoldCost": 9000,
+                    "Bonus": "+21% Oro en Batallas"
+                },
+                "8": {
+                    "Materials": {"Mineral Profundo": 45, "Cristal": 100},
+                    "GoldCost": 13000,
+                    "Bonus": "+24% Oro en Batallas"
+                },
+                "9": {
+                    "Materials": {"Mineral Profundo": 70, "Cristal": 130},
+                    "GoldCost": 18000,
+                    "Bonus": "+27% Oro en Batallas"
+                },
+                "10": {
+                    "Materials": {"Mineral Profundo": 120, "Cristal": 180},
+                    "GoldCost": 25000,
+                    "Bonus": "+30% Oro en Batallas (MÁXIMO)"
+                }
+            }
+        }
+    }
+}

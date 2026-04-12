@@ -7,8 +7,7 @@ from rich.columns import Columns
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.align import Align
 from typing import List, Dict, Optional, Tuple, Any, Union
-
-
+from enum import Enum, auto
 
 # Modules/ 
 from Modules.Loader import Write, Read
@@ -17,22 +16,8 @@ from Modules.ItemManager import get_item_manager, load_item_by_id, load_items_by
 from Modules.ShopManager import get_shop_manager, display_shop
 from Modules.EquipmentSystem import EquipmentManager, equip_menu
 from Modules.GatheringMasterySystem import cTool, cMaterial, Gathering_init
-from Modules.debug import (
-    setup_logging,
-    attach_console_logging,
-    install_exception_hooks,
-    log_imported_modules,
-    dump_debug_snapshot,
-)
-from Modules.setup import (
-    cEnemy,
-    cWeapon,
-    cEquippableItems,
-    cObject,
-    setup_player,
-    vInventory,
-    enemy_loader,
-)
+
+from Modules.MasterySystem import MasteryManager, ensure_mastery
 from Modules.input_utils import wait_for_enter, interactive_menu_select
 from Modules.InventoryMenu import open_inventory_menu
 from Modules.CompanionSystem import (
@@ -40,16 +25,27 @@ from Modules.CompanionSystem import (
     companion_management_menu,
     try_revive_with_gold,
     try_revive_with_item,
-    COMPANION_REVIVAL_GOLD_COST,
-)
-from rich.progress import Progress, SpinnerColumn, TextColumn
+    COMPANION_REVIVAL_GOLD_COST,)
+from Modules.debug import (
+    setup_logging,
+    attach_console_logging,
+    install_exception_hooks,
+    log_imported_modules,
+    dump_debug_snapshot,)
+from Modules.setup import (
+    cEnemy,
+    cWeapon,
+    cEquippableItems,
+    cObject,
+    setup_player,
+    vInventory,
+    enemy_loader,)
 # ---   ---
 import json
 import random
 import time as sp
 import os
 import sys
-from enum import Enum, auto
 import contextlib, io
 
 # Game configuration
@@ -144,6 +140,45 @@ def zone_loader(player_zone: str) -> cEnemy:
 
         traceback.print_exc()
         return None
+
+
+def zone_loader_group(player_zone: str, max_enemies: int = 5) -> List[cEnemy]:
+    """
+    Carga un grupo de hasta `max_enemies` enemigos de la zona indicada.
+
+    Returns:
+        Lista de enemigos (puede ser vacía si falla la carga).
+    """
+    try:
+        data_npcs = None
+        try:
+            mod_api = get_mod_api()
+            if player_zone in mod_api.stats_injections:
+                data_npcs = mod_api.stats_injections[player_zone]
+        except Exception:
+            pass
+
+        if not data_npcs:
+            data_path_local = os.path.join("Data", "DataStats.json")
+            data_npcs = Read(data_path_local, player_zone, None)
+
+        if not data_npcs:
+            console.print(f"[danger]No se encontraron datos para la zona: {player_zone}[/danger]")
+            return []
+
+        enemy_list = enemy_loader(data_npcs)
+        if not enemy_list:
+            return []
+
+        # Elegir entre 1 y max_enemies enemigos aleatoriamente
+        count = random.randint(1, min(max_enemies, len(enemy_list)))
+        group = [random.choice(enemy_list) for _ in range(count)]
+        console.print(f"[success]Grupo de {count} enemigo(s) encontrado en {player_zone}.[/success]")
+        return group
+
+    except Exception as e:
+        console.print(f"[danger]Error al cargar grupo de zona {player_zone}: {e}[/danger]")
+        return []
 
 
 def load_test_items():
@@ -317,7 +352,10 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
     # ── Bloques de aliados (compañeros primero, jugador al final) ────────────
     ally_blocks = []
 
-    for comp in player.companion:
+    # Solo mostrar hasta 4 compañeros activos; el resto se gestiona desde companion_bank
+    active_companions = [c for c in player.companion if c.is_alive or not c.is_alive][:4]
+
+    for comp in active_companions:
         if comp.is_alive:
             comp_barrier = getattr(comp, "Barrier", 0)
             if comp_barrier > 0:
@@ -375,14 +413,18 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
         padding=(0, 1),
     )
 
-    top = Columns(ally_blocks + [enemy_block], equal=True, expand=True)
+    separator_text = Text("│\n│\n│\n│", style="dim")
+    sep_panel = Panel(separator_text, border_style="dim", padding=(0, 0))
+    top = Columns(ally_blocks + [sep_panel, enemy_block], equal=False, expand=True)
 
-    actions = Table(show_header=False, box=None, padding=(0, 2))
-    actions.add_column("Opción", style="bright_white")
-    actions.add_column("Acción", style="bright_white")
-    actions.add_row("[1]", "Atacar")
-    actions.add_row("[2]", "Usar objeto")
-    actions.add_row("[3]", "Intentar huir")
+    actions = Table.grid(padding=(0, 2))
+    actions.add_column(style="bold yellow")
+    actions.add_column(style="bright_white")
+    actions.add_column(style="dim")
+    actions.add_column(style="bold yellow")
+    actions.add_column(style="bright_white")
+    actions.add_row("[1]", "Atacar", "  │  ", "[2]", "Inventario")
+    actions.add_row("[3]", "Huir",   "  │  ", "",    "")
 
     bottom = Panel(
         actions, title="[bold yellow]Acciones[/]", border_style="yellow", padding=(0, 1)
@@ -500,6 +542,7 @@ def display_main_menu() -> int:
         (14, "Árbol de Habilidades"),
         (15, "Mesa de Encantamientos"),
         (16, "Yunque de Crafteo"),
+        (17, "Base"),
         (0, "Salir del juego"),
     ]
     return interactive_menu_select(
@@ -1011,6 +1054,14 @@ def main():
                             console.print(
                                 f"[success]¡Has atacado a {enemy.NAME} por {damage_dealt} puntos de daño![/success]"
                             )
+                            # Registrar daño en mastery de arma
+                            try:
+                                mm = ensure_mastery(player)
+                                lvlup_msg = mm.register_damage_dealt(player, float(damage_dealt))
+                                if lvlup_msg:
+                                    console.print(f"[bold green]{lvlup_msg}[/bold green]")
+                            except Exception:
+                                pass
 
                         # ── Acción de los Compañeros ────────────────────────────
                         for comp in player.companion:
@@ -1124,6 +1175,14 @@ def main():
                                 console.print(
                                     f"[danger]{enemy.NAME} te ataca a ti por {damage_taken:.1f} puntos de daño![/danger]"
                                 )
+                                # Registrar daño recibido en mastery de armadura
+                                try:
+                                    mm = ensure_mastery(player)
+                                    lvlup_msg = mm.register_damage_received(player, float(damage_taken))
+                                    if lvlup_msg:
+                                        console.print(f"[bold cyan]{lvlup_msg}[/bold cyan]")
+                                except Exception:
+                                    pass
                             if player.Health <= 0:
                                 console.print(
                                     f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
@@ -1420,10 +1479,15 @@ def main():
 
 
     elif main_input == 11:
-        console.print("\n[warning]¿Deseas guardar antes de salir? (s/n)[/warning]")
-        save_response = input().lower()
-        if save_response == "s" or save_response == "si":
-            save_game()
+        from Modules.SaveSystem import save_load_menu
+        game_state = save_load_menu(
+            player, vInventory, chosen_area, item_manager,
+            console, interactive_menu_select, wait_for_enter
+        )
+        if game_state is not None:
+            # Se cargó una partida: restaurar zona
+            chosen_area = game_state.get("chosen_area", chosen_area)
+            enemy = None  # Resetear enemigo; se recargará al entrar a la zona
 
     elif main_input == 13:
         # ── Gestión de compañeros ────────────────────────────────────────────
@@ -1445,6 +1509,26 @@ def main():
     elif main_input == 16:
         from Modules.CraftingSystem import open_crafting_menu
         open_crafting_menu(player, vInventory)
+
+    elif main_input == 17:
+        try:
+            from Modules.BaseSystem import BaseManager, open_base_menu
+            if not hasattr(player, "base_manager") or player.base_manager is None:
+                player.base_manager = BaseManager()
+            # Inyectar edificios de mods
+            try:
+                mod_api_inst = get_mod_api()
+                injected = mod_api_inst.integrate_with_base_manager(player.base_manager)
+                if injected:
+                    console.print(f"[dim]{injected} edificio(s) de mods cargado(s).[/dim]")
+            except Exception:
+                pass
+            ensure_mastery(player)
+            open_base_menu(player, vInventory, console, interactive_menu_select, wait_for_enter)
+        except Exception as e:
+            console.print(f"[danger]Error al abrir la Base: {e}[/danger]")
+            import traceback; traceback.print_exc()
+            wait_for_enter()
 
     elif main_input == 12:
         debug_input = int(

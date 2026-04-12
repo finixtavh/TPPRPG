@@ -44,6 +44,7 @@ class ModAPI:
         self.event_handlers = {}
         self.custom_commands = {}
         self.registered_shops = {}
+        self.registered_buildings = {}
         self.player_attributes = {}
         self.item_injections = {}
         self.stats_injections = {}
@@ -258,7 +259,28 @@ class ModAPI:
             'description': description
         }
         logger.info(f"Comando registrado: {command_name}")
-    
+
+    def register_building(self, building_id: str, building_data: Dict):
+        """
+        Registra un edificio personalizado desde un mod.
+
+        El dict `building_data` sigue el mismo esquema que DataBuildings.json:
+            {
+                "Name": "...",
+                "Icon": "🏗️",
+                "Description": "...",
+                "MaxLevel": 5,
+                "PassiveEffect": "...",
+                "PassiveValuePerLevel": 0,
+                "HasMinigame": False,
+                "Levels": { "1": { "MaterialCosts": {...}, "GoldCost": 0 } }
+            }
+        Al cargar la base del jugador, BaseManager comprobará también
+        `mod_api.registered_buildings` e inyectará estas definiciones.
+        """
+        self.registered_buildings[building_id] = building_data
+        logger.info(f"Edificio de mod registrado: {building_id}")
+
     # =========================================================================
     # INTEGRACIÓN CON MANAGERS
     # =========================================================================
@@ -309,6 +331,29 @@ class ModAPI:
     def get_all_shops(self) -> Dict:
         """Retorna todas las tiendas inyectadas"""
         return self.shop_injections
+
+    def integrate_with_base_manager(self, base_manager) -> int:
+        """
+        Inyecta edificios registrados por mods en un BaseManager existente.
+        Retorna cuántos edificios se inyectaron.
+        """
+        if not self.registered_buildings:
+            return 0
+        count = 0
+        for building_id, building_data in self.registered_buildings.items():
+            if building_id not in base_manager.buildings:
+                try:
+                    from Modules.BaseSystem import Building
+                    base_manager.buildings[building_id] = Building(building_id, building_data)
+                    logger.info(f"Edificio de mod inyectado en BaseManager: {building_id}")
+                    count += 1
+                except Exception as e:
+                    logger.warning(f"No se pudo inyectar edificio {building_id}: {e}")
+        return count
+
+    def get_all_buildings(self) -> Dict:
+        """Retorna todos los edificios registrados por mods"""
+        return self.registered_buildings
 
 
 class ModInfo:

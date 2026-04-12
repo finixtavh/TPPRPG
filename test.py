@@ -276,11 +276,7 @@ class cFarm:
                       f"XP acumulada: {self.gathering[skill_key].exp_total:.2f}\n")
         return True
 
-
-# ──────────────────────────────────────────────
-# Demo
-# ──────────────────────────────────────────────
-
+# For tests:
 if __name__ == "__main__":
     farm = cFarm()
     farm.gathering["mining"].current_level = 3

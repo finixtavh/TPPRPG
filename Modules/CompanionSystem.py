@@ -1,24 +1,3 @@
-"""
-CompanionSystem.py
-==================
-Sistema de compañeros del jugador.
-
-Carga de datos:
-    Los compañeros se definen en  Data/DataCompanions.json  y se leen
-    usando  Modules.Loader.Read  (el módulo de carga especializado en JSON).
-
-    Ejemplos de uso del Loader:
-        Read(PATH, "COMPANIONS", None)       → todos los compañeros
-        Read(PATH, "COMPANIONS", "lyra")     → un compañero específico
-
-Mecánicas principales:
-    - cCompanion: Clase del compañero con slots simplificados (arma + pechera).
-    - Combate automático: los compañeros auto-atacan al enemigo cada ronda.
-    - Muerte casi-permanente: HP ≤ 0 → is_alive = False (KO).
-      Solo se puede revivir pagando COMPANION_REVIVAL_GOLD_COST de oro
-      o usando un ítem con  is_revival_item = True.
-"""
-
 import os
 import random
 from typing import Optional, List, Dict

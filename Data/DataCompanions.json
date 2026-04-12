@@ -3,504 +3,331 @@
         "lyra": {
             "COMPANION_ID": "lyra",
             "Name": "Lyra",
-            "Description": "Una arquera \u00e1gil del bosque, experta en da\u00f1o f\u00edsico y evasi\u00f3n.",
-            "Icon": "\ud83c\udff9",
+            "Class": "Daño",
+            "Description": "Una arquera ágil del bosque, experta en daño físico y evasión.",
+            "Icon": "🏹",
             "Rarity": "Common",
             "Health_max": 75,
             "Mana_max": 50,
-            "DEF": [
-                3,
-                2,
-                1,
-                1,
-                0
-            ],
+            "DEF": [3, 2, 1, 1, 0],
             "AGI": 20,
             "ManaRegen": 2.0,
             "DefaultWeapon": {
                 "name": "Arco Corto",
-                "DMG": [
-                    12,
-                    0,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    6,
-                    0,
-                    0,
-                    0
-                ]
+                "DMG": [12, 0, 0, 0, 0],
+                "DMG_min": [6, 0, 0, 0]
             },
-            "DefaultArmor": null,
-            "Class": "Da\u00f1o"
+            "DefaultArmor": null
         },
         "theron": {
             "COMPANION_ID": "theron",
             "Name": "Theron",
+            "Class": "Daño",
             "Description": "Un guerrero veterano de armadura pesada. Lento pero muy resistente.",
-            "Icon": "\u2694\ufe0f",
+            "Icon": "⚔️",
             "Rarity": "Common",
             "Health_max": 130,
             "Mana_max": 30,
-            "DEF": [
-                18,
-                5,
-                5,
-                5,
-                2
-            ],
+            "DEF": [18, 5, 5, 5, 2],
             "AGI": 5,
             "ManaRegen": 1.0,
             "DefaultWeapon": {
                 "name": "Espada Larga",
-                "DMG": [
-                    18,
-                    0,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    10,
-                    0,
-                    0,
-                    0
-                ]
+                "DMG": [18, 0, 0, 0, 0],
+                "DMG_min": [10, 0, 0, 0]
             },
             "DefaultArmor": {
                 "name": "Armadura de Placas",
-                "Defense": [
-                    12,
-                    3,
-                    3,
-                    3,
-                    0
-                ],
+                "Defense": [12, 3, 3, 3, 0],
                 "HealthBoost": 20,
                 "DmgBoost": 0,
                 "objectcheck": "Armor"
-            },
-            "Class": "Da\u00f1o"
+            }
         },
         "sable": {
             "COMPANION_ID": "sable",
             "Name": "Sable",
-            "Description": "Un ladr\u00f3n de las sombras. Da\u00f1o cr\u00edtico elevado y alta evasi\u00f3n.",
-            "Icon": "\ud83d\udde1\ufe0f",
+            "Class": "Daño",
+            "Description": "Un ladrón de las sombras. Daño crítico elevado y alta evasión.",
+            "Icon": "🗡️",
             "Rarity": "Uncommon",
             "Health_max": 65,
             "Mana_max": 55,
-            "DEF": [
-                4,
-                2,
-                2,
-                2,
-                1
-            ],
+            "DEF": [4, 2, 2, 2, 1],
             "AGI": 30,
             "ManaRegen": 2.5,
             "DefaultWeapon": {
                 "name": "Daga Envenenada",
-                "DMG": [
-                    14,
-                    0,
-                    0,
-                    6,
-                    0
-                ],
-                "DMG_min": [
-                    7,
-                    0,
-                    0,
-                    3,
-                    0
-                ]
+                "DMG": [14, 0, 0, 6, 0],
+                "DMG_min": [7, 0, 0, 3, 0]
             },
-            "DefaultArmor": null,
-            "Class": "Da\u00f1o"
+            "DefaultArmor": null
         },
         "mira": {
             "COMPANION_ID": "mira",
             "Name": "Mira",
-            "Description": "Maga de fuego de la Torre Arcana. Especialista en da\u00f1o t\u00e9rmico masivo.",
-            "Icon": "\ud83d\udd25",
+            "Class": "Daño",
+            "Description": "Maga de fuego de la Torre Arcana. Especialista en daño térmico masivo.",
+            "Icon": "🔥",
             "Rarity": "Uncommon",
             "Health_max": 60,
             "Mana_max": 110,
-            "DEF": [
-                2,
-                12,
-                1,
-                1,
-                0
-            ],
+            "DEF": [2, 12, 1, 1, 0],
             "AGI": 12,
             "ManaRegen": 5.0,
             "DefaultWeapon": {
-                "name": "B\u00e1culo de Llamas",
-                "DMG": [
-                    3,
-                    28,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    1,
-                    14,
-                    0,
-                    0
-                ]
+                "name": "Báculo de Llamas",
+                "DMG": [3, 28, 0, 0, 0],
+                "DMG_min": [1, 14, 0, 0]
             },
-            "DefaultArmor": null,
-            "Class": "Da\u00f1o"
+            "DefaultArmor": null
         },
         "borrus": {
             "COMPANION_ID": "borrus",
             "Name": "Borrus",
+            "Class": "Daño",
             "Description": "Enano geomante. Usa la tierra para atacar y fortalecer su defensa.",
-            "Icon": "\u26cf\ufe0f",
+            "Icon": "⛏️",
             "Rarity": "Common",
             "Health_max": 110,
             "Mana_max": 60,
-            "DEF": [
-                8,
-                2,
-                22,
-                4,
-                1
-            ],
+            "DEF": [8, 2, 22, 4, 1],
             "AGI": 8,
             "ManaRegen": 2.0,
             "DefaultWeapon": {
                 "name": "Martillo de Piedra",
-                "DMG": [
-                    10,
-                    0,
-                    20,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    5,
-                    0,
-                    10,
-                    0
-                ]
+                "DMG": [10, 0, 20, 0, 0],
+                "DMG_min": [5, 0, 10, 0]
             },
             "DefaultArmor": {
                 "name": "Coraza de Roca",
-                "Defense": [
-                    8,
-                    0,
-                    15,
-                    0,
-                    0
-                ],
+                "Defense": [8, 0, 15, 0, 0],
                 "HealthBoost": 15,
                 "DmgBoost": 0,
                 "objectcheck": "Armor"
-            },
-            "Class": "Da\u00f1o"
+            }
         },
         "vael": {
             "COMPANION_ID": "vael",
             "Name": "Vael",
-            "Description": "Hechicero del rayo. Velocidad brutal y da\u00f1o el\u00e9ctrico devastador.",
-            "Icon": "\u26a1",
+            "Class": "Daño",
+            "Description": "Hechicero del rayo. Velocidad brutal y daño eléctrico devastador.",
+            "Icon": "⚡",
             "Rarity": "Rare",
             "Health_max": 55,
             "Mana_max": 120,
-            "DEF": [
-                1,
-                1,
-                1,
-                15,
-                0
-            ],
+            "DEF": [1, 1, 1, 15, 0],
             "AGI": 35,
             "ManaRegen": 6.0,
             "DefaultWeapon": {
-                "name": "Cetro El\u00e9ctrico",
-                "DMG": [
-                    2,
-                    0,
-                    0,
-                    35,
-                    0
-                ],
-                "DMG_min": [
-                    1,
-                    0,
-                    0,
-                    18,
-                    0
-                ]
+                "name": "Cetro Eléctrico",
+                "DMG": [2, 0, 0, 35, 0],
+                "DMG_min": [1, 0, 0, 18, 0]
             },
-            "DefaultArmor": null,
-            "Class": "Da\u00f1o"
-        },
-        "nessa": {
-            "COMPANION_ID": "nessa",
-            "Name": "Nessa",
-            "Description": "Sacerdotisa curadora. Sus ataques son modestos pero regenera la magia del grupo.",
-            "Icon": "\u2728",
-            "Rarity": "Uncommon",
-            "Health_max": 80,
-            "Mana_max": 130,
-            "DEF": [
-                5,
-                5,
-                5,
-                5,
-                3
-            ],
-            "AGI": 14,
-            "ManaRegen": 8.0,
-            "DefaultWeapon": {
-                "name": "Bast\u00f3n de Curandero",
-                "DMG": [
-                    5,
-                    5,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    2,
-                    2,
-                    0,
-                    0
-                ],
-                "StatsBoosts": {
-                    "ManaRegen": 4.0,
-                    "Health_max": 20
-                }
-            },
-            "DefaultArmor": {
-                "name": "T\u00fanica Bendita",
-                "Defense": [
-                    3,
-                    4,
-                    3,
-                    4,
-                    2
-                ],
-                "HealthBoost": 10,
-                "DmgBoost": 0,
-                "objectcheck": "Armor"
-            },
-            "Class": "Curandero"
+            "DefaultArmor": null
         },
         "krag": {
             "COMPANION_ID": "krag",
             "Name": "Krag",
-            "Description": "Berserker orco. Enorme da\u00f1o f\u00edsico a cambio de casi ninguna defensa.",
-            "Icon": "\ud83d\udc80",
+            "Class": "Daño",
+            "Description": "Berserker orco. Enorme daño físico a cambio de casi ninguna defensa.",
+            "Icon": "💀",
             "Rarity": "Rare",
             "Health_max": 95,
             "Mana_max": 20,
-            "DEF": [
-                2,
-                0,
-                0,
-                0,
-                0
-            ],
+            "DEF": [2, 0, 0, 0, 0],
             "AGI": 10,
             "ManaRegen": 0.5,
             "DefaultWeapon": {
                 "name": "Hacha de Guerra",
-                "DMG": [
-                    32,
-                    0,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    18,
-                    0,
-                    0,
-                    0
-                ]
+                "DMG": [32, 0, 0, 0, 0],
+                "DMG_min": [18, 0, 0, 0]
             },
-            "DefaultArmor": null,
-            "Class": "Da\u00f1o"
+            "DefaultArmor": null
         },
         "sera": {
             "COMPANION_ID": "sera",
             "Name": "Sera",
-            "Description": "Cazadora de criaturas del abismo. \u00danica resistente al da\u00f1o profundo.",
-            "Icon": "\ud83c\udf11",
+            "Class": "Daño",
+            "Description": "Cazadora de criaturas del abismo. Única resistente al daño profundo.",
+            "Icon": "🌑",
             "Rarity": "Rare",
             "Health_max": 85,
             "Mana_max": 70,
-            "DEF": [
-                6,
-                6,
-                6,
-                6,
-                20
-            ],
+            "DEF": [6, 6, 6, 6, 20],
             "AGI": 18,
             "ManaRegen": 3.0,
             "DefaultWeapon": {
-                "name": "Lanza del Vac\u00edo",
-                "DMG": [
-                    12,
-                    0,
-                    0,
-                    0,
-                    22
-                ],
-                "DMG_min": [
-                    6,
-                    0,
-                    0,
-                    0
-                ]
+                "name": "Lanza del Vacío",
+                "DMG": [12, 0, 0, 0, 22],
+                "DMG_min": [6, 0, 0, 0]
             },
             "DefaultArmor": {
                 "name": "Manto del Abismo",
-                "Defense": [
-                    4,
-                    4,
-                    4,
-                    4,
-                    12
-                ],
+                "Defense": [4, 4, 4, 4, 12],
                 "HealthBoost": 5,
                 "DmgBoost": 2,
                 "objectcheck": "Armor"
-            },
-            "Class": "Da\u00f1o"
+            }
         },
         "aldric": {
             "COMPANION_ID": "aldric",
             "Name": "Aldric",
-            "Description": "Caballero palad\u00edn. Equilibrio perfecto entre ataque, defensa y magia.",
-            "Icon": "\ud83d\udee1\ufe0f",
+            "Class": "Daño",
+            "Description": "Caballero paladín. Equilibrio perfecto entre ataque, defensa y magia.",
+            "Icon": "🛡️",
             "Rarity": "Epic",
             "Health_max": 120,
             "Mana_max": 90,
-            "DEF": [
-                14,
-                10,
-                10,
-                10,
-                8
-            ],
+            "DEF": [14, 10, 10, 10, 8],
             "AGI": 12,
             "ManaRegen": 4.0,
             "DefaultWeapon": {
                 "name": "Espada Santa",
-                "DMG": [
-                    20,
-                    15,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    10,
-                    7,
-                    0,
-                    0
-                ]
+                "DMG": [20, 15, 0, 0, 0],
+                "DMG_min": [10, 7, 0, 0]
             },
             "DefaultArmor": {
-                "name": "Armadura del Palad\u00edn",
-                "Defense": [
-                    10,
-                    8,
-                    6,
-                    6,
-                    4
-                ],
+                "name": "Armadura del Paladín",
+                "Defense": [10, 8, 6, 6, 4],
                 "HealthBoost": 25,
                 "DmgBoost": 3,
                 "objectcheck": "Armor"
-            },
-            "Class": "Da\u00f1o"
+            }
         },
         "zyx": {
             "COMPANION_ID": "zyx",
             "Name": "Zyx",
-            "Description": "Entidad del vac\u00edo de origen desconocido. Stats ca\u00f3ticos pero letales.",
-            "Icon": "\ud83c\udf00",
+            "Class": "Daño",
+            "Description": "Entidad del vacío de origen desconocido. Stats caóticos pero letales.",
+            "Icon": "🌀",
             "Rarity": "Legendary",
             "Health_max": 70,
             "Mana_max": 150,
-            "DEF": [
-                5,
-                5,
-                5,
-                5,
-                30
-            ],
+            "DEF": [5, 5, 5, 5, 30],
             "AGI": 25,
             "ManaRegen": 10.0,
             "DefaultWeapon": {
-                "name": "Fragmento del Vac\u00edo",
-                "DMG": [
-                    15,
-                    15,
-                    15,
-                    15,
-                    20
-                ],
-                "DMG_min": [
-                    7,
-                    7,
-                    7,
-                    7
-                ]
+                "name": "Fragmento del Vacío",
+                "DMG": [15, 15, 15, 15, 20],
+                "DMG_min": [7, 7, 7, 7]
             },
-            "DefaultArmor": null,
-            "Class": "Da\u00f1o"
+            "DefaultArmor": null
         },
-        "elian": {
-            "COMPANION_ID": "elian",
-            "Name": "Elian",
-            "Description": "Mago renegado especializado en debilitar a las fuerzas enemigas.",
-            "Icon": "\ud83d\udc41\ufe0f",
-            "Rarity": "Epic",
-            "Class": "Soporte",
+        "nessa": {
+            "COMPANION_ID": "nessa",
+            "Name": "Nessa",
+            "Class": "Curandero",
+            "Description": "Sacerdotisa de la Luz. Cura a aliados y mantiene al equipo en pie. Débil en combate directo pero irremplazable.",
+            "Icon": "✨",
+            "Rarity": "Uncommon",
             "Health_max": 80,
-            "Mana_max": 90,
-            "DEF": [
-                4,
-                4,
-                4,
-                4,
-                4
-            ],
-            "AGI": 25,
-            "ManaRegen": 4.0,
+            "Mana_max": 130,
+            "DEF": [5, 5, 5, 5, 3],
+            "AGI": 14,
+            "ManaRegen": 8.0,
+            "HealAmount": 0.22,
+            "HealTargetAll": false,
+            "HealAllAmount": 0.14,
             "DefaultWeapon": {
-                "name": "Bast\u00f3n de Soporte",
-                "DMG": [
-                    8,
-                    0,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    4,
-                    0,
-                    0,
-                    0
-                ],
+                "name": "Vara Sagrada",
+                "DMG": [5, 5, 0, 0, 0],
+                "DMG_min": [2, 2, 0, 0],
                 "StatsBoosts": {
-                    "AGI": 10,
+                    "Health_max": 10,
+                    "ManaRegen": 1.5
+                }
+            },
+            "DefaultArmor": {
+                "name": "Túnica Bendita",
+                "Defense": [3, 4, 3, 4, 2],
+                "HealthBoost": 10,
+                "DmgBoost": 0,
+                "objectcheck": "Armor"
+            }
+        },
+        "elara": {
+            "COMPANION_ID": "elara",
+            "Name": "Elara",
+            "Class": "Curandero",
+            "Description": "Druida de los bosques ancestrales. Especialista en regeneración masiva y curas de grupo. Sus hechizos sacan lo mejor de la naturaleza.",
+            "Icon": "🌿",
+            "Rarity": "Rare",
+            "Health_max": 70,
+            "Mana_max": 160,
+            "DEF": [3, 3, 8, 3, 2],
+            "AGI": 10,
+            "ManaRegen": 10.0,
+            "HealAmount": 0.18,
+            "HealTargetAll": true,
+            "HealAllAmount": 0.20,
+            "DefaultWeapon": {
+                "name": "Báculo de la Naturaleza",
+                "DMG": [3, 0, 8, 0, 0],
+                "DMG_min": [1, 0, 4, 0],
+                "StatsBoosts": {
+                    "Health_max": 5,
+                    "ManaRegen": 3.0
+                }
+            },
+            "DefaultArmor": null
+        },
+        "toryn": {
+            "COMPANION_ID": "toryn",
+            "Name": "Toryn",
+            "Class": "Soporte",
+            "Description": "Estratega de batalla. Aplica debuffs devastadores a los enemigos, reduciendo sus defensas y velocidad. No hace mucho daño, pero debilita al enemigo severamente.",
+            "Icon": "📜",
+            "Rarity": "Uncommon",
+            "Health_max": 65,
+            "Mana_max": 100,
+            "DEF": [4, 3, 3, 4, 1],
+            "AGI": 16,
+            "ManaRegen": 5.0,
+            "BuffList": ["5_buff", "11_buff"],
+            "DebuffList": ["3_debuff", "9_debuff", "16_debuff"],
+            "DefaultWeapon": {
+                "name": "Bastón de Maldiciones",
+                "DMG": [4, 0, 0, 8, 0],
+                "DMG_min": [2, 0, 0, 4, 0],
+                "StatsBoosts": {
+                    "Mana_max": 20,
                     "ManaRegen": 2.0
                 }
             },
             "DefaultArmor": null
+        },
+        "vesna": {
+            "COMPANION_ID": "vesna",
+            "Name": "Vesna",
+            "Class": "Soporte",
+            "Description": "Hechicera de la guerra de los tiempos antiguos. Aplica buffs poderosos a los aliados y maldiciones que anulan a los enemigos. Legendaria en apoyo estratégico.",
+            "Icon": "🔮",
+            "Rarity": "Epic",
+            "Health_max": 75,
+            "Mana_max": 180,
+            "DEF": [5, 5, 5, 5, 5],
+            "AGI": 18,
+            "ManaRegen": 12.0,
+            "BuffList": ["1_buff", "7_buff", "17_buff", "19_buff"],
+            "DebuffList": ["14_debuff", "16_debuff", "18_debuff"],
+            "DefaultWeapon": {
+                "name": "Orbe de las Eras",
+                "DMG": [5, 10, 5, 10, 0],
+                "DMG_min": [2, 5, 2, 5, 0],
+                "StatsBoosts": {
+                    "Mana_max": 40,
+                    "ManaRegen": 5.0,
+                    "Health_max": 10
+                }
+            },
+            "DefaultArmor": {
+                "name": "Manto Arcano",
+                "Defense": [4, 6, 4, 6, 3],
+                "HealthBoost": 8,
+                "DmgBoost": 0,
+                "objectcheck": "Armor"
+            }
         }
     }
 }
