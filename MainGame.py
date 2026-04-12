@@ -4,27 +4,23 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.columns import Columns
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.align import Align
+from rich.progress import Progress, SpinnerColumn, TextColumn # IDK HOW TO USE TS
+from rich.align import Align 
 from typing import List, Dict, Optional, Tuple, Any, Union
-from enum import Enum, auto
 
 # Modules/ 
 from Modules.Loader import Write, Read
 from Modules.ModLoader import get_mod_loader, get_mod_api
-from Modules.ItemManager import get_item_manager, load_item_by_id, load_items_by_type
+from Modules.ItemManager import get_item_manager, load_item_by_id
 from Modules.ShopManager import get_shop_manager, display_shop
-from Modules.EquipmentSystem import EquipmentManager, equip_menu
 from Modules.GatheringMasterySystem import cTool, cMaterial, Gathering_init
 
-from Modules.MasterySystem import MasteryManager, ensure_mastery
+from Modules.MasterySystem import ensure_mastery
 from Modules.input_utils import wait_for_enter, interactive_menu_select
 from Modules.InventoryMenu import open_inventory_menu
 from Modules.CompanionSystem import (
     cCompanion,
     companion_management_menu,
-    try_revive_with_gold,
-    try_revive_with_item,
     COMPANION_REVIVAL_GOLD_COST,)
 from Modules.debug import (
     setup_logging,
@@ -40,13 +36,13 @@ from Modules.setup import (
     setup_player,
     vInventory,
     enemy_loader,)
+
 # ---   ---
 import json
 import random
 import time as sp
 import os
 import sys
-import contextlib, io
 
 # Game configuration
 CONFIG = Read("config.json", None)
@@ -1688,10 +1684,10 @@ def init_game():
             
     resultados = []
 
-# Main Execution
+# Execution
 if __name__ == "__main__":
     try:
-        # Initialize game
+        # Init TODO: Looks like shii
         init_game()
 
         # Main game loop
@@ -1700,9 +1696,8 @@ if __name__ == "__main__":
                 main()
             except Exception as e:
                 console.print(f"[danger]Error en el bucle principal: {str(e)}[/danger]")
-                console.print("[info]El juego intentará continuar...[/info]")
                 sp.sleep(2)
     except Exception as e:
         console.print(f"[danger]Error: {str(e)}[/danger]")
-        sys.exit(1)
+        sys.exit(1) # 67
 
