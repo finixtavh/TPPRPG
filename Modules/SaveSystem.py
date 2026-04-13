@@ -1,20 +1,3 @@
-"""
-SaveSystem.py
-=============
-Sistema completo de guardado y carga con 3 slots independientes.
-
-Guarda TODO el estado del jugador:
-    - Stats (HP, MP, EXP, Gold, Level, lvlPoints, etc.)
-    - Equipamiento (por ID de item)
-    - Inventario (ID + cantidad por slot)
-    - Compañeros (ID + estado actual + equipo)
-    - Árbol de habilidades (skills_purchased)
-    - Mastery de armas/armaduras
-    - Base del jugador (edificios)
-    - Estado del juego (zona, enemigo seleccionado)
-
-Rutas: Data/Saves/Slot1.json, Slot2.json, Slot3.json
-"""
 
 import os
 import json
@@ -22,6 +5,12 @@ import time
 from typing import Optional, Dict, Any
 
 from Modules.Loader import Read
+from Modules.GatheringMasterySystem import cTool, cMaterial
+from Modules.setup import cObject
+from Modules.setup import cWeapon, cEquippableItems
+from Modules.CompanionSystem import load_companion_by_id
+from Modules.MasterySystem import MasteryManager
+from Modules.BaseSystem import BaseManager
 
 _SAVE_DIR = os.path.join("Data", "Saves")
 _SLOT_PATHS = {
@@ -31,7 +20,7 @@ _SLOT_PATHS = {
 }
 
 
-# ── Serialización ─────────────────────────────────────────────────────────────
+
 
 def _serialize_item(item) -> Optional[dict]:
     """Convierte un objeto de item a dict serializable."""
@@ -238,7 +227,7 @@ def _restore_equipment(player, equip_data: dict, item_manager):
             item_obj = item_manager.create_item_object(
                 item_id, cWeapon, cEquippableItems, cObject, cTool
             )
-            if item_obj:
+            if item_obj == True and not isinstance(item_obj, cWeapon):
                 # Re-aplicar encantamientos si existen (simplificado)
                 setattr(player, slot_name, item_obj)
                 if hasattr(item_obj, "AppliedStats"):
@@ -249,14 +238,7 @@ def _restore_equipment(player, equip_data: dict, item_manager):
 
 def _restore_inventory(inventory, inv_data: list, item_manager):
     """Restaura el inventario."""
-    from Modules.setup import cWeapon, cEquippableItems
-    try:
-        from Modules.GatheringMasterySystem import cTool, cMaterial
-        from Modules.setup import cObject
-    except ImportError:
-        cTool = None; cMaterial = None; cObject = None
 
-    # Limpiar inventario actual
     inventory.slots.clear()
 
     for entry in inv_data:
@@ -277,10 +259,6 @@ def _restore_inventory(inventory, inv_data: list, item_manager):
 
 def _restore_companions(player, companions_data: list, bank_data: list, item_manager):
     """Restaura los compañeros activos e inactivos."""
-    try:
-        from Modules.CompanionSystem import load_companion_by_id
-    except ImportError:
-        return
 
     player.companion = []
     if not hasattr(player, "companion_bank"):
@@ -314,28 +292,19 @@ def _restore_skills(player, skills_data: dict):
 def _restore_mastery(player, mastery_data: dict):
     """Restaura los masteries."""
     if not mastery_data:
-        return
-    try:
-        from Modules.MasterySystem import MasteryManager
-        player.mastery_manager = MasteryManager.from_dict(mastery_data)
-    except Exception as e:
-        print(f"[SaveSystem] Error restaurando mastery: {e}")
-
+        return  
+    player.mastery_manager = MasteryManager.from_dict(mastery_data)
 
 def _restore_base(player, base_data: dict):
     """Restaura el estado de la base."""
     if not base_data:
         return
     try:
-        from Modules.BaseSystem import BaseManager
         mgr = BaseManager()
         mgr.load_from_dict(base_data)
         player.base_manager = mgr
     except Exception as e:
         print(f"[SaveSystem] Error restaurando base: {e}")
-
-
-# ── Info de slots ─────────────────────────────────────────────────────────────
 
 def get_slot_info(slot: int) -> dict:
     """
@@ -359,9 +328,6 @@ def get_slot_info(slot: int) -> dict:
         }
     except Exception:
         return {"exists": False}
-
-
-# ── Menú de Guardar/Cargar ────────────────────────────────────────────────────
 
 def save_load_menu(player, inventory, chosen_area, item_manager, console, menu_fn, pause_fn) -> Optional[dict]:
     """
@@ -401,7 +367,7 @@ def save_load_menu(player, inventory, chosen_area, item_manager, console, menu_f
             slot_options.append((s, label))
 
         chosen_slot = menu_fn(
-            title="💾 Selecciona un Slot",
+            title="Selecciona un Slot",
             options=slot_options,
             prompt="Slot: ",
             default_value=1,
@@ -414,7 +380,7 @@ def save_load_menu(player, inventory, chosen_area, item_manager, console, menu_f
         if action == 1:
             # Guardar
             if save_to_slot(chosen_slot, player, inventory, chosen_area):
-                console.print(f"[success]✅ Partida guardada en Slot {chosen_slot}.[/success]")
+                console.print(f"[success]Partida guardada en Slot {chosen_slot}.[/success]")
             else:
                 console.print(f"[danger]Error al guardar en Slot {chosen_slot}.[/danger]")
             pause_fn()
@@ -439,7 +405,7 @@ def save_load_menu(player, inventory, chosen_area, item_manager, console, menu_f
             if confirm == 1:
                 game_state = load_from_slot(chosen_slot, player, inventory, item_manager)
                 if game_state is not None:
-                    console.print(f"[success]✅ Partida del Slot {chosen_slot} cargada.[/success]")
+                    console.print(f"[success]Partida del Slot {chosen_slot} cargada.[/success]")
                     pause_fn()
                     return game_state
                 else:

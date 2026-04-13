@@ -10,9 +10,8 @@ from rich.table import Table
 from rich.text import Text
 from rich import box
 from rich.theme import Theme
+from rich.live import Live
 
-
-# Theme compartido (coincide con MainGame.py)
 _MENU_THEME = Theme(
     {
         "info": "dim cyan",
@@ -226,7 +225,7 @@ def interactive_menu_select(
         )
         kb_thread.start()
 
-        from rich.live import Live
+        
 
         try:
             with Live(
@@ -255,9 +254,11 @@ def interactive_menu_select(
     return int(state["selected"])
 
 
-def wait_for_enter() -> None:
+def wait_for_enter(Message: Optional[str] = None) -> None:
     done = {"pressed": False}
-    print("Presiona Enter")
+    if Message:
+        print(Message)
+
     def _on_press(key: str) -> None:
         if key == "enter":
             done["pressed"] = True

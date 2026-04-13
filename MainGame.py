@@ -14,10 +14,15 @@ from Modules.ModLoader import get_mod_loader, get_mod_api
 from Modules.ItemManager import get_item_manager, load_item_by_id
 from Modules.ShopManager import get_shop_manager, display_shop
 from Modules.GatheringMasterySystem import cTool, cMaterial, Gathering_init
-
+from Modules.EnchantmentSystem import open_enchantment_menu
 from Modules.MasterySystem import ensure_mastery
 from Modules.input_utils import wait_for_enter, interactive_menu_select
 from Modules.InventoryMenu import open_inventory_menu
+from Modules.SaveSystem import save_load_menu
+from Modules.ZoneManager import get_all_zones, get_zones_for_selector
+from Modules.BuffManager import get_buff_manager
+from Modules.CraftingSystem import open_crafting_menu
+from Modules.BaseSystem import BaseManager, open_base_menu
 from Modules.CompanionSystem import (
     cCompanion,
     companion_management_menu,
@@ -43,6 +48,7 @@ import random
 import time as sp
 import os
 import sys
+import traceback
 
 # Game configuration
 CONFIG = Read("config.json", None)
@@ -132,7 +138,7 @@ def zone_loader(player_zone: str) -> cEnemy:
         console.print(
             f"[danger]Error al cargar la zona {player_zone}: {str(e)}[/danger]"
         )
-        import traceback
+        
 
         traceback.print_exc()
         return None
@@ -605,7 +611,7 @@ def run_zone_gathering(zone_key: str) -> bool:
             console.print("[warning]No hay IDs de materiales validos en esta zona.[/warning]")
             return False
 
-        from Modules.ItemManager import get_item_manager
+        
         item_manager_inst = get_item_manager()
         materials_table = item_manager_inst.items_data.get("TYPE:Materials", {})
 
@@ -676,7 +682,7 @@ def main():
 
     elif main_input == 1:
         try:
-            from Modules.ZoneManager import get_all_zones
+            
 
 
             all_zones = get_all_zones()
@@ -746,7 +752,6 @@ def main():
             console.print(
                 f"[danger]Error al cargar la información de zonas: {str(e)}[/danger]"
             )
-            import traceback
 
             traceback.print_exc()
 
@@ -760,7 +765,7 @@ def main():
         # Set current state
 
         try:
-            from Modules.ZoneManager import get_zones_for_selector
+            
 
             # Obtener lista de TODAS las zonas disponibles
             zones_list = get_zones_for_selector()
@@ -809,8 +814,6 @@ def main():
 
                 # Disparar evento de entrada a zona (para mods)
                 try:
-                    from Modules.ModLoader import get_mod_api
-
                     mod_api = get_mod_api()
                     mod_api.fire_event("zone_entered", player, chosen_area)
                 except:
@@ -830,7 +833,6 @@ def main():
 
         except Exception as e:
             console.print(f"[danger]Error al cargar zonas: {str(e)}[/danger]")
-            import traceback
 
             traceback.print_exc()
 
@@ -1098,7 +1100,7 @@ def main():
                                     console.print(f"[success]{comp.name} emanó un aura sanadora, curando a todo el equipo.[/success]")
                                     
                                 elif c_action == 2 and c_class == "Soporte":
-                                    from Modules.BuffManager import get_buff_manager
+                                    
                                     bm = get_buff_manager()
                                     # Intentar aplicar debuff 5_debuff u otro
                                     debuff = bm.create_buff("5_debuff", "companion_skill")
@@ -1352,7 +1354,7 @@ def main():
         stats_lines.append(f"Mana:  {mana_bar} {mana_percent}%")
         stats_lines.append(f"EXP:   {exp_bar} {exp_percent}%")
 
-        # ===== MOSTRAR EQUIPAMIENTO =====
+ 
         stats_lines.append("")
         stats_lines.append("[bold underline]Equipo actual:[/bold underline]")
 
@@ -1380,12 +1382,6 @@ def main():
             "\n".join(stats_lines), title="Estadísticas", border_style="cyan"
         )
         console.print(stats_panel)
-
-        if player.lvlPoints > 0:
-            console.print(f"\n[bold #FFFF99]¡Tienes {player.lvlPoints} Puntos de Habilidad disponibles![/]")
-            assign = interactive_menu_select("Puntos de Habilidad", "¿Deseas gastarlos ahora?", [(1, "Sí, asignar puntos"), (0, "No, en otro momento")], "Opción: ", 0, "yellow")
-            if assign == 1:
-                player.Points()
 
         # Wait for user input to continue
         console.print(
@@ -1475,7 +1471,6 @@ def main():
 
 
     elif main_input == 11:
-        from Modules.SaveSystem import save_load_menu
         game_state = save_load_menu(
             player, vInventory, chosen_area, item_manager,
             console, interactive_menu_select, wait_for_enter
@@ -1486,7 +1481,7 @@ def main():
             enemy = None  # Resetear enemigo; se recargará al entrar a la zona
 
     elif main_input == 13:
-        # ── Gestión de compañeros ────────────────────────────────────────────
+
         try:
             companion_management_menu(
                 player, vInventory, console,
@@ -1499,16 +1494,16 @@ def main():
         player.Points()
 
     elif main_input == 15:
-        from Modules.EnchantmentSystem import open_enchantment_menu
+        
         open_enchantment_menu(player, vInventory)
 
     elif main_input == 16:
-        from Modules.CraftingSystem import open_crafting_menu
+        
         open_crafting_menu(player, vInventory)
 
     elif main_input == 17:
         try:
-            from Modules.BaseSystem import BaseManager, open_base_menu
+            
             if not hasattr(player, "base_manager") or player.base_manager is None:
                 player.base_manager = BaseManager()
             # Inyectar edificios de mods
@@ -1523,7 +1518,7 @@ def main():
             open_base_menu(player, vInventory, console, interactive_menu_select, wait_for_enter)
         except Exception as e:
             console.print(f"[danger]Error al abrir la Base: {e}[/danger]")
-            import traceback; traceback.print_exc()
+            traceback.print_exc()
             wait_for_enter()
 
     elif main_input == 12:
@@ -1533,7 +1528,8 @@ def main():
                   [2] GOLD Y EXP
                   [3] Mastery & Gathering
                   [4] LOOK Variables
-                  [5] AÑADIR COMPAÑERO DE PRUEBA""")
+                  [5] AÑADIR COMPAÑERO DE PRUEBA
+                  > """)
         )
         if debug_input == 1:
             vInventory.addObject(load_item_by_id(3, cWeapon, cEquippableItems, cObject, cTool))
