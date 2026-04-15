@@ -533,20 +533,22 @@ def display_main_menu() -> int:
         (1, "Inspeccionar las zonas"),
         (2, "Ir a una zona"),
         (3, "Tienda"),
-        (4, "Inventario Universal"),
-        (7, "Acciones de Zona"),
-        (8, "Mirar Stats"),
-        (9, "Gestión de Mods"),
-        (10, "Ver Items Disponibles"),
-        (11, "Guardar"),
-        (12, "DEBUG"),
-        (13, "Compañeros"),
-        (14, "Árbol de Habilidades"),
-        (15, "Mesa de Encantamientos"),
-        (16, "Yunque de Crafteo"),
-        (17, "Base"),
-        (0, "Salir del juego"),
+        (4, "Inventario"),
+        (5, "Mirar Stats"),
+        (6, "Acciones de Zona"),
+        (7, "Gestión de Mods"),
+        (8, "Ver Items Disponibles"),
+        (9, "Guardar"),
+        (10, "Compañeros"),
+        (11, "Árbol de Habilidades"),
+        (12, "Mesa de Encantamientos"),
+        (13, "Yunque de Crafteo"),
+        (14, "Base"),
     ]
+    if CONFIG["DEBUG"]["ENABLED"]:
+        options.append((15, "DEBUG"))
+
+    options.append((0, "Salir del juego"))
     return interactive_menu_select(
         title="RPG Game Menu",
         subtitle="Selecciona una opción",
@@ -680,11 +682,9 @@ def main():
             console.print("[info]¡Gracias por jugar! Hasta pronto.[/info]")
             sys.exit(0)
 
-    elif main_input == 1:
+    elif main_input == 1: # Inspect
+        
         try:
-            
-
-
             all_zones = get_all_zones()
 
             if not all_zones:
@@ -760,14 +760,10 @@ def main():
         console.print("\n[info]Presiona Enter para continuar... ↵ [/info]")
         wait_for_enter()
 
-    elif main_input == 2:
-        """Ir a una zona - VERSIÓN DINÁMICA"""
-        # Set current state
-
+    elif main_input == 2: # Go to a Zone
         try:
             
-
-            # Obtener lista de TODAS las zonas disponibles
+            # Get all zones
             zones_list = get_zones_for_selector()
 
             if not zones_list:
@@ -842,7 +838,7 @@ def main():
         console.print("\n[info]Presiona Enter para continuar... ↵ [/info]")
         wait_for_enter()
 
-    elif main_input == 3:
+    elif main_input == 3: # Shops
         
         console.print("[info]Entrando a la tienda...[/info]")
 
@@ -882,7 +878,7 @@ def main():
         wait_for_enter()
          
 
-    elif main_input == 4:
+    elif main_input == 4: # Inventory
         
         try:
             open_inventory_menu(vInventory, player)
@@ -893,12 +889,8 @@ def main():
             "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
         )
         wait_for_enter()
-         
-
-    elif main_input == 5 or main_input == 6:
-            pass
             
-    elif main_input == 8:
+    elif main_input == 5: # Stats
         os.system("cls" if os.name == "nt" else "clear")
         console.clear()
 
@@ -982,7 +974,7 @@ def main():
         console.print(Panel(stats_text, title=f"[bold]📋 Estado del Jugador: {player.name}[/]", border_style="cyan", padding=(1, 2)))
         wait_for_enter()
 
-    elif main_input == 7:
+    elif main_input == 6: # Zones
         if chosen_area is None:
             console.print(
                 "[danger]No has escogido ningún lugar. Debes ir a una zona primero.[/danger]"
@@ -1301,96 +1293,9 @@ def main():
 
             elif zone_input == 4:
                 console.print("[info]Regresando al menu principal...[/info]")
-
-    elif main_input == 8:
-        # Set current state
          
 
-        # ===== STATS CON EQUIPAMIENTO =====
-        if CONFIG["DISPLAY"]["SHOW_FULL_STATS"]:
-            stats_lines = [
-                f"[bold]Nombre:[/bold] {player.name} - [bold]Nivel:[/bold] {player.Level}",
-                "",
-                f"[bold red]Vida:[/bold red] [red]{player.Health}/{player.Health_max}[/red]",
-                f"[bold blue]Mana:[/bold blue] [blue]{player.Mana}/{player.Mana_max}[/blue] ([cyan]Regen: {player.ManaRegen}[/cyan])",
-                "",
-                f"[bold]Defensa:[/bold] {player.DEF[0]} puntos // [gray]Porcentaje de defensa: {player.DefensePercentage}%[/gray]",
-                f"[bold]Agilidad:[/bold] {player.AGI}",
-                f"[bold]Prob. ContraAtaque:[/bold] {player.CounterAttack}%",
-                f"[bold]Prob. Evasion:[/bold] {player.Evasion}%",
-                "",
-                f"[bold yellow]Oro:[/bold yellow] {player.Gold}",
-                f"[bold cyan]Experiencia:[/bold cyan] {player.EXP}/{player.EXP_M}",
-            ]
-        else:
-            stats_lines = [
-                f"[bold]Nombre:[/bold] {player.name} - [bold]Nivel:[/bold] {player.Level}",
-                "",
-                f"[bold red]Vida:[/bold red] [red]{player.Health}/{player.Health_max}[/red]",
-                f"[bold blue]Mana:[/bold blue] [blue]{player.Mana}/{player.Mana_max}[/blue] ([cyan]Regen: {player.ManaRegen}[/cyan])",
-                "",
-                f"[bold]Defensa:[/bold] {player.DEF} puntos // [gray]Porcentaje de defensa: {player.DefensePercentage}%[/gray]",
-                f"[bold]Agilidad:[/bold] {player.AGI}",
-                f"[bold]Prob. ContraAtaque:[/bold] {player.CounterAttack}%",
-                f"[bold]Prob. Evasion:[/bold] {player.Evasion}%",
-                "",
-                f"[bold yellow]Oro:[/bold yellow] {player.Gold}",
-                f"[bold cyan]Experiencia:[/bold cyan] {player.EXP}/{player.EXP_M}",
-            ]
-
-        # Add status bars
-        health_bar, health_percent = create_status_bar(
-            player.Health, player.Health_max, "red", True
-        )
-        mana_bar, mana_percent = create_status_bar(
-            player.Mana, player.Mana_max, "blue", True
-        )
-        exp_bar, exp_percent = create_status_bar(
-            player.EXP, player.EXP_M, "green", True
-        )
-
-        stats_lines.append("")
-        stats_lines.append(f"Salud: {health_bar} {health_percent}%")
-        stats_lines.append(f"Mana:  {mana_bar} {mana_percent}%")
-        stats_lines.append(f"EXP:   {exp_bar} {exp_percent}%")
-
- 
-        stats_lines.append("")
-        stats_lines.append("[bold underline]Equipo actual:[/bold underline]")
-
-        equipment_slots = [
-            ("weapon", "Arma"),
-            ("helmet", "Casco"),
-            ("armor", "Armadura"),
-            ("boots", "Botas"),
-            ("ring", "Anillo 1"),
-            ("ring2", "Anillo 2"),
-            ("ring3", "Anillo 3"),
-        ]
-
-        for slot, display_name in equipment_slots:
-            item = getattr(player, slot, None)
-            if item:
-                item_name = item.Name if hasattr(item, "Name") else item.name
-                stats_lines.append(f"[bold]{display_name}:[/bold] {item_name}")
-            else:
-                stats_lines.append(f"[bold]{display_name}:[/bold] [dim]Vacío[/dim]")
-
-
-        # Create and display the panel
-        stats_panel = Panel(
-            "\n".join(stats_lines), title="Estadísticas", border_style="cyan"
-        )
-        console.print(stats_panel)
-
-        # Wait for user input to continue
-        console.print(
-            "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
-        )
-        wait_for_enter()
-         
-
-    elif main_input == 9:
+    elif main_input == 7:
         # Gestión de Mods
         console.print(Panel(" Gestión de Mods", style="cyan"))
 
@@ -1451,7 +1356,7 @@ def main():
 
 
 
-    elif main_input == 10:
+    elif main_input == 8:
         console.clear()
         console.print(Panel("Items Disponibles en el Juego", style="menu_title"))
 
@@ -1470,7 +1375,7 @@ def main():
          
 
 
-    elif main_input == 11:
+    elif main_input == 9:
         game_state = save_load_menu(
             player, vInventory, chosen_area, item_manager,
             console, interactive_menu_select, wait_for_enter
@@ -1480,7 +1385,7 @@ def main():
             chosen_area = game_state.get("chosen_area", chosen_area)
             enemy = None  # Resetear enemigo; se recargará al entrar a la zona
 
-    elif main_input == 13:
+    elif main_input == 10:
 
         try:
             companion_management_menu(
@@ -1490,18 +1395,18 @@ def main():
         except Exception as e:
             console.print(f"[danger]Error en gestión de compañeros: {e}[/danger]")
 
-    elif main_input == 14:
+    elif main_input == 11:
         player.Points()
 
-    elif main_input == 15:
+    elif main_input == 12:
         
         open_enchantment_menu(player, vInventory)
 
-    elif main_input == 16:
+    elif main_input == 13:
         
         open_crafting_menu(player, vInventory)
 
-    elif main_input == 17:
+    elif main_input == 14:
         try:
             
             if not hasattr(player, "base_manager") or player.base_manager is None:
@@ -1521,7 +1426,7 @@ def main():
             traceback.print_exc()
             wait_for_enter()
 
-    elif main_input == 12:
+    elif main_input == 15 and CONFIG["DEBUG"]["ENABLED"]:
         debug_input = int(
             input("""DEBUG: 
                   [1] ARMAS

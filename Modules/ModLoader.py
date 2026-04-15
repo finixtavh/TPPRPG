@@ -365,7 +365,7 @@ class ModInfo:
         self.loaded = False
         self.enabled = True
         
-        # Metadata del JSON
+        # Metadata
         self.version = "1.0.0"
         self.author = "Unknown"
         self.description = ""

@@ -126,8 +126,6 @@ class cFarm:
         if buffs is None:
             buffs = []
 
-        # cMaterial ya normaliza y valida SkillName en su constructor,
-        # por lo que skill_key siempre está en forma canónica.
         skill_key = material.SkillName
         if skill_key not in self.gathering:
             raise ValueError(f"Skill desconocida: {skill_key!r}")

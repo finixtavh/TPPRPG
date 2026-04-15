@@ -66,8 +66,8 @@ class cCompanion:
         armor   → cEquippableItems o _DefaultArmor  (solo pechera)
 
     Estados:
-        is_alive = True   → activo, pelea normalmente.
-        is_alive = False  → KO; solo revivible fuera de combate.
+        is_alive = True 
+        is_alive = False  
     """
 
     def __init__(
@@ -83,6 +83,7 @@ class cCompanion:
         agi: float = 10,
         mana_regen: float = 2.0,
         c_class: str = "Daño",
+        gold_cost: int = 0,
         default_weapon_data: Optional[dict] = None,
         default_armor_data: Optional[dict] = None,
     ):
@@ -92,44 +93,29 @@ class cCompanion:
         self.icon: str = icon
         self.rarity: str = rarity
         self.c_class: str = c_class
-
-        # ── Vida / Mana ──────────────────────────────────────────────────────
+        self.gold_cost: int = gold_cost
         self.Health_max: float = float(health_max)
         self.Health: float = self.Health_max
         self.Mana_max: float = float(mana_max)
         self.Mana: float = self.Mana_max
-
-        # ── Nivel (informativo) ──────────────────────────────────────────────
         self.Level: int = 1
-
-        # ── Stats de combate ─────────────────────────────────────────────────
         self.DEF: List[float] = _norm5(def_array or [0, 0, 0, 0, 0])
         self.AGI: float = float(agi)
         self.DefensePercentage: List[float] = [0.0, 0.0, 0.0, 0.0, 0.0]
         self.ManaRegen: float = float(mana_regen)
-        self.Barrier: float = 0  # Barrera: absorbe daño bruto, sin resistencias
-
-        # ── Equipamiento ─────────────────────────────────────────────────────
+        self.Barrier: float = 0
         self._default_weapon = _DefaultWeapon(default_weapon_data) if default_weapon_data else None
         self._default_armor  = _DefaultArmor(default_armor_data)   if default_armor_data  else None
-
         self.weapon = self._default_weapon
         self.armor: Optional[object] = None
-
         if self.weapon and hasattr(self.weapon, "StatsBoosts"):
             self._apply_weapon_stats(self.weapon)
-
-        # Aplicar armadura por defecto
         if self._default_armor is not None:
             self._apply_armor_stats(self._default_armor)
             self.armor = self._default_armor
-
-        # ── Estado ───────────────────────────────────────────────────────────
         self.is_alive: bool = True
         self.active_buffs: list = []
         self.applieddebuffs: list = []
-
-    # ── Equipamiento externo (ítems del inventario) ───────────────────────────
 
     def equip_weapon(self, weapon) -> None:
         if self.weapon and hasattr(self.weapon, "StatsBoosts"):
