@@ -7,6 +7,9 @@ from rich.columns import Columns
 from rich.progress import Progress, SpinnerColumn, TextColumn # IDK HOW TO USE TS
 from rich.align import Align 
 from typing import List, Dict, Optional, Tuple, Any, Union
+from rich import box
+from sshkeyboard import listen_keyboard, stop_listening, keyboard_listener_scope
+from rich.live import Live
 
 # Modules/ 
 from Modules.Loader import Write, Read
@@ -15,7 +18,7 @@ from Modules.ItemManager import get_item_manager, load_item_by_id
 from Modules.ShopManager import get_shop_manager, display_shop
 from Modules.GatheringMasterySystem import cTool, cMaterial, Gathering_init
 from Modules.EnchantmentSystem import open_enchantment_menu
-from Modules.MasterySystem import ensure_mastery
+from Modules.MasterySystem import ensure_mastery, MASTERY_MAX_LEVEL
 from Modules.input_utils import wait_for_enter, interactive_menu_select
 from Modules.InventoryMenu import open_inventory_menu
 from Modules.SaveSystem import save_load_menu
@@ -537,10 +540,7 @@ _MAIN_MENU_ASCII = '''
 
 def display_main_menu() -> int:
     import threading as _thr
-    from rich.align import Align
-    from rich import box as _box
-    from sshkeyboard import listen_keyboard as _lk, stop_listening as _sl
-    from Modules.input_utils import keyboard_listener_scope as _kls
+
 
     options = [
         (1, "Inspeccionar las zonas"),
@@ -571,7 +571,7 @@ def display_main_menu() -> int:
         header = Align.center(header)
 
         # Table
-        t = Table(show_header=False, box=_box.ROUNDED, padding=(0, 1))
+        t = Table(show_header=False, box=box.ROUNDED, padding=(0, 1))
         t.add_column("Opción", style="bright_yellow", justify="right")
         t.add_column("Sep", style="bright_yellow")
         t.add_column("Acción", style="bright_white")
@@ -622,30 +622,29 @@ def display_main_menu() -> int:
                 if typed in index_by_value:
                     state["selected"] = typed
                     state["done"] = True
-                    try: _sl()
+                    try: stop_listening()
                     except Exception: pass
                     return
                 state["buf"] = ""; state["dirty"] = True; return
             state["selected"] = options[state["idx"]][0]
             state["done"] = True
-            try: _sl()
+            try: stop_listening()
             except Exception: pass
         elif key.isdigit():
             state["buf"] += key
             state["dirty"] = True
 
-    from rich.live import Live as _Live
     import time as _time
     kb = None
-    with _kls():
+    with keyboard_listener_scope():
         kb = _thr.Thread(
-            target=_lk,
+            target=listen_keyboard,
             kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0},
             daemon=True,
         )
         kb.start()
         try:
-            with _Live(_render(), console=console, refresh_per_second=30, transient=True) as live:
+            with Live(_render(), console=console, refresh_per_second=30, transient=True) as live:
                 while not state["done"]:
                     if state["dirty"]:
                         state["dirty"] = False
@@ -653,7 +652,7 @@ def display_main_menu() -> int:
                     _time.sleep(0.01)
         finally:
             state["done"] = True
-            try: _sl()
+            try: stop_listening()
             except Exception: pass
             if kb and kb.is_alive(): kb.join(timeout=3.0)
             _time.sleep(0.05)
@@ -994,12 +993,6 @@ def main():
             
     elif main_input == 5: # Stats (3 pestañas con flechas izquierda/derecha)
         import threading as _thr
-        from rich.live import Live as _Live
-        from sshkeyboard import listen_keyboard as _lk, stop_listening as _sl
-        from Modules.input_utils import keyboard_listener_scope as _kls
-        from Modules.GatheringMasterySystem import Gathering_init
-        from Modules.MasterySystem import ensure_mastery, MASTERY_MAX_LEVEL
-
         os.system("cls" if os.name == "nt" else "clear")
 
         _TAB_NAMES = ["Stats Principales", "Mastery Armas/Armadura", "Mastery Recoleccion"]
@@ -1114,21 +1107,21 @@ def main():
                 _st["tab"] = (_st["tab"] + 1) % len(_TAB_NAMES)
             elif key in ("enter", "q", "escape"):
                 _st["done"] = True
-                try: _sl()
+                try: stop_listening()
                 except Exception: pass
 
         _kb = None
-        with _kls():
-            _kb = _thr.Thread(target=_lk, kwargs={"on_press": _on_key, "sequential": False, "delay_second_char": 0.0}, daemon=True)
+        with keyboard_listener_scope():
+            _kb = _thr.Thread(target=listen_keyboard, kwargs={"on_press": _on_key, "sequential": False, "delay_second_char": 0.0}, daemon=True)
             _kb.start()
             try:
-                with _Live(_build_panel(), console=console, refresh_per_second=20, transient=True) as live:
+                with Live(_build_panel(), console=console, refresh_per_second=20, transient=True) as live:
                     while not _st["done"]:
                         live.update(_build_panel())
                         sp.sleep(0.05)
             finally:
                 _st["done"] = True
-                try: _sl()
+                try: stop_listening()
                 except Exception: pass
                 if _kb and _kb.is_alive(): _kb.join(timeout=3.0)
 
