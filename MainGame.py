@@ -8,10 +8,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn # IDK HOW TO USE T
 from rich.align import Align 
 from typing import List, Dict, Optional, Tuple, Any, Union
 from rich import box
-from sshkeyboard import listen_keyboard, stop_listening, keyboard_listener_scope
 from rich.live import Live
+from sshkeyboard import listen_keyboard, stop_listening
 
-# Modules/ 
+# Modules/
 from Modules.Loader import Write, Read
 from Modules.ModLoader import get_mod_loader, get_mod_api
 from Modules.ItemManager import get_item_manager, load_item_by_id
@@ -19,12 +19,13 @@ from Modules.ShopManager import get_shop_manager, display_shop
 from Modules.GatheringMasterySystem import cTool, cMaterial, Gathering_init
 from Modules.EnchantmentSystem import open_enchantment_menu
 from Modules.MasterySystem import ensure_mastery, MASTERY_MAX_LEVEL
-from Modules.input_utils import wait_for_enter, interactive_menu_select
+from Modules.input_utils import wait_for_enter, interactive_menu_select, keyboard_listener_scope
 from Modules.InventoryMenu import open_inventory_menu
 from Modules.SaveSystem import save_load_menu
 from Modules.ZoneManager import get_all_zones, get_zones_for_selector
 from Modules.BuffManager import get_buff_manager
-from Modules.CraftingSystem import open_crafting_menu
+from Modules.CraftingSystem import open_crafting_menu, CraftingManager
+from Modules.QuestSystem import quest_manager
 from Modules.BaseSystem import BaseManager, open_base_menu
 from Modules.CompanionSystem import (
     cCompanion,
@@ -133,9 +134,24 @@ def zone_loader(player_zone: str) -> cEnemy:
             )
             return None
 
-        # PASO 5: Seleccionar enemigo aleatorio
-        enemy_random = random.choice(enemy_list)
-        console.print(f"[success]Enemigo seleccionado: {enemy_random.NAME}[/success]")
+        # PASO 5: Filtrar jefes por SPAWN_CHANCE y seleccionar aleatoriamente
+        valid_enemies = []
+        for e in enemy_list:
+            if getattr(e, 'IS_BOSS', False):
+                if random.random() <= getattr(e, 'SPAWN_CHANCE', 1.0):
+                    valid_enemies.append(e)
+            else:
+                valid_enemies.append(e)
+                
+        if not valid_enemies:
+            valid_enemies = enemy_list
+            
+        enemy_random = random.choice(valid_enemies)
+        
+        if getattr(enemy_random, 'IS_BOSS', False):
+            console.print(f"[blink bold red]¡ADVERTENCIA! ¡Has encontrado a un JEFE: {enemy_random.NAME}![/blink bold red]")
+        else:
+            console.print(f"[success]Enemigo seleccionado: {enemy_random.NAME}[/success]")
         return enemy_random
 
     except Exception as e:
@@ -547,19 +563,20 @@ def display_main_menu() -> int:
         (2, "Ir a una zona"),
         (3, "Tienda"),
         (4, "Inventario"),
-        (5, "Mirar Stats"),
+        (5, "Mirar Stats / Maestrias"),
         (6, "Acciones de Zona"),
         (7, "Gestión de Mods"),
         (8, "Ver Items Disponibles"),
-        (9, "Guardar"),
+        (9, "Guardar / Cargar (3 Slots)"),
         (10, "Compañeros"),
         (11, "Árbol de Habilidades"),
         (12, "Mesa de Encantamientos"),
         (13, "Yunque de Crafteo"),
         (14, "Base"),
+        (15, "Tablón de Misiones"),
     ]
     if CONFIG["DEBUG"]["ENABLED"]:
-        options.append((15, "DEBUG"))
+        options.append((16, "DEBUG"))
     options.append((0, "Salir del juego"))
 
     index_by_value = {v: i for i, (v, _) in enumerate(options)}
@@ -730,10 +747,12 @@ def run_zone_gathering(zone_key: str) -> bool:
             return False
 
         selected_data = random.choice(candidates)
-        # Usar el ItemManager para instanciar el material correctamente, o hacerlo manual
+        # Usar el ItemManager para instanciar el material correctamente
         mat_id = selected_data.get("MATERIAL_ID", selected_data.get("STATIC_ID"))
         material_obj = item_manager_inst.create_item_object(
-            item_id=mat_id, cMaterial=cMaterial
+            item_id=mat_id, 
+            cMaterial=cMaterial,
+            material_lookup=True
         )
         if not material_obj:
             console.print("[danger]Error instanciando el material.[/danger]")
@@ -1283,18 +1302,8 @@ def main():
                                         f"[success]¡El enemigo dejó caer: {getattr(loot_item, 'Name', getattr(loot_item, 'name', 'Objeto'))}![/success]"
                                     )
                                     vInventory.addObject(loot_item)
-                            if player.EXP >= player.EXP_M:
-                                while player.EXP >= player.EXP_M:
-                                    player.Level += 1
-                                    player.EXP -= player.EXP_M
-                                    player.EXP_M = int(player.EXP_M * 1.5)
-                                    player.Health_max += 20
-                                    player.Mana_max += 10
-                                    player.Health = player.Health_max
-                                    player.Mana = player.Mana_max
-                                    console.print(
-                                        f"[success]¡Subiste al nivel {player.Level}![/success]"
-                                    )
+                            quest_manager.update_kill_quest(enemy.NAME, player)
+                            player.level_up()
                             input_done = input("Seguir?:: ")
                             if input_done:
                                 enemy = zone_loader(chosen_area)
@@ -1577,7 +1586,10 @@ def main():
             traceback.print_exc()
             wait_for_enter()
 
-    elif main_input == 15 and CONFIG["DEBUG"]["ENABLED"]:
+    elif main_input == 15:
+        quest_manager.open_quest_board(player, vInventory)
+
+    elif main_input == 16 and CONFIG["DEBUG"]["ENABLED"]:
         debug_input = int(
             input("""DEBUG: 
                   [1] ARMAS
@@ -1631,110 +1643,45 @@ def main():
             wait_for_enter()
 
 
-# Add a save game function
-def save_game() -> bool:
-    """
-    Save the current game state to a file.
-
-    Returns:
-        True if save was successful, False otherwise
-    """
-    try:
-        # Create save data structure
-        save_data = {
-            "player": {
-                "name": player.name,
-                "level": player.Level,
-                "health": player.Health,
-                "health_max": player.Health_max,
-                "mana": player.Mana,
-                "mana_max": player.Mana_max,
-                "exp": player.EXP,
-                "exp_max": player.EXP_M,
-                "gold": player.Gold,
-            },
-            "game_state": {"area": chosen_area, "tick": tick},
-            "timestamp": str(sp.time()),
-        }
-
-        # Write save data to file (full overwrite; Loader.Write expects key/content for merge)
-        save_path = os.path.normpath("./Data/SaveGame.json")
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        with open(save_path, "w", encoding="utf-8") as f:
-            json.dump(save_data, f, indent=4)
-        console.print("[success]Juego guardado correctamente.[/success]")
-        return True
-    except Exception as e:
-        console.print(f"[danger]Error al guardar el juego: {str(e)}[/danger]")
-        return False
-
-
-# Add a load game function
-def load_game() -> bool:
-    """
-    Load a saved game from file.
-
-    Returns:
-        True if load was successful, False otherwise
-    """
-    global player, chosen_area, tick
-
-    try:
-        # Check if save file exists
-        if not os.path.exists("./Data/SaveGame.json"):
-            console.print("[warning]No hay partidas guardadas.[/warning]")
-            return False
-
-        # Load save data
-        save_data = Read("./Data/SaveGame.json", None, None)
-
-        if not save_data:
-            console.print("[warning]Archivo de guardado vacío o corrupto.[/warning]")
-            return False
-
-        # Restore player state
-        player_data = save_data.get("player", {})
-        game_state = save_data.get("game_state", {})
-
-        # Restore basic player attributes
-        player.name = player_data.get("name", player.name)
-        player.Level = player_data.get("level", player.Level)
-        player.Health = player_data.get("health", player.Health)
-        player.Health_max = player_data.get("health_max", player.Health_max)
-        player.Mana = player_data.get("mana", player.Mana)
-        player.Mana_max = player_data.get("mana_max", player.Mana_max)
-        player.EXP = player_data.get("exp", player.EXP)
-        player.EXP_M = player_data.get("exp_max", player.EXP_M)
-        player.Gold = player_data.get("gold", player.Gold)
-
-        # Restore game state
-        chosen_area = game_state.get("area", None)
-        tick = game_state.get("tick", 0)
-
-        console.print("[success]Partida cargada correctamente.[/success]")
-        return True
-    except Exception as e:
-        console.print(f"[danger]Error al cargar la partida: {str(e)}[/danger]")
-        return False
+# Save functions handled by Modules.SaveSystem
 
 
 def init_game():
-    global item_manager, shop_manager
+    global item_manager, shop_manager, chosen_area
     
     item_manager = get_item_manager()
     shop_manager = get_shop_manager()
     mod_loader_instance = get_mod_loader()
     mod_loader_instance.load_all_mods()
 
-    if os.path.exists("./Data/SaveGame.json"):
-        console.print("[info]Se ha encontrado una partida guardada.[/info]")
-        console.print("¿Deseas cargar la partida guardada? (s/n)")
-        response = input().lower()
+    from Modules.QuestSystem import quest_manager
+    get_mod_api().integrate_with_quest_manager(quest_manager)
 
-        if response == "s" or response == "si":
-            load_game()
+    from Modules.SaveSystem import get_slot_info, save_load_menu
+    
+    has_saves = False
+    for s in [1, 2, 3]:
+        info = get_slot_info(s)
+        if info["exists"]:
+            has_saves = True
+            break
             
-    resultados = []
+    if has_saves:
+        console.print("[info]Se han encontrado partidas guardadas.[/info]")
+        response = interactive_menu_select(
+            title="Partidas Encontradas",
+            options=[(1, "Cargar Partida"), (2, "Nueva Partida")],
+            prompt="Selecciona: ",
+            default_value=1,
+            border_style="yellow"
+        )
+        if response == 1:
+            game_state = save_load_menu(
+                player, vInventory, chosen_area, item_manager,
+                console, interactive_menu_select, wait_for_enter
+            )
+            if game_state is not None:
+                chosen_area = game_state.get("chosen_area", chosen_area)
 
 # Execution
 if __name__ == "__main__":
