@@ -119,7 +119,9 @@ def open_crafting_menu(player, vInventory):
             
         cat_item = item_manager.get_item_by_id(selected_recipe.result_item_id)
         if cat_item:
-            new_item = item_manager.create_item_object(cat_item[1], cat_item[0])
+            from Modules.setup import cWeapon, cEquippableItems, cObject, cTool
+            from Modules.GatheringMasterySystem import cMaterial
+            new_item = item_manager.create_item_object(selected_recipe.result_item_id, cWeapon, cEquippableItems, cObject, cTool, cMaterial)
             if new_item:
                 vInventory.addObject(new_item)
                 console.print(f"\n[green]¡Exito! Has forjado un(a) [bold]{selected_recipe.name}[/].[/]")

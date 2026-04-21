@@ -25,16 +25,41 @@
             "gold_cost": 50
         },
         {
-            "recipe_id": "pocion_origen_1",
-            "name": "Poción de Vida Menor",
-            "result_item_id": 1,
-            "result_item_type": "Object",
+            "recipe_id": "pocion_salud_pequena",
+            "name": "Poción de Salud Pequeña",
+            "result_item_id": 50,
+            "result_item_type": "Consumable",
             "materials_required": {
-                "Flor de Sol": 2,
-                "Hierba de Rocío": 1
+                "Hierba Silvestre": 2,
+                "Hierba Curativa": 1
             },
-            "description": "Mezcla de componentes orgánicos capaz de sanar heridas.",
+            "description": "Mezcla de componentes orgánicos capaz de sanar heridas leves.",
             "gold_cost": 5
+        },
+        {
+            "recipe_id": "pocion_salud_media",
+            "name": "Poción de Salud Media",
+            "result_item_id": 51,
+            "result_item_type": "Consumable",
+            "materials_required": {
+                "Hierba Curativa": 3,
+                "Flor de Maná": 1
+            },
+            "description": "Poción concentrada para heridas más graves.",
+            "gold_cost": 15
+        },
+        {
+            "recipe_id": "elixir_completo",
+            "name": "Elixir Completo",
+            "result_item_id": 55,
+            "result_item_type": "Consumable",
+            "materials_required": {
+                "Hierba Curativa": 5,
+                "Flor de Maná": 3,
+                "Loto Lunar": 1
+            },
+            "description": "Elixir potente que restaura salud y maná.",
+            "gold_cost": 40
         }
     ]
 }

@@ -1,0 +1,40 @@
+{
+    "quests": [
+        {
+            "quest_id": "kill_goblins_1",
+            "name": "Plaga de Goblins",
+            "description": "Derrota a 5 Goblins en el Bosque.",
+            "type": "kill",
+            "target": "Goblin",
+            "required_amount": 5,
+            "rewards": {
+                "gold": 100,
+                "exp": 50
+            }
+        },
+        {
+            "quest_id": "gather_herbs_1",
+            "name": "Medicina Urgente",
+            "description": "Consigue 3 Hierbas Curativas.",
+            "type": "gather",
+            "target": "Hierba Curativa",
+            "required_amount": 3,
+            "rewards": {
+                "gold": 80,
+                "exp": 20
+            }
+        },
+        {
+            "quest_id": "boss_goblin_king",
+            "name": "El Rey de la Horda",
+            "description": "Derrota al temido Rey Goblin en el Bosque Encantado.",
+            "type": "kill",
+            "target": "Rey Goblin",
+            "required_amount": 1,
+            "rewards": {
+                "gold": 500,
+                "exp": 300
+            }
+        }
+    ]
+}

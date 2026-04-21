@@ -18,9 +18,60 @@ from sshkeyboard import listen_keyboard, stop_listening
 from Modules.input_utils import keyboard_listener_scope
 
 class cSkill:
-    exp_total: float = 0.0
-    exp_to_next_lvl: float = 100.0
-    current_level: int = 1
+    BONUS_EFFICIENCY: float = 0.05   # +5% de eficiencia de recolección por nivel
+    BONUS_XP_FACTOR:  float = 0.10   # +10% de XP obtenida al recolectar por nivel
+    MAX_LEVEL: int = 50
+    EXP_BASE: float = 100.0
+    EXP_GROWTH: float = 1.5
+
+    def __init__(self):
+        self.exp_total: float = 0.0
+        self.exp_to_next_lvl: float = self.EXP_BASE
+        self.current_level: int = 1
+
+    def _recalc_exp_to_next(self) -> None:
+        self.exp_to_next_lvl = self.EXP_BASE * (self.EXP_GROWTH ** (self.current_level - 1))
+
+    def level_up(self) -> None:
+        """Incrementa nivel y actualiza la EXP requerida para el siguiente."""
+        if self.current_level >= self.MAX_LEVEL:
+            return
+        self.current_level += 1
+        self._recalc_exp_to_next()
+
+    def add_exp(self, amount: float) -> int:
+        """Añade EXP y sube de nivel si corresponde. Devuelve niveles ganados."""
+        if self.current_level >= self.MAX_LEVEL:
+            return 0
+        self.exp_total += amount
+        levels_gained = 0
+        while self.exp_total >= self.exp_to_next_lvl and self.current_level < self.MAX_LEVEL:
+            self.exp_total -= self.exp_to_next_lvl
+            self.level_up()
+            levels_gained += 1
+        if self.current_level >= self.MAX_LEVEL:
+            self.exp_total = 0.0
+        return levels_gained
+
+    @property
+    def efficiency_bonus(self) -> float:
+        """Multiplicador de eficiencia (velocidad de recolección). 1.0 = sin bonus."""
+        return 1.0 + (self.current_level - 1) * self.BONUS_EFFICIENCY
+
+    @property
+    def xp_bonus_factor(self) -> float:
+        """Multiplicador de XP ganada al recolectar. 1.0 = sin bonus."""
+        return 1.0 + (self.current_level - 1) * self.BONUS_XP_FACTOR
+
+    @property
+    def efficiency_pct(self) -> float:
+        """Bonus de eficiencia en porcentaje (para mostrar en UI)."""
+        return (self.current_level - 1) * self.BONUS_EFFICIENCY * 100
+
+    @property
+    def xp_pct(self) -> float:
+        """Bonus de XP en porcentaje (para mostrar en UI)."""
+        return (self.current_level - 1) * self.BONUS_XP_FACTOR * 100
 
 class cFarm:
     ruta = Path(__file__).parent.parent / "config.json"
@@ -53,6 +104,7 @@ class cFarm:
         msg_color: str,
         material_name: str,
         power: float,
+        skill_info: Optional[tuple] = None,  # (level, eff_pct, xp_pct)
     ) -> Panel:
 
         BAR_WIDTH = 50  # caracteres de ancho de la barra
@@ -105,6 +157,16 @@ class cFarm:
 
         table.add_row(Text(f"Recolectando: {material_name}", style="bold cyan"))
         table.add_row(Text(f"Poder: {power:.2f}  |  Bonus zona: {self.ZONE_BONUS*100:.0f}%", style="dim"))
+        # ── indicadores de bonus de skill ─────
+        if skill_info:
+            lvl, eff_pct, xp_pct = skill_info
+            bonus_text = Text()
+            bonus_text.append(f"Nivel de skill: {lvl}", style="bold bright_yellow")
+            bonus_text.append("  |  ", style="dim")
+            bonus_text.append(f"+{eff_pct:.0f}% eficiencia", style="bright_green")
+            bonus_text.append("  ", style="dim")
+            bonus_text.append(f"+{xp_pct:.0f}% XP", style="bright_cyan")
+            table.add_row(bonus_text)
         table.add_row(Text(""))
         table.add_row(Text("Progreso:", style="dim"))
         table.add_row(prog_bar)
@@ -139,7 +201,8 @@ class cFarm:
                 f"(nivel actual: {current_lvl})."
             )
 
-        Gathering_Skill_Bonus = 1 + (self.gathering[skill_key].current_level * 0.05)
+        skill_obj = self.gathering[skill_key]
+        Gathering_Skill_Bonus = skill_obj.efficiency_bonus
         total_modifier = 1.0
         for b in buffs:
             total_modifier *= b
@@ -234,6 +297,11 @@ class cFarm:
                             msg_color=state["msg_color"],
                             material_name=material.Name,
                             power=power,
+                            skill_info=(
+                                skill_obj.current_level,
+                                skill_obj.efficiency_pct,
+                                skill_obj.xp_pct,
+                            ),
                         )
                     )
                     time.sleep(self.TICK_INTERVAL)
@@ -247,10 +315,25 @@ class cFarm:
                 kb_thread.join(timeout=3.0)
 
         # ── XP ────────────────────────────────
-        self.gathering[skill_key].exp_total += material.Hardness / 13
+        xp_base = material.Hardness / 13
+        xp_gained = xp_base * skill_obj.xp_bonus_factor
+        levels_up = skill_obj.add_exp(xp_gained)
 
-        console.print(f"\n[bold green]✓ Recolección completada.[/bold green] "
-                      f"XP acumulada: {self.gathering[skill_key].exp_total:.2f}\n")
+        level_msg = ""
+        if levels_up > 0:
+            level_msg = (
+                f"  [bold bright_yellow]¡Subiste a nivel {skill_obj.current_level} en {skill_key}![/bold bright_yellow]\n"
+                f"  [bright_green]  +{skill_obj.efficiency_pct:.0f}% eficiencia de recoleccion[/bright_green]\n"
+                f"  [bright_cyan]  +{skill_obj.xp_pct:.0f}% XP ganada[/bright_cyan]"
+            )
+
+        console.print(
+            f"\n[bold green]Recoleccion completada.[/bold green] "
+            f"[bright_cyan]+{xp_gained:.1f} XP[/bright_cyan] "
+            f"(Lv.{skill_obj.current_level} | hasta siguiente: {skill_obj.exp_to_next_lvl:.0f})"
+        )
+        if level_msg:
+            console.print(level_msg)
         return True
                 
 class cMaterial:

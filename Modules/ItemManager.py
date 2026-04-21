@@ -53,34 +53,41 @@ class ItemManager:
         
         for category, items in self.items_data.items():
             if category.startswith("TYPE:"):
+                is_material_category = (category == "TYPE:Materials")
                 for item_key, item_data in items.items():
-                    item_id = item_data.get("STATIC_ID")
+                    # Los materiales usan MATERIAL_ID, el resto STATIC_ID
+                    item_id = item_data.get("MATERIAL_ID") if is_material_category else item_data.get("STATIC_ID")
                     item_name = item_data.get("Name")
                     
                     if item_id is not None:
-                        self.items_by_id[item_id] = {
+                        entry = {
                             **item_data,
                             "category": category,
-                            "key": item_key
+                            "key": item_key,
+                            # Normalizar: asegurarnos de que siempre haya un campo Type
+                            "Type": item_data.get("Type", "Material" if is_material_category else "Unknown")
                         }
+                        if is_material_category:
+                            # Indexar con prefijo para evitar colisión con STATIC_ID de otros items
+                            self.items_by_id[f"mat_{item_id}"] = entry
+                        else:
+                            self.items_by_id[item_id] = entry
                     
                     if item_name:
                         self.items_by_name[item_name.lower()] = {
                             **item_data,
                             "category": category,
-                            "key": item_key
+                            "key": item_key,
+                            "Type": item_data.get("Type", "Material" if is_material_category else "Unknown")
                         }
     
-    def get_item_by_id(self, item_id: Union[int, str]) -> Optional[Dict]:
+    def get_item_by_id(self, item_id: Union[int, str], material: bool = False) -> Optional[Dict]:
         """
-        Obtiene los datos de un item por su ID
-        
-        Args:
-            item_id: ID del item
-            
-        Returns:
-            Dict con los datos del item o None si no existe
+        Obtiene los datos de un item por su ID.
+        Pasar material=True para buscar por MATERIAL_ID.
         """
+        if material:
+            return self.items_by_id.get(f"mat_{item_id}")
         return self.items_by_id.get(item_id)
     
     def get_item_by_name(self, name: str) -> Optional[Dict]:
@@ -113,22 +120,12 @@ class ItemManager:
             ]
         return []
     
-    def create_item_object(self, item_id: Union[int, str], cWeapon=None, cEquippableItems=None, cObject=None, cTool=None, cMaterial=None):
+    def create_item_object(self, item_id: Union[int, str], cWeapon=None, cEquippableItems=None, cObject=None, cTool=None, cMaterial=None, material_lookup: bool = False):
         """
-        Crea un objeto de item (cWeapon, cEquippableItems, cObject, cTool o cMaterial) desde JSON
-        
-        Args:
-            item_id: ID del item a crear
-            cWeapon: Clase cWeapon importada
-            cEquippableItems: Clase cEquippableItems importada
-            cObject: Clase cObject importada
-            cTool: Clase cTool importada
-            cMaterial: Clase cMaterial importada
-            
-        Returns:
-            Objeto del tipo apropiado o None si no existe
+        Crea un objeto de item desde JSON.
+        Usa material_lookup=True cuando item_id sea un MATERIAL_ID.
         """
-        item_data = self.get_item_by_id(item_id)
+        item_data = self.get_item_by_id(item_id, material=material_lookup)
         
         if not item_data:
             print(f"[ERROR] Item con ID {item_id} no encontrado")

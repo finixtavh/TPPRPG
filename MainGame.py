@@ -528,7 +528,20 @@ def display_zone_enemies(
 ############################## Main Menu Functions ##############################
 
 
+_MAIN_MENU_ASCII = '''
+  ___  ___  ___ 
+ | _ \\| _ \\/ __|
+ |   /|  _/ (_ |
+ |_|_\\|_|  \\___|
+'''
+
 def display_main_menu() -> int:
+    import threading as _thr
+    from rich.align import Align
+    from rich import box as _box
+    from sshkeyboard import listen_keyboard as _lk, stop_listening as _sl
+    from Modules.input_utils import keyboard_listener_scope as _kls
+
     options = [
         (1, "Inspeccionar las zonas"),
         (2, "Ir a una zona"),
@@ -547,16 +560,105 @@ def display_main_menu() -> int:
     ]
     if CONFIG["DEBUG"]["ENABLED"]:
         options.append((15, "DEBUG"))
-
     options.append((0, "Salir del juego"))
-    return interactive_menu_select(
-        title="RPG Game Menu",
-        subtitle="Selecciona una opción",
-        options=options,
-        prompt="Selecciona una opción: ",
-        default_value=7,
-        border_style="menu_title",
-    )
+
+    index_by_value = {v: i for i, (v, _) in enumerate(options)}
+    state = {"idx": index_by_value.get(6, 0), "buf": "", "done": False, "selected": None, "dirty": True}
+
+    def _render():
+        # ASCII header
+        header = Text.from_markup(f"[bold yellow]{_MAIN_MENU_ASCII}[/bold yellow]")
+        header = Align.center(header)
+
+        # Table
+        t = Table(show_header=False, box=_box.ROUNDED, padding=(0, 1))
+        t.add_column("Opción", style="bright_yellow", justify="right")
+        t.add_column("Sep", style="bright_yellow")
+        t.add_column("Acción", style="bright_white")
+
+        for i, (val, label) in enumerate(options):
+            selected = i == state["idx"]
+            if selected:
+                opt = f"[bold bright_yellow]► {val}[/]"
+                lab = f"[bold bright_yellow]{label}[/]"
+                sep = f"[bold bright_yellow]·[/]"
+            else:
+                opt = f"  {val}"
+                lab = label
+                sep = "·"
+            t.add_row(opt, sep, lab)
+
+        footer_str = "Selecciona una opción: "
+        if state["buf"]:
+            footer_str += f"[dim]↑/↓ + Enter | número: {state['buf']}[/dim]"
+        else:
+            footer_str += "[dim]↑/↓ + Enter | número[/dim]"
+        footer = Align.center(Text.from_markup(footer_str))
+
+        return Panel(
+            Group(header, "", Align.center(t), "", footer),
+            border_style="yellow",
+            title=f"[bold yellow]RPG[/bold yellow]",
+            padding=(1, 2),
+        )
+
+    def _on_press(key):
+        if state["done"]: return
+        if key == "up":
+            state["idx"] = (state["idx"] - 1) % len(options)
+            state["dirty"] = True
+        elif key == "down":
+            state["idx"] = (state["idx"] + 1) % len(options)
+            state["dirty"] = True
+        elif key == "backspace":
+            state["buf"] = state["buf"][:-1]
+            state["dirty"] = True
+        elif key == "enter":
+            if state["buf"]:
+                try:
+                    typed = int(state["buf"])
+                except ValueError:
+                    state["buf"] = ""; state["dirty"] = True; return
+                if typed in index_by_value:
+                    state["selected"] = typed
+                    state["done"] = True
+                    try: _sl()
+                    except Exception: pass
+                    return
+                state["buf"] = ""; state["dirty"] = True; return
+            state["selected"] = options[state["idx"]][0]
+            state["done"] = True
+            try: _sl()
+            except Exception: pass
+        elif key.isdigit():
+            state["buf"] += key
+            state["dirty"] = True
+
+    from rich.live import Live as _Live
+    import time as _time
+    kb = None
+    with _kls():
+        kb = _thr.Thread(
+            target=_lk,
+            kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0},
+            daemon=True,
+        )
+        kb.start()
+        try:
+            with _Live(_render(), console=console, refresh_per_second=30, transient=True) as live:
+                while not state["done"]:
+                    if state["dirty"]:
+                        state["dirty"] = False
+                        live.update(_render())
+                    _time.sleep(0.01)
+        finally:
+            state["done"] = True
+            try: _sl()
+            except Exception: pass
+            if kb and kb.is_alive(): kb.join(timeout=3.0)
+            _time.sleep(0.05)
+
+    return int(state["selected"]) if state["selected"] is not None else options[state["idx"]][0]
 
 
 def get_validated_input(prompt: str, valid_options: List[int]) -> int:
@@ -890,89 +992,145 @@ def main():
         )
         wait_for_enter()
             
-    elif main_input == 5: # Stats
+    elif main_input == 5: # Stats (3 pestañas con flechas izquierda/derecha)
+        import threading as _thr
+        from rich.live import Live as _Live
+        from sshkeyboard import listen_keyboard as _lk, stop_listening as _sl
+        from Modules.input_utils import keyboard_listener_scope as _kls
+        from Modules.GatheringMasterySystem import Gathering_init
+        from Modules.MasterySystem import ensure_mastery, MASTERY_MAX_LEVEL
+
         os.system("cls" if os.name == "nt" else "clear")
-        console.clear()
 
-        # ── Defensas ──
-        def_names = ["Física", "Térmica", "Tierra", "Eléctrica", "Profunda"]
-        def_str = " | ".join([f"{name}: {player.DEF[i]}" for i, name in enumerate(def_names) if player.DEF[i] > 0])
-        if not def_str:
-            def_str = "Ninguna"
+        _TAB_NAMES = ["Stats Principales", "Mastery Armas/Armadura", "Mastery Recoleccion"]
+        _st = {"tab": 0, "done": False}
 
-        # ── Bloqueo % formateado ──
-        block_parts = []
-        for i, name in enumerate(def_names):
-            val = player.DefensePercentage[i] if isinstance(player.DefensePercentage, list) else 0
-            if val > 0:
-                block_parts.append(f"{name}: {val:.1f}%")
-        block_str = " | ".join(block_parts) if block_parts else "0%"
+        def _tab_header(active):
+            h = Text()
+            for i, name in enumerate(_TAB_NAMES):
+                if i == active:
+                    h.append(f" {name} ", style="bold black on bright_yellow")
+                else:
+                    h.append(f" {name} ", style="dim")
+                if i < len(_TAB_NAMES) - 1:
+                    h.append("  ")
+            h.append("\n")
+            h.append("<- -> para cambiar pestana  |  Enter/Q para cerrar", style="dim")
+            return h
 
-        # ── Arma equipada ──
-        weapon_name = "Puños (sin arma)"
-        if player.weapon:
-            weapon_name = getattr(player.weapon, "name", getattr(player.weapon, "Name", "???"))
+        def _tab_stats():
+            dn = ["Fisica", "Termica", "Tierra", "Electrica", "Profunda"]
+            ds = " | ".join([f"{n}: {player.DEF[i]}" for i, n in enumerate(dn) if player.DEF[i] > 0]) or "Ninguna"
+            bp = [f"{n}: {player.DefensePercentage[i]:.1f}%" for i, n in enumerate(dn)
+                  if (player.DefensePercentage[i] if isinstance(player.DefensePercentage, list) else 0) > 0]
+            bs = " | ".join(bp) or "0%"
+            wn = getattr(player.weapon, "name", getattr(player.weapon, "Name", "???")) if player.weapon else "Punos (sin arma)"
+            ep = (player.EXP / player.EXP_M * 100) if player.EXP_M > 0 else 0
+            eb = "█" * min(int(ep / 100 * 20), 20) + "░" * max(0, 20 - min(int(ep / 100 * 20), 20))
+            ar = []
+            for sn, sl in [("helmet","Casco"),("armor","Armadura"),("boots","Botas"),
+                           ("ring","Anillo 1"),("ring2","Anillo 2"),("ring3","Anillo 3")]:
+                eq = getattr(player, sn, None)
+                if eq: ar.append(f"  {sl}: [bright_white]{getattr(eq,'name',getattr(eq,'Name','???'))}[/]")
+            a_s = "\n".join(ar) or "  [dim]Nada equipado[/]"
+            cr = []
+            for c in getattr(player, "companion", []):
+                st = "vivo" if getattr(c, "is_alive", True) else "caido"
+                cr.append(f"  [{st}] {getattr(c,'name','?')} ({getattr(c,'companion_class','?')}) HP:{getattr(c,'Health',0):.0f}/{getattr(c,'Health_max',0):.0f}")
+            c_s = "\n".join(cr) or "  [dim]Ninguno[/]"
+            bf = [f"  + [green]{getattr(b,'Name',getattr(b,'name','?'))}[/]" for b in getattr(player,"appliedbuffs",[])]
+            bf += [f"  - [red]{getattr(d,'Name',getattr(d,'name','?'))}[/]" for d in getattr(player,"applieddebuffs",[])]
+            b_s = "\n".join(bf) or "  [dim]Ninguno[/]"
+            g = Table.grid(padding=(0,0))
+            g.add_column()
+            g.add_row(Text.from_markup(
+                f"[bold yellow]Atributos Principales[/]\n"
+                f"[bold red]HP:[/] {player.Health:.0f}/{player.Health_max:.0f}\n"
+                f"[bold blue]MP:[/] {player.Mana:.0f}/{player.Mana_max:.0f}  [dim](Regen: +{player.ManaRegen:.1f}/turno)[/]\n"
+                f"[bold yellow]Nivel:[/] {player.Level}   [dim]Puntos: {player.lvlPoints}[/]\n"
+                f"[green]EXP:[/] {eb}  {int(player.EXP)}/{int(player.EXP_M)} ({ep:.1f}%)\n"
+                f"[gold1]Oro:[/] {int(player.Gold):,}\n"
+                f"\n[bold cyan]Combate[/]\n"
+                f"Arma: {wn}\n"
+                f"Defensa Plana: {ds}\n"
+                f"Bloqueo %: {bs}\n"
+                f"Barrera: {int(player.Barrier)}\n"
+                f"Evasion: {player.Evasion}%\n"
+                f"Contra-ataque: {player.CounterAttack}%\n"
+                f"\n[bold bright_magenta]Equipamiento[/]\n{a_s}\n"
+                f"\n[bold bright_green]Companeros[/]\n{c_s}\n"
+                f"\n[bold bright_yellow]Efectos Activos[/]\n{b_s}"))
+            return g
 
-        # ── Armadura equipada ──
-        armor_parts = []
-        for slot_name, slot_label in [("helmet", "Casco"), ("armor", "Armadura"), ("boots", "Botas"),
-                                       ("ring", "Anillo 1"), ("ring2", "Anillo 2"), ("ring3", "Anillo 3")]:
-            eq = getattr(player, slot_name, None)
-            if eq:
-                eq_name = getattr(eq, "name", getattr(eq, "Name", "???"))
-                armor_parts.append(f"  {slot_label}: [bright_white]{eq_name}[/]")
-        armor_str = "\n".join(armor_parts) if armor_parts else "  [dim]Nada equipado[/]"
+        def _tab_mastery():
+            mgr = ensure_mastery(player)
+            t = Table(show_header=True, box=box.SIMPLE, padding=(0, 1))
+            t.add_column("Tipo", style="bold", min_width=10)
+            t.add_column("Skill", style="cyan", min_width=14)
+            t.add_column("Nivel", justify="center", style="yellow", min_width=7)
+            t.add_column("EXP", justify="left", min_width=20)
+            t.add_column("Atributo", justify="left")
+            for sk in mgr.weapon_masteries.values():
+                fl = int(15 * sk.exp_current / max(sk.exp_to_next, 1))
+                bar = "[bright_yellow]" + "█" * fl + "[/bright_yellow][dim]" + "░" * (15 - fl) + "[/dim]"
+                t.add_row("Arma", sk.name, f"{sk.current_level}/{MASTERY_MAX_LEVEL}",
+                          Text.from_markup(f"{bar} {sk.exp_current:.0f}/{sk.exp_to_next:.0f}"),
+                          Text.from_markup(sk.bonus_description))
+            for sk in mgr.armor_masteries.values():
+                fl = int(15 * sk.exp_current / max(sk.exp_to_next, 1))
+                bar = "[bright_yellow]" + "█" * fl + "[/bright_yellow][dim]" + "░" * (15 - fl) + "[/dim]"
+                t.add_row("Armadura", sk.name, f"{sk.current_level}/{MASTERY_MAX_LEVEL}",
+                          Text.from_markup(f"{bar} {sk.exp_current:.0f}/{sk.exp_to_next:.0f}"),
+                          Text.from_markup(sk.bonus_description))
+            return t
 
-        # ── Compañeros ──
-        companion_parts = []
-        for comp in getattr(player, "companion", []):
-            comp_name = getattr(comp, "name", getattr(comp, "Name", "???"))
-            comp_class = getattr(comp, "companion_class", "?")
-            comp_hp = getattr(comp, "Health", 0)
-            comp_hp_max = getattr(comp, "Health_max", 0)
-            alive = "💚" if getattr(comp, "is_alive", True) else "💀"
-            companion_parts.append(f"  {alive} {comp_name} ({comp_class}) - HP: {comp_hp}/{comp_hp_max}")
-        companion_str = "\n".join(companion_parts) if companion_parts else "  [dim]Ninguno[/]"
+        def _tab_gathering():
+            t = Table(show_header=True, box=box.SIMPLE, padding=(0, 1))
+            t.add_column("Skill", style="cyan", min_width=14)
+            t.add_column("Nivel", justify="center", style="yellow", min_width=7)
+            t.add_column("EXP", justify="left", min_width=20)
+            t.add_column("Eficiencia", justify="left", style="bright_green")
+            t.add_column("Bonus XP", justify="left", style="bright_cyan")
+            for sk_key, sk in Gathering_init.gathering.items():
+                fl = int(15 * sk.exp_total / max(sk.exp_to_next_lvl, 1))
+                bar = "[bright_yellow]" + "█" * fl + "[/bright_yellow][dim]" + "░" * (15 - fl) + "[/dim]"
+                t.add_row(sk_key.capitalize(), f"{sk.current_level}/{sk.MAX_LEVEL}",
+                          Text.from_markup(f"{bar} {sk.exp_total:.1f}/{sk.exp_to_next_lvl:.0f}"),
+                          f"+{sk.efficiency_pct:.0f}% velocidad", f"+{sk.xp_pct:.0f}% XP")
+            return t
 
-        # ── Buffs activos ──
-        buff_parts = []
-        for buff in getattr(player, "appliedbuffs", []):
-            bname = getattr(buff, "Name", getattr(buff, "name", "???"))
-            buff_parts.append(f"  ▲ [green]{bname}[/]")
-        for debuff in getattr(player, "applieddebuffs", []):
-            dname = getattr(debuff, "Name", getattr(debuff, "name", "???"))
-            buff_parts.append(f"  ▼ [red]{dname}[/]")
-        buffs_str = "\n".join(buff_parts) if buff_parts else "  [dim]Ninguno[/]"
+        def _build_panel():
+            tab = _st["tab"]
+            hdr = _tab_header(tab)
+            content = [_tab_stats, _tab_mastery, _tab_gathering][tab]()
+            return Panel(Group(hdr, Text(""), content),
+                         title=f"[bold yellow]{_TAB_NAMES[tab]}[/]", border_style="yellow", padding=(1, 2))
 
-        # ── EXP bar ──
-        exp_pct = (player.EXP / player.EXP_M * 100) if player.EXP_M > 0 else 0
-        exp_bar_len = min(int(exp_pct / 100 * 20), 20)
-        exp_bar = "█" * exp_bar_len + "░" * (20 - exp_bar_len)
+        def _on_key(key):
+            if _st["done"]: return
+            if key == "left":
+                _st["tab"] = (_st["tab"] - 1) % len(_TAB_NAMES)
+            elif key == "right":
+                _st["tab"] = (_st["tab"] + 1) % len(_TAB_NAMES)
+            elif key in ("enter", "q", "escape"):
+                _st["done"] = True
+                try: _sl()
+                except Exception: pass
 
-        stats_text = (
-            f"[bold yellow]━━━ Atributos Principales ━━━[/]\n"
-            f"[bold red]♥ HP:[/] {player.Health:.0f}/{player.Health_max:.0f}\n"
-            f"[bold blue]♦ MP:[/] {player.Mana:.0f}/{player.Mana_max:.0f}  [dim](Regen: +{player.ManaRegen:.1f}/turno)[/]\n"
-            f"[bold yellow]⭐ Nivel:[/] {player.Level}   [dim]Puntos sin gastar: {player.lvlPoints}[/]\n"
-            f"[green]⚡ EXP:[/] {exp_bar}  {int(player.EXP)}/{int(player.EXP_M)} ({exp_pct:.1f}%)\n"
-            f"[gold1]💰 Oro:[/] {int(player.Gold):,}\n"
-            f"\n[bold cyan]━━━ Combate ━━━[/]\n"
-            f"[purple]🗡️ Arma:[/] {weapon_name}\n"
-            f"[cyan]🛡️ Defensa Plana:[/] {def_str}\n"
-            f"[cyan]🛡️ Bloqueo %:[/] {block_str}\n"
-            f"[bright_cyan]🛡️ Barrera:[/] {int(player.Barrier)} [dim](Se regenera al iniciar combate)[/]\n"
-            f"[cyan]🏃 Evasión:[/] {player.Evasion}%\n"
-            f"[cyan]⚔️ Contra-ataque:[/] {player.CounterAttack}%\n"
-            f"\n[bold bright_magenta]━━━ Equipamiento ━━━[/]\n"
-            f"{armor_str}\n"
-            f"\n[bold bright_green]━━━ Compañeros ━━━[/]\n"
-            f"{companion_str}\n"
-            f"\n[bold bright_yellow]━━━ Efectos Activos ━━━[/]\n"
-            f"{buffs_str}"
-        )
-
-        console.print(Panel(stats_text, title=f"[bold]📋 Estado del Jugador: {player.name}[/]", border_style="cyan", padding=(1, 2)))
-        wait_for_enter()
+        _kb = None
+        with _kls():
+            _kb = _thr.Thread(target=_lk, kwargs={"on_press": _on_key, "sequential": False, "delay_second_char": 0.0}, daemon=True)
+            _kb.start()
+            try:
+                with _Live(_build_panel(), console=console, refresh_per_second=20, transient=True) as live:
+                    while not _st["done"]:
+                        live.update(_build_panel())
+                        sp.sleep(0.05)
+            finally:
+                _st["done"] = True
+                try: _sl()
+                except Exception: pass
+                if _kb and _kb.is_alive(): _kb.join(timeout=3.0)
 
     elif main_input == 6: # Zones
         if chosen_area is None:

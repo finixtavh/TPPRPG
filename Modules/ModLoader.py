@@ -49,6 +49,7 @@ class ModAPI:
         self.stats_injections = {}
         self.shop_injections = {}
         self.enchantment_injections = {}
+        self.quest_injections = {}
         
         # NUEVO: Almacenar datos crudos de JSONs de mods
         self.mod_data_files = {}  # {mod_name: json_data}
@@ -143,6 +144,14 @@ class ModAPI:
             for ench_key, ench_data in mod_data["enchantments"].items():
                 self.enchantment_injections[ench_key] = ench_data
                 logger.info(f"[{mod_name}] Encantamiento auto-inyectado: {ench_key}")
+                
+        # Inyectar quests
+        if "quests" in mod_data:
+            for quest_data in mod_data["quests"]:
+                quest_id = quest_data.get("quest_id")
+                if quest_id:
+                    self.quest_injections[quest_id] = quest_data
+                    logger.info(f"[{mod_name}] Quest auto-inyectada: {quest_id}")
     
     # =========================================================================
     # REGISTRO DE ITEMS (mantenido para compatibilidad)
@@ -318,6 +327,19 @@ class ModAPI:
                 logger.info(f"{count} encantamientos integrados.")
         except ImportError:
             logger.warning("No se pudo cargar EnchantmentSystem para la integración de encantamientos")
+            
+    def integrate_with_quest_manager(self, quest_manager):
+        """Integra quests de mods con QuestManager"""
+        from Modules.QuestSystem import cQuest
+        count = 0
+        for quest_id, quest_data in self.quest_injections.items():
+            if quest_id not in quest_manager.quests:
+                quest_manager.quests[quest_id] = cQuest(quest_data)
+                logger.info(f"Quest integrada: {quest_id}")
+                count += 1
+        
+        if count > 0:
+            console.print(f"[green]✓ {count} quests integradas[/green]")
     
     def get_all_items(self) -> Dict:
         """Retorna todos los items inyectados"""

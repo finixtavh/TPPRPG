@@ -92,6 +92,14 @@ class MasterySkill:
         """Retorna el multiplicador de daño/reducción (1.0 = sin bonus)."""
         return 1.0 + self.bonus_percent / 100.0
 
+    @property
+    def bonus_description(self) -> str:
+        """Descripción del atributo que mejora con cada nivel."""
+        if self.skill_type == "weapon":
+            return f"[bright_green]+{self.bonus_percent:.1f}%[/bright_green] [dim]daño (+{WEAPON_BONUS_PER_LEVEL}%/Nv)[/dim]"
+        else:
+            return f"[bright_cyan]+{self.bonus_percent:.1f}%[/bright_cyan] [dim]reducc. daño (+{ARMOR_BONUS_PER_LEVEL}%/Nv)[/dim]"
+
     def to_dict(self) -> dict:
         return {
             "name": self.name,
@@ -329,39 +337,40 @@ class MasteryManager:
         """Muestra todos los masteries en consola con Rich."""
         from rich.table import Table
         from rich.panel import Panel
+        from rich.text import Text
 
-        t = Table(title="Sistema de Mastery", show_header=True)
-        t.add_column("Tipo", style="bold")
-        t.add_column("Categoría", style="cyan")
-        t.add_column("Nivel", justify="center", style="yellow")
-        t.add_column("EXP", justify="right")
-        t.add_column("Bonus", justify="right", style="green")
+        t = Table(title="Sistema de Mastery", show_header=True, box=None)
+        t.add_column("Tipo",      style="bold",   min_width=12)
+        t.add_column("Skill",     style="cyan",   min_width=16)
+        t.add_column("Nivel",     justify="center", style="yellow", min_width=8)
+        t.add_column("EXP",       justify="left",  min_width=22)
+        t.add_column("Atributo",  justify="left")
 
         for wt, skill in self.weapon_masteries.items():
             bar_len = 15
             filled = int(bar_len * skill.exp_current / max(skill.exp_to_next, 1))
-            bar = "█" * filled + "░" * (bar_len - filled)
+            bar = "[bright_yellow]" + "█" * filled + "[/bright_yellow][dim]" + "░" * (bar_len - filled) + "[/dim]"
             t.add_row(
-                "⚔️ Arma",
+                "Arma",
                 skill.name,
                 f"{skill.current_level}/{MASTERY_MAX_LEVEL}",
-                f"{bar} {skill.exp_current:.1f}/{skill.exp_to_next:.1f}",
-                f"+{skill.bonus_percent:.1f}%",
+                Text.from_markup(f"{bar} {skill.exp_current:.0f}/{skill.exp_to_next:.0f}"),
+                Text.from_markup(skill.bonus_description),
             )
 
         for at, skill in self.armor_masteries.items():
             bar_len = 15
             filled = int(bar_len * skill.exp_current / max(skill.exp_to_next, 1))
-            bar = "█" * filled + "░" * (bar_len - filled)
+            bar = "[bright_yellow]" + "█" * filled + "[/bright_yellow][dim]" + "░" * (bar_len - filled) + "[/dim]"
             t.add_row(
-                "🛡️ Armadura",
+                "Armadura",
                 skill.name,
                 f"{skill.current_level}/{MASTERY_MAX_LEVEL}",
-                f"{bar} {skill.exp_current:.1f}/{skill.exp_to_next:.1f}",
-                f"+{skill.bonus_percent:.1f}%",
+                Text.from_markup(f"{bar} {skill.exp_current:.0f}/{skill.exp_to_next:.0f}"),
+                Text.from_markup(skill.bonus_description),
             )
 
-        console.print(Panel(t, border_style="cyan"))
+        console.print(Panel(t, border_style="cyan", title="[bold cyan]Maestrias[/bold cyan]"))
 
 
 # ── Helper para inicializar en player ─────────────────────────────────────────

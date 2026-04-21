@@ -1,288 +1,252 @@
-"""
-Prueba de concepto: Minijuego de recolección con barra de zona verde.
-Presiona ESPACIO cuando el marcador esté en la zona verde para reducir el tiempo.
-
-Dependencias:
-    pip install rich sshkeyboard
-
-Uso:
-    python gathering.py
-"""
-
 import time
-import random
 import threading
-from dataclasses import dataclass, field
-from typing import Dict, Optional, List
+from typing import List, Tuple, Optional, Dict, Any
 
-from rich.console import Console
-from rich.live import Live
-from rich.text import Text
-from rich.table import Table
+from rich.console import Console, Group
 from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 from rich import box
-from sshkeyboard import listen_keyboard, stop_listening
+from rich.live import Live
+from rich.align import Align
 
+from Modules.input_utils import keyboard_listener_scope, listen_keyboard, stop_listening
 
-# ──────────────────────────────────────────────
-# Modelos de datos
-# ──────────────────────────────────────────────
+console = Console()
 
-@dataclass
-class cSkill:
-    current_level: int = 1
-    exp_total: float = 0.0
+def test_menu_theme(
+    theme_name: str,
+    title_ascii: str,
+    options: List[Tuple[int, str]],
+    style_config: dict
+) -> int:
+    """
+    Función de menú adaptada para probar distintos estilos visuales.
+    """
+    values = [v for v, _ in options]
+    index_by_value = {v: i for i, (v, _) in enumerate(options)}
+    current_index = 0
 
+    state: Dict[str, Any] = {
+        "idx": current_index,
+        "buf": "",
+        "done": False,
+        "selected": None,
+        "dirty": True,
+    }
 
-@dataclass
-class cMaterial:
-    Name: str
-    SkillName: str       # "mining", "lumberjack", etc.
-    Hardness: float = 100.0
+    def _render() -> Panel:
+        # Header (ASCII Art)
+        header = Text.from_markup(f"[{style_config['title_color']}]{title_ascii}[/]")
+        if style_config.get('center_title'):
+            header = Align.center(header)
 
+        # Table Layout
+        t = Table(show_header=False, box=style_config['box_style'], padding=(0, style_config.get('padding', 1)))
+        
+        # Add columns
+        t.add_column("Opción", style=style_config['col_number_style'], justify="right")
+        if style_config.get('separator'):
+            t.add_column("Sep", style=style_config['col_number_style'])
+        t.add_column("Acción", style=style_config['col_text_style'])
 
-@dataclass
-class cTool:
-    Name: str
-    Efficiency: float = 1.0
-
-
-# ──────────────────────────────────────────────
-# Config del minijuego
-# ──────────────────────────────────────────────
-
-ZONE_BONUS: float = 0.20          # % de reducción al acertar (configurable)
-TICK_INTERVAL: float = 0.05       # segundos por frame de la animación
-MARKER_SPEED: float = 0.035       # cuánto se mueve el marcador por tick (0-1)
-ZONE_WIDTH_MIN: float = 0.12      # ancho mínimo de la zona verde (fracción)
-ZONE_WIDTH_MAX: float = 0.22      # ancho máximo
-ZONE_RESPAWN_TICKS: int = 60      # ticks antes de reposicionar la zona
-
-
-# ──────────────────────────────────────────────
-# Clase principal
-# ──────────────────────────────────────────────
-
-class cFarm:
-    GATHERING_SKILLS = ["mining", "lumberjack", "fishing", "herbs", "hunting", "astrology"]
-    WEAPON_SKILLS = [
-        "swords", "electric_wands", "thermal_wands", "earth_wands",
-        "void_staffs", "shields", "blessed_ornament", "ornament", "cursed_ornament",
-    ]
-
-    def __init__(self):
-        self.gathering: Dict[str, cSkill] = {s: cSkill() for s in self.GATHERING_SKILLS}
-        self.weapons: Dict[str, cSkill]   = {s: cSkill() for s in self.WEAPON_SKILLS}
-
-    # ── helpers internos ──────────────────────
-
-    def _build_display(
-        self,
-        progress: float,       # 0.0 – 1.0
-        marker: float,         # 0.0 – 1.0
-        zone_start: float,     # 0.0 – 1.0
-        zone_width: float,
-        remaining: float,
-        total_time: float,
-        last_msg: str,
-        msg_color: str,
-        material_name: str,
-        power: float,
-    ) -> Panel:
-        """Construye el panel que se refresca en cada tick."""
-
-        BAR_WIDTH = 50  # caracteres de ancho de la barra
-
-        # ── barra de progreso ──────────────────
-        filled = int(progress * BAR_WIDTH)
-        prog_bar = Text()
-        prog_bar.append("█" * filled, style="bold blue")
-        prog_bar.append("░" * (BAR_WIDTH - filled), style="dim")
-
-        # ── barra del minijuego (zona + marcador) ──
-        zone_l = int(zone_start * BAR_WIDTH)
-        zone_r = int((zone_start + zone_width) * BAR_WIDTH)
-        marker_pos = int(marker * BAR_WIDTH)
-        marker_pos = max(0, min(BAR_WIDTH - 1, marker_pos))
-
-        mini_chars: list[str] = []
-        mini_styles: list[str] = []
-        for i in range(BAR_WIDTH):
-            in_zone = zone_l <= i <= zone_r
-            is_marker = (i == marker_pos)
-
-            if is_marker:
-                mini_chars.append("▼")
-                mini_styles.append("bold white on green" if in_zone else "bold white on dark_orange3")
-            elif in_zone:
-                mini_chars.append("░")
-                mini_styles.append("bold green")
+        for i, (val, label) in enumerate(options):
+            selected = i == state["idx"]
+            
+            if selected:
+                # Estilo de hover/selección
+                if style_config.get('cursor_char'):
+                    cursor = style_config['cursor_char']
+                    opt_str = f"[{style_config['selected_color']}]{cursor} {val}[/]"
+                    lab_str = f"[{style_config['selected_color']}]{label}[/]"
+                else:
+                    opt_str = f"[{style_config['selected_bg']}][{style_config['selected_fg']}]{val}[/][/]"
+                    lab_str = f"[{style_config['selected_bg']}][{style_config['selected_fg']}] {label} [/][/]"
             else:
-                mini_chars.append("─")
-                mini_styles.append("dim")
+                opt_str = f" {val} "
+                lab_str = label
 
-        mini_bar = Text()
-        for ch, st in zip(mini_chars, mini_styles):
-            mini_bar.append(ch, style=st)
+            if style_config.get('separator'):
+                sep = style_config['separator'] if not selected else f"[{style_config.get('selected_color', 'white')}]{style_config['separator']}[/]"
+                t.add_row(opt_str, sep, lab_str)
+            else:
+                t.add_row(opt_str, lab_str)
 
-        # ── tiempo restante ────────────────────
-        elapsed = total_time - remaining
-        pct = (elapsed / total_time * 100) if total_time > 0 else 100
-        time_line = Text()
-        time_line.append(f"⏱  {remaining:.1f}s restantes", style="bold")
-        time_line.append(f"  ({pct:.0f}% completado)", style="dim")
+        # Footer
+        footer_text = f"[dim]↑/↓ para mover | Enter para seleccionar[/dim]"
+        if state["buf"]:
+            footer_text += f"\n[dim]Ingresando número: {state['buf']}[/dim]"
+            
+        footer = Text.from_markup(footer_text)
+        if style_config.get('center_title'):
+            footer = Align.center(footer)
 
-        # ── mensaje de feedback ────────────────
-        fb = Text(last_msg, style=msg_color)
+        return Panel(
+            Group(header, "", Align.center(t) if style_config.get('center_menu') else t, "", footer),
+            border_style=style_config['border_color'],
+            title=f"[{style_config['border_color']}]{theme_name}[/]",
+            padding=(1, 2)
+        )
 
-        # ── tabla contenedora ─────────────────
-        table = Table.grid(padding=(0, 0, 0, 0))
-        table.add_column(no_wrap=True)
+    def _on_press(key: str) -> None:
+        if state["done"]: return
+        if key == "up":
+            state["idx"] = (state["idx"] - 1) % len(options)
+            state["dirty"] = True
+        elif key == "down":
+            state["idx"] = (state["idx"] + 1) % len(options)
+            state["dirty"] = True
+        elif key == "backspace":
+            state["buf"] = state["buf"][:-1]
+            state["dirty"] = True
+        elif key == "enter":
+            if state["buf"]:
+                try:
+                    typed = int(state["buf"])
+                except ValueError:
+                    state["buf"] = ""
+                    state["dirty"] = True
+                    return
+                if typed in index_by_value:
+                    state["selected"] = typed
+                    state["done"] = True
+                    stop_listening()
+                    return
+                state["buf"] = ""
+                state["dirty"] = True
+                return
+            state["selected"] = options[state["idx"]][0]
+            state["done"] = True
+            stop_listening()
+        elif key.isdigit():
+            state["buf"] += key
+            state["dirty"] = True
 
-        table.add_row(Text(f"Recolectando: {material_name}", style="bold cyan"))
-        table.add_row(Text(f"Poder: {power:.2f}  |  Bonus zona: {ZONE_BONUS*100:.0f}%", style="dim"))
-        table.add_row(Text(""))
-        table.add_row(Text("Progreso:", style="dim"))
-        table.add_row(prog_bar)
-        table.add_row(Text(""))
-        table.add_row(Text("Zona verde  (pulsa ESPACIO cuando el marcador ▼ esté en verde):", style="dim"))
-        table.add_row(mini_bar)
-        table.add_row(Text(""))
-        table.add_row(time_line)
-        table.add_row(fb)
+    kb_thread: Optional[threading.Thread] = None
 
-        return Panel(table, title="[bold]Minijuego de recolección[/bold]", box=box.ROUNDED)
-
-    # ── método principal ──────────────────────
-
-    def gather(
-        self,
-        material: cMaterial,
-        tool: Optional[cTool],
-        buffs: Optional[List[float]] = None,
-    ) -> bool:
-        if buffs is None:
-            buffs = []
-
-        skill_key = material.SkillName.lower()
-        if skill_key not in self.gathering:
-            raise ValueError(f"Skill desconocida: {skill_key}")
-
-        Gathering_Skill_Bonus = 1 + (self.gathering[skill_key].current_level * 0.05)
-        total_modifier = 1.0
-        for b in buffs:
-            total_modifier *= b
-
-        tool_eff = tool.Efficiency if tool else 1.0
-        power = tool_eff * Gathering_Skill_Bonus * total_modifier
-
-        # Tiempo total basado en Hardness / power (segundos)
-        # Cada "tick" equivale a TICK_INTERVAL seg; avanzamos `power` por tick
-        # escalado para que Hardness/power ~ segundos reales.
-        total_time: float = material.Hardness / power   # segundos reales
-
-        # ── estado del minijuego ──────────────
-        state = {
-            "elapsed": 0.0,
-            "marker": 0.0,
-            "marker_dir": 1,
-            "zone_start": random.uniform(0.05, 0.60),
-            "zone_width": random.uniform(ZONE_WIDTH_MIN, ZONE_WIDTH_MAX),
-            "zone_ticks": 0,
-            "last_msg": "Pulsa ESPACIO cuando el marcador esté en verde",
-            "msg_color": "dim",
-            "space_pressed": False,
-            "done": False,
-        }
-
-        console = Console()
-
-        def on_press(key: str):
-            if key == "space" and not state["done"]:
-                state["space_pressed"] = True
-
-        # Escucha en hilo aparte
+    with keyboard_listener_scope():
         kb_thread = threading.Thread(
             target=listen_keyboard,
-            kwargs={"on_press": on_press, "sequential": True, "delay_second_char": 0.05},
+            kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0},
             daemon=True,
         )
         kb_thread.start()
 
-        with Live(console=console, refresh_per_second=int(1 / TICK_INTERVAL)) as live:
-            while state["elapsed"] < total_time:
-                # ── mover marcador ────────────
-                state["marker"] += state["marker_dir"] * MARKER_SPEED
-                if state["marker"] >= 1.0:
-                    state["marker"] = 1.0
-                    state["marker_dir"] = -1
-                elif state["marker"] <= 0.0:
-                    state["marker"] = 0.0
-                    state["marker_dir"] = 1
+        try:
+            with Live(_render(), console=console, refresh_per_second=30, transient=True) as live:
+                while not state["done"]:
+                    if state["dirty"]:
+                        state["dirty"] = False
+                        live.update(_render())
+                    time.sleep(0.01)
+        finally:
+            state["done"] = True
+            try: stop_listening()
+            except Exception: pass
+            if kb_thread and kb_thread.is_alive():
+                kb_thread.join(timeout=3.0)
+            time.sleep(0.05)
 
-                # ── reposicionar zona ─────────
-                state["zone_ticks"] += 1
-                if state["zone_ticks"] >= ZONE_RESPAWN_TICKS:
-                    state["zone_ticks"] = 0
-                    state["zone_width"] = random.uniform(ZONE_WIDTH_MIN, ZONE_WIDTH_MAX)
-                    state["zone_start"] = random.uniform(0.05, 0.90 - state["zone_width"])
+    return state["selected"]
 
-                # ── detectar ESPACIO ──────────
-                if state["space_pressed"]:
-                    state["space_pressed"] = False
-                    m = state["marker"]
-                    zs = state["zone_start"]
-                    zw = state["zone_width"]
-                    in_zone = zs <= m <= zs + zw
-                    if in_zone:
-                        reduction = (total_time - state["elapsed"]) * ZONE_BONUS
-                        state["elapsed"] += reduction
-                        state["last_msg"] = f"✓ ¡Acierto! -{ZONE_BONUS*100:.0f}% de tiempo restante"
-                        state["msg_color"] = "bold green"
-                        # Respawnear zona inmediatamente
-                        state["zone_ticks"] = ZONE_RESPAWN_TICKS
-                    else:
-                        state["last_msg"] = "✗ Fallaste — el marcador estaba fuera de la zona"
-                        state["msg_color"] = "bold red"
+# ==========================================
+# DEFINICIÓN DE ESTILOS
+# ==========================================
 
-                # ── avanzar tiempo ────────────
-                state["elapsed"] += TICK_INTERVAL
-                remaining = max(0.0, total_time - state["elapsed"])
-                progress_frac = min(1.0, state["elapsed"] / total_time)
+options_mock = [
+    (1, "Inspeccionar las zonas"),
+    (2, "Ir a una zona"),
+    (3, "Tienda"),
+    (4, "Inventario"),
+    (5, "Mesa de Encantamientos"),
+    (6, "Base"),
+    (7, "Tablón de Misiones"),
+    (0, "Salir del juego")
+]
 
-                live.update(
-                    self._build_display(
-                        progress=progress_frac,
-                        marker=state["marker"],
-                        zone_start=state["zone_start"],
-                        zone_width=state["zone_width"],
-                        remaining=remaining,
-                        total_time=total_time,
-                        last_msg=state["last_msg"],
-                        msg_color=state["msg_color"],
-                        material_name=material.Name,
-                        power=power,
-                    )
-                )
-                time.sleep(TICK_INTERVAL)
+# TEMA 1: Fantasía Clásica (Elegante)
+ASCII_FANTASY = '''
+  ___  ___  ___ 
+ | _ \| _ \/ __|
+ |   /|  _/ (_ |
+ |_|_\|_|  \___|
+'''
+STYLE_FANTASY = {
+    'title_color': 'bold yellow',
+    'border_color': 'yellow',
+    'box_style': box.ROUNDED,
+    'col_number_style': 'bright_yellow',
+    'col_text_style': 'bright_white',
+    'selected_color': 'bold bright_yellow',
+    'cursor_char': '►',
+    'center_title': True,
+    'center_menu': True,
+    'separator': '·'
+}
 
-        state["done"] = True
-        stop_listening()
+# TEMA 2: Terminal / Cyberpunk
+ASCII_CYBER = '''
+████████╗██████╗ ██████╗ ██████╗ ██████╗  ██████╗
+╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝
+   ██║   ██████╔╝██████╔╝██████╔╝██████╔╝██║  ███╗
+   ██║   ██╔═══╝ ██╔═══╝ ██╔══██╗██╔═══╝ ██║   ██║
+   ██║   ██║     ██║     ██║  ██║██║     ╚██████╔╝
+   ╚═╝   ╚═╝     ╚═╝     ╚═╝  ╚═╝╚═╝      ╚═════╝
+'''
+STYLE_CYBER = {
+    'title_color': 'bold bright_green',
+    'border_color': 'cyan',
+    'box_style': box.HEAVY,
+    'col_number_style': 'green',
+    'col_text_style': 'bright_white',
+    'selected_bg': 'on bright_cyan',
+    'selected_fg': 'black',
+    'center_title': False,
+    'center_menu': False,
+    'separator': '::'
+}
 
-        # ── XP ────────────────────────────────
-        self.gathering[skill_key].exp_total += material.Hardness / 13
+# TEMA 3: Minimalista
+ASCII_MINIMAL = " T P P R P G "
+STYLE_MINIMAL = {
+    'title_color': 'bold white',
+    'border_color': 'white',
+    'box_style': box.SIMPLE,
+    'col_number_style': 'dim white',
+    'col_text_style': 'white',
+    'selected_color': 'bold bright_white',
+    'cursor_char': '>',
+    'center_title': False,
+    'center_menu': False,
+    'separator': '|'
+}
 
-        console.print(f"\n[bold green]✓ Recolección completada.[/bold green] "
-                      f"XP acumulada: {self.gathering[skill_key].exp_total:.2f}\n")
-        return True
-
-# For tests:
 if __name__ == "__main__":
-    farm = cFarm()
-    farm.gathering["mining"].current_level = 3
-
-    iron_ore = cMaterial(Name="Iron Ore", SkillName="mining", Hardness=80.0)
-    pickaxe = cTool(Name="Iron Pickaxe", Efficiency=1.5)
-
-    farm.gather(iron_ore, pickaxe, buffs=[1.2])
-
+    console.clear()
+    
+    # Probar Tema 1
+    console.print("\n[info]Iniciando Tema 1: Fantasía Clásica...[/info]")
+    time.sleep(1)
+    res = test_menu_theme("Tema 1: Fantasía Clásica", ASCII_FANTASY, options_mock, STYLE_FANTASY)
+    console.print(f"Seleccionaste la opción: {res}")
+    time.sleep(2)
+    
+    console.clear()
+    
+    # Probar Tema 2
+    console.print("\n[info]Iniciando Tema 2: Cyberpunk / Terminal...[/info]")
+    time.sleep(1)
+    res = test_menu_theme("Tema 2: Cyberpunk", ASCII_CYBER, options_mock, STYLE_CYBER)
+    console.print(f"Seleccionaste la opción: {res}")
+    time.sleep(2)
+    
+    console.clear()
+    
+    # Probar Tema 3
+    console.print("\n[info]Iniciando Tema 3: Minimalista...[/info]")
+    time.sleep(1)
+    res = test_menu_theme("Tema 3: Minimalista", ASCII_MINIMAL, options_mock, STYLE_MINIMAL)
+    console.print(f"Seleccionaste la opción: {res}")
+    time.sleep(1)
+    
+    console.print("\n[bold green]¡Fin de las pruebas![/bold green] Puedes revisar el código de test.py para ver cómo está construido cada estilo.")

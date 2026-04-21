@@ -124,15 +124,16 @@ def interactive_menu_select(
     default_value: Optional[int] = None,
     allow_zero_shortcut: bool = True,
     border_style: str = "menu_title",
+    ascii_art: Optional[str] = None,
+    theme: str = "default"
 ) -> int:
     """
-    Menú interactivo (Rich) con selección invertida como `abc.py`:
-    - Flechas ↑/↓ para mover selección
-    - Enter para confirmar
-    - Input numérico opcional (buffer) para seleccionar por número
+    Menú interactivo (Rich) con selección invertida o estilos temáticos.
     """
     if not options:
         raise ValueError("options no puede estar vacio")
+
+    from rich.align import Align
 
     console = Console(theme=_MENU_THEME)
     values = [v for v, _ in options]
@@ -151,29 +152,66 @@ def interactive_menu_select(
     }
 
     def _render() -> Panel:
-        header = Text.from_markup(f"[bold]{title}[/bold]")
-        if subtitle:
-            header = Group(header, Text.from_markup(f"[dim]{subtitle}[/dim]"))
+        if ascii_art:
+            header = Text.from_markup(f"[bold yellow]{ascii_art}[/bold yellow]")
+            header = Align.center(header)
+            if title or subtitle:
+                sub_text = ""
+                if title: sub_text += f"[bold]{title}[/bold]\n"
+                if subtitle: sub_text += f"[dim]{subtitle}[/dim]"
+                if sub_text:
+                    header = Group(header, Align.center(Text.from_markup(sub_text)))
+        else:
+            header = Text.from_markup(f"[bold]{title}[/bold]")
+            if subtitle:
+                header = Group(header, Text.from_markup(f"[dim]{subtitle}[/dim]"))
 
-        t = Table(show_header=False, box=box.SIMPLE, padding=(0, 1))
-        t.add_column("Opción", style="bright_white", width=6)
-        t.add_column("Acción", style="bright_white")
+        if theme == "fantasy":
+            t = Table(show_header=False, box=box.ROUNDED, padding=(0, 1))
+            t.add_column("Opción", style="bright_yellow", justify="right")
+            t.add_column("Sep", style="bright_yellow")
+            t.add_column("Acción", style="bright_white")
 
-        for i, (val, label) in enumerate(options):
-            selected = i == state["idx"]
-            if selected:
-                opt = f"[black on white]> {val} <[/black on white]"
-                lab = f"[black on white] {label} [/black on white]"
-            else:
-                opt = f"[{val}]"
-                lab = label
-            t.add_row(opt, lab)
+            for i, (val, label) in enumerate(options):
+                selected = i == state["idx"]
+                if selected:
+                    opt = f"[bold bright_yellow]► {val}[/]"
+                    lab = f"[bold bright_yellow]{label}[/]"
+                    sep = f"[bold bright_yellow]·[/]"
+                else:
+                    opt = f"  {val}"
+                    lab = label
+                    sep = "·"
+                t.add_row(opt, sep, lab)
+            
+            menu_content = Align.center(t)
+            p_border = "yellow"
+        else:
+            t = Table(show_header=False, box=box.SIMPLE, padding=(0, 1))
+            t.add_column("Opción", style="bright_white", width=6)
+            t.add_column("Acción", style="bright_white")
+
+            for i, (val, label) in enumerate(options):
+                selected = i == state["idx"]
+                if selected:
+                    opt = f"[black on white]> {val} <[/black on white]"
+                    lab = f"[black on white] {label} [/black on white]"
+                else:
+                    opt = f"[{val}]"
+                    lab = label
+                t.add_row(opt, lab)
+            
+            menu_content = t
+            p_border = border_style
 
         footer = Text.from_markup(
             f"[dim]{prompt}[/dim]"
             + (f"[dim][↑/↓ + Enter] o número: {state['buf']}[/dim]" if state["buf"] else "[dim][↑/↓ + Enter] o número[/dim]")
         )
-        return Panel(Group(header, "", t, "", footer), border_style=border_style)
+        if theme == "fantasy":
+            footer = Align.center(footer)
+
+        return Panel(Group(header, "", menu_content, "", footer), border_style=p_border)
 
     def _on_press(key: str) -> None:
         if state["done"]:

@@ -42,6 +42,22 @@
             "BUFF_RECEIVED": [],
             "GOLD": 40
         },
+        "goblin_king": {
+            "NAME": "Rey Goblin",
+            "HP_M": 150,
+            "DMG": [25, 10, 0, 0, 0],
+            "DMG_min": [15, 5, 0, 0],
+            "MP_M": 50,
+            "EXP_TO_PLAYER": 100,
+            "DEF": [15, 10, 10, 10, 5],
+            "LS": 0,
+            "AGI": 5,
+            "DBUFF_TO_PLAYER": [],
+            "BUFF_RECEIVED": [],
+            "GOLD": 150,
+            "IS_BOSS": true,
+            "SPAWN_CHANCE": 0.05
+        },
         "Strings": {
             "name": "Bosque Encantado",
             "desc": "Bosque Encantado",
@@ -94,6 +110,22 @@
             "DBUFF_TO_PLAYER": [],
             "BUFF_RECEIVED": [],
             "GOLD": 120
+        },
+        "elder_golem": {
+            "NAME": "Gólem Anciano",
+            "HP_M": 300,
+            "DMG": [40, 0, 50, 0, 0],
+            "DMG_min": [25, 0, 30, 0],
+            "MP_M": 20,
+            "EXP_TO_PLAYER": 250,
+            "DEF": [40, 20, 50, 20, 10],
+            "LS": 0,
+            "AGI": 2,
+            "DBUFF_TO_PLAYER": [],
+            "BUFF_RECEIVED": [],
+            "GOLD": 400,
+            "IS_BOSS": true,
+            "SPAWN_CHANCE": 0.03
         },
         "Strings": {
             "name": "Cueva Oscura",

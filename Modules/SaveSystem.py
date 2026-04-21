@@ -11,6 +11,7 @@ from Modules.setup import cWeapon, cEquippableItems
 from Modules.CompanionSystem import load_companion_by_id
 from Modules.MasterySystem import MasteryManager
 from Modules.BaseSystem import BaseManager
+from Modules.QuestSystem import quest_manager
 
 _SAVE_DIR = os.path.join("Data", "Saves")
 _SLOT_PATHS = {
@@ -88,6 +89,22 @@ def _serialize_base(player) -> dict:
     return player.base_manager.to_dict()
 
 
+def _serialize_gathering() -> dict:
+    """Serializa los niveles de gathering skills del Gathering_init global."""
+    try:
+        from Modules.GatheringMasterySystem import Gathering_init
+        result = {}
+        for skill_key, skill_obj in Gathering_init.gathering.items():
+            result[skill_key] = {
+                "current_level": skill_obj.current_level,
+                "exp_total": skill_obj.exp_total,
+                "exp_to_next_lvl": skill_obj.exp_to_next_lvl,
+            }
+        return result
+    except Exception:
+        return {}
+
+
 def build_save_data(player, inventory, chosen_area, active_enemies_ids=None) -> dict:
     """Construye el dict completo de guardado."""
     # Equipamiento del jugador (todos los slots)
@@ -126,6 +143,8 @@ def build_save_data(player, inventory, chosen_area, active_enemies_ids=None) -> 
         "skills_purchased": player.skills_purchased if isinstance(player.skills_purchased, dict) else {},
         "mastery": _serialize_mastery(player),
         "base": _serialize_base(player),
+        "gathering_skills": _serialize_gathering(),
+        "quests": quest_manager.get_save_data(),
         "game_state": {
             "chosen_area": chosen_area,
         },
@@ -185,6 +204,9 @@ def load_from_slot(slot: int, player, inventory, item_manager) -> Optional[dict]
         _restore_skills(player, data.get("skills_purchased", {}))
         _restore_mastery(player, data.get("mastery", {}))
         _restore_base(player, data.get("base", {}))
+        _restore_gathering(data.get("gathering_skills", {}))
+        if "quests" in data:
+            quest_manager.load_save_data(data["quests"])
         return data.get("game_state", {})
     except Exception as e:
         print(f"[SaveSystem] Error restaurando estado del slot {slot}: {e}")
@@ -305,6 +327,22 @@ def _restore_base(player, base_data: dict):
         player.base_manager = mgr
     except Exception as e:
         print(f"[SaveSystem] Error restaurando base: {e}")
+
+def _restore_gathering(gathering_data: dict):
+    """Restaura los niveles de gathering skills del Gathering_init global."""
+    if not gathering_data:
+        return
+    try:
+        from Modules.GatheringMasterySystem import Gathering_init
+        for skill_key, sdata in gathering_data.items():
+            if skill_key in Gathering_init.gathering:
+                skill_obj = Gathering_init.gathering[skill_key]
+                skill_obj.current_level  = sdata.get("current_level", 1)
+                skill_obj.exp_total      = sdata.get("exp_total", 0.0)
+                skill_obj.exp_to_next_lvl = sdata.get("exp_to_next_lvl", 100.0)
+    except Exception as e:
+        print(f"[SaveSystem] Error restaurando gathering skills: {e}")
+
 
 def get_slot_info(slot: int) -> dict:
     """

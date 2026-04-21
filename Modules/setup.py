@@ -221,26 +221,32 @@ class cPlayer:
         if self.Health < 0:
             self.Health = 0
 
-    def win(self, quantity, quantity2):
-        """ This shall be called when the player defeats an enemy, 
-        {quantity} is EXP 
-        {quantity2}  is GOLD"""
+    def level_up(self):
+        """Maneja la subida de nivel, incrementando la exp requerida en x1.07"""
+        Before_Levelup = self.Level
+        while self.EXP >= self.EXP_M:  
+            self.Level += 1
+            self.EXP -= self.EXP_M
+            self.EXP_M *= 1.07
+            self.Health_max += 20
+            self.Mana_max += 10
+            self.Health = self.Health_max
+            self.Mana = self.Mana_max
+            self.lvlPoints += 1
+            
+        if Before_Levelup != self.Level:
+            console.print(f"Has subido de nivel!")
+            console.print(f"Antes: {Before_Levelup}")
+            console.print(f"Ahora: {self.Level}")
+            pts_ganados = self.Level - Before_Levelup
+            console.print(f"[bold #FFFF99]¡Has ganado {pts_ganados} Punto(s) de Habilidad para mejorar tus atributos![/]")
 
-        self.EXP += quantity
-        self.Gold += quantity2
-        if player.Level >= 2:
-            player.EXP_M *= round(1.07)
-        if self.EXP >= player.EXP_M:
-            while self.EXP >= self.EXP_M:
-                self.Level += 1
-                self.EXP -= self.EXP_M
-                self.Health_max += 10
-                self.Health += round(self.Health_max/3.18*1.145)
-                self.lvlPoints += 1
-                print(f"{self.name} sube de Level y ahora es Level {self.Level}!")
-                console.print("[bold #FFFF99]¡Has ganado 1 Punto de Habilidad para mejorar tus atributos![/]")
+            exp_formated = "{:,.2f}".format(self.EXP).replace(",", "X").replace(".", ",").replace("X", ".")
+            exp_m_formated = "{:,.2f}".format(self.EXP_M).replace(",", "X").replace(".", ",").replace("X", ".")
 
-                
+            console.print(f"Tienes: {exp_formated} y ahora requeriras {exp_m_formated} para avanzar al siguiente nivel")
+            wait_for_enter()
+
     def Check(self, lInventory):
         """Valida estado del jugador, equipamiento e inventario. Recibe lInventory (cInventory)."""
         slot_names = ["weapon", "helmet", "armor", "boots", "ring", "ring2", "ring3"]
@@ -258,7 +264,6 @@ class cPlayer:
         self.Mana = min(self.Mana + self.ManaRegen, self.Mana_max)
 
         Companion_Updater(self)
-        Before_Levelup = self.Level
 
         if self.Health > self.Health_max:
             self.Health = self.Health_max
@@ -290,27 +295,7 @@ class cPlayer:
                     lInventory.addObject(item)
                     setattr(self, objecttype.lower(), None)
 
-        while self.EXP >= self.EXP_M:  
-            self.Level += 1
-            self.EXP_M *= 1.07
-            self.lvlPoints += 1
-
-        if Before_Levelup != self.Level:
-            console.print(f"Has subido de nivel!")
-            console.print(f"Antes: {Before_Levelup}")
-            console.print(f"Ahora: {self.Level}")
-            pts_ganados = self.Level - Before_Levelup
-            console.print(f"[bold #FFFF99]¡Has ganado {pts_ganados} Punto(s) de Habilidad para mejorar tus atributos![/]")
-
-            exp_formated = "{:,.2f}".format(self.EXP)
-            exp_m_formated = "{:,.2f}".format(self.EXP_M)
-
-            exp_formated = exp_formated.replace(",", "X").replace(".", ",").replace("X", ".")
-            exp_m_formated = exp_m_formated.replace(",", "X").replace(".", ",").replace("X", ".")
-
-            console.print(f"Tienes: {exp_formated} y ahora requeriras {exp_m_formated} para avanzar al siguiente nivel")
-
-            wait_for_enter()
+        self.level_up()
 
     def Points(self):
         from Modules.SkillTreeSystem import skill_tree_manager
@@ -325,10 +310,14 @@ class cEnemy:
                   DEF, LS, AGI,  # DEF is now array of 5 values
                   DBUFF_TO_PLAYER, 
                   BUFF_RECEIVED,
-                  GOLD):
+                  GOLD,
+                  IS_BOSS=False,
+                  SPAWN_CHANCE=1.0):
         self.NAME = NAME
         self.HP_M = HP_M
         self.HP = self.HP_M
+        self.IS_BOSS = IS_BOSS
+        self.SPAWN_CHANCE = SPAWN_CHANCE
 
         # Format: [Physical, Thermal, Earth, Electric, Deep]
 
@@ -705,7 +694,9 @@ def enemy_loader(data_npc, return_single=False):
                         AGI=enemy_data.get('AGI', 0),
                         DBUFF_TO_PLAYER=enemy_data.get('DBUFF_TO_PLAYER', []),
                         BUFF_RECEIVED=enemy_data.get('BUFF_RECEIVED', []),
-                        GOLD=enemy_data.get('GOLD', 0)
+                        GOLD=enemy_data.get('GOLD', 0),
+                        IS_BOSS=enemy_data.get('IS_BOSS', False),
+                        SPAWN_CHANCE=enemy_data.get('SPAWN_CHANCE', 1.0)
                     )
                     enemy_total_list.append(enemy_load_var)
                 except Exception as e:
