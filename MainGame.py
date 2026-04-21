@@ -52,6 +52,7 @@ import time as sp
 import os
 import sys
 import traceback
+import threading
 
 # Game configuration
 CONFIG = Read("config.json", None)
@@ -539,7 +540,6 @@ _MAIN_MENU_ASCII = '''
 '''
 
 def display_main_menu() -> int:
-    import threading as _thr
 
 
     options = [
@@ -634,10 +634,10 @@ def display_main_menu() -> int:
             state["buf"] += key
             state["dirty"] = True
 
-    import time as _time
+    
     kb = None
     with keyboard_listener_scope():
-        kb = _thr.Thread(
+        kb = threading.Thread(
             target=listen_keyboard,
             kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0},
             daemon=True,
@@ -649,13 +649,13 @@ def display_main_menu() -> int:
                     if state["dirty"]:
                         state["dirty"] = False
                         live.update(_render())
-                    _time.sleep(0.01)
+                    sp.sleep(0.01)
         finally:
             state["done"] = True
             try: stop_listening()
             except Exception: pass
             if kb and kb.is_alive(): kb.join(timeout=3.0)
-            _time.sleep(0.05)
+            sp.sleep(0.05)
 
     return int(state["selected"]) if state["selected"] is not None else options[state["idx"]][0]
 
@@ -992,7 +992,7 @@ def main():
         wait_for_enter()
             
     elif main_input == 5: # Stats (3 pestañas con flechas izquierda/derecha)
-        import threading as _thr
+        
         os.system("cls" if os.name == "nt" else "clear")
 
         _TAB_NAMES = ["Stats Principales", "Mastery Armas/Armadura", "Mastery Recoleccion"]
@@ -1112,7 +1112,7 @@ def main():
 
         _kb = None
         with keyboard_listener_scope():
-            _kb = _thr.Thread(target=listen_keyboard, kwargs={"on_press": _on_key, "sequential": False, "delay_second_char": 0.0}, daemon=True)
+            _kb = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_key, "sequential": False, "delay_second_char": 0.0}, daemon=True)
             _kb.start()
             try:
                 with Live(_build_panel(), console=console, refresh_per_second=20, transient=True) as live:
