@@ -216,6 +216,10 @@ def interactive_menu_select(
     def _on_press(key: str) -> None:
         if state["done"]:
             return
+        if key == "esc":
+            state["done"] = True
+            stop_listening()
+            return
         if key == "up":
             state["idx"] = (state["idx"] - 1) % len(options)
             state["dirty"] = True
@@ -258,7 +262,7 @@ def interactive_menu_select(
     with keyboard_listener_scope():
         kb_thread = threading.Thread(
             target=listen_keyboard,
-            kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0},
+            kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0, "until": None},
             daemon=True,
         )
         kb_thread.start()

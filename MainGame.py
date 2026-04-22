@@ -621,6 +621,7 @@ def display_main_menu() -> int:
 
     def _on_press(key):
         if state["done"]: return
+        if key == "esc": return  # ESC no hace nada en el menú principal
         if key == "up":
             state["idx"] = (state["idx"] - 1) % len(options)
             state["dirty"] = True
@@ -656,7 +657,7 @@ def display_main_menu() -> int:
     with keyboard_listener_scope():
         kb = threading.Thread(
             target=listen_keyboard,
-            kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0},
+            kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0, "until": None},
             daemon=True,
         )
         kb.start()
@@ -1124,14 +1125,14 @@ def main():
                 _st["tab"] = (_st["tab"] - 1) % len(_TAB_NAMES)
             elif key == "right":
                 _st["tab"] = (_st["tab"] + 1) % len(_TAB_NAMES)
-            elif key in ("enter", "q", "escape"):
+            elif key in ("enter", "q", "esc"):
                 _st["done"] = True
                 try: stop_listening()
                 except Exception: pass
 
         _kb = None
         with keyboard_listener_scope():
-            _kb = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_key, "sequential": False, "delay_second_char": 0.0}, daemon=True)
+            _kb = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_key, "sequential": False, "delay_second_char": 0.0, "until": None}, daemon=True)
             _kb.start()
             try:
                 with Live(_build_panel(), console=console, refresh_per_second=20, transient=True) as live:
@@ -1699,4 +1700,3 @@ if __name__ == "__main__":
     except Exception as e:
         console.print(f"[danger]Error: {str(e)}[/danger]")
         sys.exit(1) # 67
-
