@@ -51,6 +51,9 @@ def _serialize_companion(comp) -> dict:
     return {
         "companion_id": getattr(comp, "companion_id", "unknown"),
         "name": comp.name,
+        "generated_name": getattr(comp, "generated_name", ""),
+        "gender": getattr(comp, "gender", "Male"),
+        "is_hired": getattr(comp, "is_hired", False),
         "Health": comp.Health,
         "Health_max": comp.Health_max,
         "Mana": comp.Mana,
@@ -135,6 +138,9 @@ def build_save_data(player, inventory, chosen_area, active_enemies_ids=None) -> 
             "RAC": getattr(player, "RAC", 0),
             "Control": getattr(player, "Control", 0),
             "Barrier": getattr(player, "Barrier", 0),
+            "discovered_items": list(getattr(player, "discovered_items", [])),
+            "favorite_recipes": list(getattr(player, "favorite_recipes", [])),
+            "favorite_items": list(getattr(player, "favorite_items", [])),
         },
         "equipment": equipment,
         "inventory": _serialize_inventory(inventory),
@@ -219,9 +225,16 @@ def _restore_player(player, pdata: dict):
     for attr in ["name", "Level", "lvlPoints", "Health", "Health_max",
                  "Mana", "Mana_max", "EXP", "EXP_M", "Gold",
                  "AGI", "CounterAttack", "Evasion", "ManaRegen",
-                 "RAC", "Control", "Barrier"]:
+                  "RAC", "Control", "Barrier"]:
         if attr in pdata:
             setattr(player, attr, pdata[attr])
+    
+    if "discovered_items" in pdata:
+        player.discovered_items = set(pdata["discovered_items"])
+    if "favorite_recipes" in pdata:
+        player.favorite_recipes = list(pdata["favorite_recipes"])
+    if "favorite_items" in pdata:
+        player.favorite_items = list(pdata["favorite_items"])
     if "DEF" in pdata:
         player.DEF = list(pdata["DEF"])
     if "DefensePercentage" in pdata:
@@ -300,6 +313,10 @@ def _restore_companions(player, companions_data: list, bank_data: list, item_man
             comp.Mana_max = float(cdata.get("Mana_max", comp.Mana_max))
             comp.is_alive = cdata.get("is_alive", True)
             comp.Level = cdata.get("Level", 1)
+            # Nuevos campos
+            comp.generated_name = cdata.get("generated_name", "")
+            comp.gender = cdata.get("gender", "Male")
+            comp.is_hired = cdata.get("is_hired", False)
             target_list.append(comp)
 
     _load_comp_list(companions_data, player.companion)

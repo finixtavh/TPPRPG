@@ -153,7 +153,8 @@ class ItemManager:
                 return None
                 
         except Exception as e:
-            print(f"[ERROR] Error al crear item {item_id}: {e}")
+            # Silenciamos para evitar spam en menús interactivos, 
+            # pero el error sigue disponible si se necesita debugear.
             return None
     
     def _create_weapon(self, item_data: Dict, cWeapon):
@@ -399,12 +400,13 @@ class ItemManager:
         self.items_data = default_data
         self.save_items()
     
-    def list_all_items(self, detailed: bool = False):
+    def list_all_items(self, detailed: bool = False, discovered_ids: Optional[set] = None):
         """
         Muestra todos los items disponibles
         
         Args:
             detailed: Si es True, muestra información detallada
+            discovered_ids: Set de IDs descubiertos. Si se pasa, oculta los no descubiertos.
         """
         print("\n" + "="*70)
         print("ITEMS DISPONIBLES".center(70))
@@ -419,12 +421,27 @@ class ItemManager:
                 print("-" * 70)
                 
                 for item_key, item_data in items.items():
-                    item_id = item_data.get("STATIC_ID", "?")
+                    # Normalizar ID para comprobación de descubrimiento
+                    is_mat = (category == "TYPE:Materials")
+                    item_id = item_data.get("MATERIAL_ID") if is_mat else item_data.get("STATIC_ID")
+                    
+                    is_discovered = True
+                    if discovered_ids is not None and item_id is not None:
+                        is_discovered = item_id in discovered_ids
+
                     item_name = item_data.get("Name", item_key)
+                    if not is_discovered:
+                        item_name = "".join("█" if not c.isspace() else c for c in item_name)
+
                     item_cost = item_data.get("Gold_Cost", 0)
                     
                     if detailed:
-                        print(f"  ID: {item_id} | {item_name}")
+                        print(f"  ID: {item_id if is_discovered else '??'} | {item_name}")
+                        if not is_discovered:
+                            print("    [!] Ítem no descubierto")
+                            print()
+                            continue
+                            
                         print(f"    Costo: {item_cost} oro")
                         print(f"    Descripción: {item_data.get('Description', 'N/A')}")
                         

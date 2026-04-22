@@ -1,0 +1,32 @@
+{
+  "Male": [
+    "Arin", "Doran", "Kael", "Miro", "Theron", "Bran", "Cael", "Dex",
+    "Edan", "Fenris", "Gareth", "Hadeon", "Ivan", "Joren", "Kaspar",
+    "Leoric", "Marcus", "Nael", "Orin", "Perin", "Quillon", "Rael",
+    "Soren", "Torin", "Udar", "Vance", "Wren", "Xander", "Yorin", "Zane",
+    "Aldric", "Brennan", "Cormac", "Dirk", "Egan", "Flynn", "Gavril",
+    "Holt", "Idris", "Jax", "Keiran", "Luca", "Mael", "Niall", "Osric",
+    "Peregrin", "Riven", "Stellan", "Talon", "Ulric"
+  ],
+  "Female": [
+    "Lyra", "Sera", "Nira", "Vela", "Aela", "Brea", "Cael", "Deva",
+    "Elara", "Faye", "Gwen", "Hera", "Iona", "Jessa", "Kira",
+    "Lena", "Mira", "Nessa", "Orin", "Petra", "Quinn", "Reva",
+    "Sable", "Tara", "Una", "Vira", "Wynn", "Xyla", "Yara", "Zara",
+    "Aria", "Brynn", "Calla", "Dara", "Erin", "Fern", "Gwynn",
+    "Halla", "Isla", "Jaina", "Kessa", "Liara", "Moira", "Nala", "Oryn",
+    "Rhea", "Senna", "Thea", "Ulva", "Vesper"
+  ],
+  "Surname": [
+    "Ashford", "Dawnblade", "Ironveil", "Stormcrest", "Vale",
+    "Blackthorn", "Coldwater", "Duskmantle", "Emberveil", "Frostwick",
+    "Greymantle", "Hollowbrook", "Ironfang", "Jadestone", "Keldrath",
+    "Lightweave", "Moonshadow", "Nighthollow", "Oakenshield", "Pyreborn",
+    "Quicksilver", "Ravenscroft", "Shadowmere", "Thornwall", "Umbrafen",
+    "Voidwalker", "Winterbourne", "Xandrel", "Yarrowmist", "Zephyrfall",
+    "Aldenmoor", "Blazeborn", "Cindervale", "Dreadmoor", "Edgewalker",
+    "Flintrock", "Galeborn", "Harrowick", "Ironside", "Jadewing",
+    "Kestrelmark", "Lavastride", "Misthollow", "Nightfall", "Obsidianveil",
+    "Peakstrider", "Runeblade", "Steelborn", "Tidecaller", "Umberwick"
+  ]
+}

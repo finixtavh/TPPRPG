@@ -112,6 +112,11 @@ class cPlayer:
         self.ring3 = None
         self.SecHand = None
         self.tool = None 
+        
+        # New persistence systems
+        self.discovered_items = set() # Store item IDs
+        self.favorite_recipes = [] # Store recipe IDs
+        self.favorite_items = [] # Store item IDs
 
         # Seems like this can changed fore something better
         self.items_in_PlayerClass = [self.weapon, self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3]
@@ -260,6 +265,19 @@ class cPlayer:
             (self.ring2, "Ring"),
             (self.ring3, "Ring")
         ]
+
+        # Auto-discover currently equipped items, tools, and inventory items
+        for item in self.items_in_PlayerClass + [self.tool]:
+            if item:
+                item_id = getattr(item, "ID", getattr(item, "STATIC_ID", None))
+                if item_id is not None:
+                    self.discovered_items.add(item_id)
+        
+        for slot in lInventory.slots:
+            item_id = getattr(slot.item, "ID", getattr(slot.item, "STATIC_ID", None))
+            if item_id is not None:
+                self.discovered_items.add(item_id)
+
 
         self.Mana = min(self.Mana + self.ManaRegen, self.Mana_max)
 

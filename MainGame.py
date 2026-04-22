@@ -24,7 +24,7 @@ from Modules.InventoryMenu import open_inventory_menu
 from Modules.SaveSystem import save_load_menu
 from Modules.ZoneManager import get_all_zones, get_zones_for_selector
 from Modules.BuffManager import get_buff_manager
-from Modules.CraftingSystem import open_crafting_menu, CraftingManager
+from Modules.CraftingSystem import open_crafting_menu
 from Modules.QuestSystem import quest_manager
 from Modules.BaseSystem import BaseManager, open_base_menu
 from Modules.CompanionSystem import (

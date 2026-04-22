@@ -1,13 +1,39 @@
 import os
+import json
 import random
+import datetime
 from typing import Optional, List, Dict
 
 
 _DEFAULT_JSON_PATH: str = os.path.join("Data", "DataCompanions.json")
+_NAMES_JSON_PATH: str = os.path.join("Data", "Names.json")
+_TIME_JSON_PATH: str = os.path.join("Data", "Companions", "Time.json")
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 COMPANION_REVIVAL_GOLD_COST: int = 100
 """Oro necesario para revivir un compañero."""
+
+COMPANION_PAY_INTERVAL_DAYS: int = 3
+"""Cada cuántos días se cobra a los compañeros contratados."""
+
+COMPANION_DEBT_LIMIT: float = -100.0
+"""Deuda máxima permitida antes de que los compañeros se vayan."""
+
+# Coste de contratación y pago por rareza (cada 3 días)
+RARITY_HIRE_COST: Dict[str, int] = {
+    "Common":    50,
+    "Uncommon":  120,
+    "Rare":      280,
+    "Epic":      600,
+    "Legendary": 1200,
+}
+RARITY_PAY_COST: Dict[str, int] = {
+    "Common":    30,
+    "Uncommon":  70,
+    "Rare":      150,
+    "Epic":      320,
+    "Legendary": 700,
+}
 
 
 # ── Helpers de normalización (mismo estilo que setup.py) ─────────────────────
@@ -88,7 +114,10 @@ class cCompanion:
         default_armor_data: Optional[dict] = None,
     ):
         self.companion_id: str = companion_id
-        self.name: str = name
+        self.name: str = name          # nombre base del JSON (clase/tipo)
+        self.generated_name: str = ""  # nombre aleatorio asignado al contratar
+        self.gender: str = "Male"      # "Male" o "Female"
+        self.is_hired: bool = False    # True solo si fue contratado (paga salario)
         self.description: str = description
         self.icon: str = icon
         self.rarity: str = rarity
@@ -265,6 +294,191 @@ class cCompanion:
         )
 
 
+# ── Generación de nombres aleatorios ─────────────────────────────────────────
+
+_names_cache: Optional[dict] = None
+
+def _load_names() -> dict:
+    global _names_cache
+    if _names_cache is not None:
+        return _names_cache
+    try:
+        with open(_NAMES_JSON_PATH, "r", encoding="utf-8") as f:
+            _names_cache = json.load(f)
+    except Exception:
+        _names_cache = {
+            "Male": ["Arin", "Doran", "Kael", "Miro", "Theron"],
+            "Female": ["Lyra", "Sera", "Nira", "Vela", "Aela"],
+            "Surname": ["Ashford", "Dawnblade", "Ironveil", "Stormcrest", "Vale"],
+        }
+    return _names_cache
+
+
+def generate_companion_name(gender: str) -> str:
+    """Genera un nombre aleatorio (Nombre + Apellido) según el género."""
+    names = _load_names()
+    key = "Male" if gender == "Male" else "Female"
+    first_list = names.get(key, ["Unknown"])
+    surname_list = names.get("Surname", [""])
+    first = random.choice(first_list) if first_list else "Unknown"
+    surname = random.choice(surname_list) if surname_list else ""
+    return f"{first} {surname}".strip()
+
+
+def assign_random_identity(companion: "cCompanion") -> None:
+    """Asigna género y nombre generado aleatorio a un compañero (solo una vez)."""
+    companion.gender = random.choice(["Male", "Female"])
+    companion.generated_name = generate_companion_name(companion.gender)
+
+
+# ── Sistema de tiempo y pagos ─────────────────────────────────────────────────
+
+def _load_time_data() -> dict:
+    """Carga el Time.json o devuelve un dict vacío."""
+    os.makedirs(os.path.dirname(_TIME_JSON_PATH), exist_ok=True)
+    if not os.path.exists(_TIME_JSON_PATH):
+        return {}
+    try:
+        with open(_TIME_JSON_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_time_data(data: dict) -> None:
+    """Guarda el Time.json."""
+    os.makedirs(os.path.dirname(_TIME_JSON_PATH), exist_ok=True)
+    with open(_TIME_JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def schedule_next_payment() -> str:
+    """Calcula la fecha del próximo pago (ahora + 3 días) y la guarda en Time.json."""
+    next_dt = datetime.datetime.now() + datetime.timedelta(days=COMPANION_PAY_INTERVAL_DAYS)
+    next_str = next_dt.strftime("%Y-%m-%d %H:%M:%S")
+    data = _load_time_data()
+    data["next_payment"] = next_str
+    _save_time_data(data)
+    return next_str
+
+
+def get_next_payment_dt() -> Optional[datetime.datetime]:
+    """Devuelve el datetime del próximo pago, o None si no está programado."""
+    data = _load_time_data()
+    raw = data.get("next_payment")
+    if not raw:
+        return None
+    try:
+        return datetime.datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+
+
+def calculate_payments_due() -> int:
+    """
+    Calcula cuántos pagos de 3 días han pasado desde el último pago programado.
+    Actualiza next_payment en Time.json para que apunte al futuro.
+    Devuelve el número de ciclos de pago vencidos.
+    """
+    now = datetime.datetime.now()
+    next_dt = get_next_payment_dt()
+
+    if next_dt is None:
+        # Primera vez: programar para dentro de 3 días y no cobrar nada aún
+        schedule_next_payment()
+        return 0
+
+    if now < next_dt:
+        return 0  # Aún no toca pagar
+
+    # Calcular cuántos ciclos de 3 días han pasado
+    delta = now - next_dt
+    cycles = int(delta.total_seconds() / (COMPANION_PAY_INTERVAL_DAYS * 86400)) + 1
+
+    # Avanzar next_payment al próximo ciclo futuro
+    new_next = next_dt + datetime.timedelta(days=COMPANION_PAY_INTERVAL_DAYS * cycles)
+    data = _load_time_data()
+    data["next_payment"] = new_next.strftime("%Y-%m-%d %H:%M:%S")
+    _save_time_data(data)
+
+    return cycles
+
+
+def process_companion_payments(player, console) -> None:
+    """
+    Revisa si hay pagos vencidos y los descuenta del oro del jugador.
+    Si el jugador queda con más deuda que COMPANION_DEBT_LIMIT,
+    todos los compañeros CONTRATADOS se van.
+    Debe llamarse al inicio de cada sesión de juego.
+    """
+    hired = [c for c in player.companion if getattr(c, "is_hired", False)]
+    if not hired:
+        return
+
+    cycles = calculate_payments_due()
+    if cycles == 0:
+        return
+
+    total_due = 0.0
+    breakdown = []
+    for comp in hired:
+        pay_per_cycle = RARITY_PAY_COST.get(comp.rarity, 30)
+        amount = pay_per_cycle * cycles
+        total_due += amount
+        display = comp.generated_name if comp.generated_name else comp.name
+        breakdown.append(f"  {comp.icon} {display}: {amount}g ({cycles} ciclo(s) × {pay_per_cycle}g)")
+
+    console.print(f"\n[bold yellow]💰 Salario de compañeros vencido ({cycles} ciclo(s)):[/bold yellow]")
+    for line in breakdown:
+        console.print(line)
+
+    player.Gold -= total_due
+    console.print(f"[yellow]Total descontado: {total_due:.0f}g | Oro restante: {player.Gold:.0f}g[/yellow]")
+
+    if player.Gold < COMPANION_DEBT_LIMIT:
+        console.print(
+            f"\n[bold red]⚠ No puedes pagar a tus compañeros. "
+            f"Deuda supera {abs(COMPANION_DEBT_LIMIT):.0f}g. "
+            f"¡Todos los compañeros contratados te abandonan![/bold red]"
+        )
+        player.companion = [c for c in player.companion if not getattr(c, "is_hired", False)]
+        player.Gold = max(player.Gold, COMPANION_DEBT_LIMIT)  # Cap en -100
+
+
+def hire_companion(companion: "cCompanion", player, console) -> bool:
+    """
+    Contrata a un compañero: cobra el costo inicial, genera nombre/género,
+    marca como contratado y programa el primer pago si no existe.
+    Devuelve True si se contrató correctamente.
+    """
+    hire_cost = RARITY_HIRE_COST.get(companion.rarity, 50)
+    if player.Gold < hire_cost:
+        display = companion.generated_name if companion.generated_name else companion.name
+        console.print(
+            f"[danger]No tienes suficiente oro para contratar a {display}. "
+            f"Necesitas {hire_cost}g (tienes {player.Gold:.0f}g).[/danger]"
+        )
+        return False
+
+    player.Gold -= hire_cost
+    companion.is_hired = True
+
+    # Generar identidad si aún no tiene
+    if not companion.generated_name:
+        assign_random_identity(companion)
+
+    # Programar pago si no existe ya
+    if get_next_payment_dt() is None:
+        schedule_next_payment()
+
+    display = companion.generated_name
+    console.print(
+        f"[success]✨ Has contratado a {companion.icon} {display} [{companion.rarity}] "
+        f"por {hire_cost}g. Próximo salario en {COMPANION_PAY_INTERVAL_DAYS} días.[/success]"
+    )
+    return True
+
+
 # ── Carga desde JSON vía Loader ───────────────────────────────────────────────
 
 def load_companion_from_data(data: dict) -> cCompanion:
@@ -419,9 +633,11 @@ def companion_management_menu(
         for i, comp in enumerate(player.companion, 1):
             badge  = "✓" if comp.is_alive else "💀 KO"
             hp_str = f"{comp.Health:.0f}/{comp.Health_max:.0f}"
+            display = comp.generated_name if getattr(comp, "generated_name", "") else comp.name
+            hired_tag = " [bold yellow][CONTRATADO][/bold yellow]" if getattr(comp, "is_hired", False) else " [dim][Sin contrato][/dim]"
             options.append((
                 i,
-                f"{comp.icon} {comp.name}  [{badge}]  HP:{hp_str}  ({comp.rarity})",
+                f"{comp.icon} {display}  [{badge}]  HP:{hp_str}  ({comp.rarity}){hired_tag}",
             ))
 
         recruit_idx = len(player.companion) + 1
@@ -464,15 +680,18 @@ def _recruit_companion_menu(player, console, menu_fn, pause_fn) -> None:
     available = []
     for cid, tmpl in catalog.items():
         tag = " [dim](ya en equipo)[/dim]" if cid in current_ids else ""
+        hire_cost = RARITY_HIRE_COST.get(tmpl.rarity, 50)
+        pay_cost  = RARITY_PAY_COST.get(tmpl.rarity, 30)
+        affordable = "✓" if player.Gold >= hire_cost else "✗"
         opts.append((
             len(available) + 1,
-            f"{tmpl.icon} {tmpl.name} [{tmpl.rarity}]{tag}  — {tmpl.description[:55]}",
+            f"{tmpl.icon} {tmpl.name} [{tmpl.rarity}]{tag} — Contratar: {hire_cost}g | Pago/3días: {pay_cost}g [{affordable}]",
         ))
         available.append(cid)
 
     chosen = menu_fn(
         title="Catálogo de Compañeros",
-        subtitle="Selecciona un compañero para reclutar",
+        subtitle=f"Selecciona un compañero para contratar | Tu oro: {player.Gold:.0f}g",
         options=opts,
         prompt="Compañero: ",
         default_value=1 if len(opts) > 1 else 0,
@@ -488,12 +707,18 @@ def _recruit_companion_menu(player, console, menu_fn, pause_fn) -> None:
         pause_fn()
         return
 
+    if len(player.companion) >= 4:
+        console.print("[warning]Ya tienes el máximo de 4 compañeros en el equipo.[/warning]")
+        pause_fn()
+        return
+
     new_comp = create_companion_instance(selected_id)
     if new_comp:
-        player.companion.append(new_comp)
-        console.print(
-            f"[success]✨ {new_comp.icon} {new_comp.name} se ha unido a tu equipo![/success]"
-        )
+        # Generar identidad aleatoria antes de mostrar info
+        assign_random_identity(new_comp)
+        if hire_companion(new_comp, player, console):
+            player.companion.append(new_comp)
+        # Si no tiene oro suficiente, hire_companion ya mostró el mensaje
     else:
         console.print("[danger]Error al reclutar el compañero.[/danger]")
     pause_fn()
@@ -605,9 +830,12 @@ def _equip_armor_from_inventory(comp, inventory, console, menu_fn, pause_fn, cEq
 def _show_companion_stats(comp, console, pause_fn) -> None:
     from rich.panel import Panel
 
+    display_name = comp.generated_name if getattr(comp, "generated_name", "") else comp.name
     weapon_str = comp.weapon.name if comp.weapon else "[dim]Sin arma[/dim]"
     armor_str  = comp.armor.name  if comp.armor  else "[dim]Sin armadura[/dim]"
     status_str = "[green]Vivo ✓[/green]" if comp.is_alive else "[red]💀 KO – necesita ser revivido[/red]"
+    hired_str  = "[bold yellow]Contratado 💰[/bold yellow]" if getattr(comp, "is_hired", False) else "[dim]Sin contrato[/dim]"
+    gender_str = "♂ Hombre" if getattr(comp, "gender", "Male") == "Male" else "♀ Mujer"
 
     rarity_colors = {
         "Common": "white", "Uncommon": "green",
@@ -616,10 +844,12 @@ def _show_companion_stats(comp, console, pause_fn) -> None:
     rc = rarity_colors.get(comp.rarity, "white")
 
     lines = [
-        f"[bold]Nombre:[/bold]      {comp.icon} {comp.name}",
+        f"[bold]Nombre:[/bold]      {comp.icon} {display_name}",
+        f"[bold]Género:[/bold]      {gender_str}",
         f"[bold]Rareza:[/bold]      [{rc}]{comp.rarity}[/{rc}]",
         f"[bold]Descripción:[/bold] {comp.description}",
         f"[bold]Estado:[/bold]      {status_str}",
+        f"[bold]Contrato:[/bold]    {hired_str}",
         "",
         f"[bold red]HP:[/bold red]  {comp.Health:.0f} / {comp.Health_max:.0f}",
         f"[bold blue]MP:[/bold blue]  {comp.Mana:.0f} / {comp.Mana_max:.0f}  "
@@ -636,5 +866,5 @@ def _show_companion_stats(comp, console, pause_fn) -> None:
         f"[bold]Arma:[/bold]      {weapon_str}",
         f"[bold]Armadura:[/bold]  {armor_str}",
     ]
-    console.print(Panel("\n".join(lines), title=f"Stats – {comp.name}", border_style="cyan"))
+    console.print(Panel("\n".join(lines), title=f"Stats – {display_name}", border_style="cyan"))
     pause_fn()

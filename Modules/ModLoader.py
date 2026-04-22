@@ -50,6 +50,8 @@ class ModAPI:
         self.shop_injections = {}
         self.enchantment_injections = {}
         self.quest_injections = {}
+        self.recipe_injections = []
+        self.gathering_injections = {}
         
         # NUEVO: Almacenar datos crudos de JSONs de mods
         self.mod_data_files = {}  # {mod_name: json_data}
@@ -152,6 +154,18 @@ class ModAPI:
                 if quest_id:
                     self.quest_injections[quest_id] = quest_data
                     logger.info(f"[{mod_name}] Quest auto-inyectada: {quest_id}")
+                    
+        # Inyectar recetas
+        if "recipes" in mod_data:
+            for recipe_data in mod_data["recipes"]:
+                self.recipe_injections.append(recipe_data)
+                logger.info(f"[{mod_name}] Receta auto-inyectada: {recipe_data.get('name')}")
+
+        # Inyectar parámetros de gathering
+        if "gathering" in mod_data:
+            for skill_key, params in mod_data["gathering"].items():
+                self.gathering_injections[skill_key] = params
+                logger.info(f"[{mod_name}] Gathering config auto-inyectada: {skill_key}")
     
     # =========================================================================
     # REGISTRO DE ITEMS (mantenido para compatibilidad)
@@ -340,6 +354,29 @@ class ModAPI:
         
         if count > 0:
             console.print(f"[green]✓ {count} quests integradas[/green]")
+
+    def integrate_with_crafting_system(self, crafting_system):
+        """Integra recetas de mods con CraftingSystem"""
+        from Modules.CraftingSystem import cRecipe
+        count = 0
+        for r_data in self.recipe_injections:
+            crafting_system.recipes.append(cRecipe(r_data))
+            count += 1
+        if count > 0:
+            logger.info(f"{count} recetas integradas.")
+
+    def integrate_with_gathering_system(self, farm):
+        """Integra configuraciones de gathering de mods"""
+        # Por ahora solo logueamos o inyectamos en cSkill si fuera necesario
+        # Por ejemplo, cambiar BONUS_EFFICIENCY
+        for skill_key, params in self.gathering_injections.items():
+            if skill_key in farm.gathering:
+                skill_obj = farm.gathering[skill_key]
+                for p_key, p_val in params.items():
+                    if hasattr(skill_obj, p_key):
+                        setattr(skill_obj, p_key, p_val)
+        if self.gathering_injections:
+            logger.info(f"{len(self.gathering_injections)} configs de gathering integradas.")
     
     def get_all_items(self) -> Dict:
         """Retorna todos los items inyectados"""

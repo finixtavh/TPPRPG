@@ -104,18 +104,17 @@ class cFarm:
         msg_color: str,
         material_name: str,
         power: float,
-        skill_info: Optional[tuple] = None,  # (level, eff_pct, xp_pct)
+        skill_info: Optional[tuple] = None, # (lvl, efficiency_pct, xp_pct)
     ) -> Panel:
-
-        BAR_WIDTH = 50  # caracteres de ancho de la barra
-
-        # ── barra de progreso ──────────────────
-        filled = int(progress * BAR_WIDTH)
+        BAR_WIDTH = 50
+        
+        # ── barra de progreso principal ───────
+        prog_r = int(progress * BAR_WIDTH)
         prog_bar = Text()
-        prog_bar.append("█" * filled, style="bold blue")
-        prog_bar.append("░" * (BAR_WIDTH - filled), style="dim")
+        prog_bar.append("█" * prog_r, style="bright_green")
+        prog_bar.append("░" * (BAR_WIDTH - prog_r), style="dim")
 
-        # ── barra del minijuego (zona + marcador) ──
+        # ── minijuego (zona y marcador) ───────
         zone_l = int(zone_start * BAR_WIDTH)
         zone_r = int((zone_start + zone_width) * BAR_WIDTH)
         marker_pos = int(marker * BAR_WIDTH)
@@ -144,9 +143,7 @@ class cFarm:
         # ── tiempo restante ────────────────────
         elapsed = total_time - remaining
         pct = (elapsed / total_time * 100) if total_time > 0 else 100
-        time_line = Text()
-        time_line.append(f"⏱  {remaining:.1f}s restantes", style="bold")
-        time_line.append(f"  ({pct:.0f}% completado)", style="dim")
+        time_line = Text(f"Tiempo: {elapsed:.1f}/{total_time:.1f}s ({pct:.0f}%)", style="yellow")
 
         # ── mensaje de feedback ────────────────
         fb = Text(last_msg, style=msg_color)
@@ -181,10 +178,10 @@ class cFarm:
 
     def gather(
         self,
-        material: cMaterial,
-        tool: Optional[cTool],
+        material: "cMaterial",
+        tool: Optional["cTool"],
         buffs: Optional[List[float]] = None,
-    ) -> bool:
+    ) -> int: # Retorna la cantidad obtenida (0 si falla/cancela)
         if buffs is None:
             buffs = []
 
@@ -327,14 +324,36 @@ class cFarm:
                 f"  [bright_cyan]  +{skill_obj.xp_pct:.0f}% XP ganada[/bright_cyan]"
             )
 
+        # ── Cálculo de Cantidad (1x, 2x, 3x) ──
+        # Probabilidades base: 1x=80%, 2x=15%, 3x=5%
+        # El power (herramienta + skill + buffs) aumenta la probabilidad de 2x y 3x
+        
+        bonus_roll = (power - 1.0) * 0.15 # Cada punto de power extra da 15% de bonus a los rolls raros
+        
+        p3 = 0.05 + bonus_roll * 0.2
+        p2 = 0.15 + bonus_roll * 0.5
+        
+        roll = random.random()
+        if roll < p3:
+            quantity = 3
+        elif roll < (p3 + p2):
+            quantity = 2
+        else:
+            quantity = 1
+
         console.print(
-            f"\n[bold green]Recoleccion completada.[/bold green] "
+            f"\n[bold green]Recolección completada.[/bold green] "
+            f"¡Has obtenido [bold yellow]{quantity}x[/bold yellow] {material.Name}!"
+        )
+        
+        console.print(
             f"[bright_cyan]+{xp_gained:.1f} XP[/bright_cyan] "
             f"(Lv.{skill_obj.current_level} | hasta siguiente: {skill_obj.exp_to_next_lvl:.0f})"
         )
         if level_msg:
             console.print(level_msg)
-        return True
+            
+        return quantity
                 
 class cMaterial:
     VALID_RARITIES   = ("Common", "Uncommon", "Rare", "Epic", "Legendary")
@@ -343,6 +362,7 @@ class cMaterial:
     VALID_TYPES      = (
         "ore", "wood", "fish", "herb", "hide",
         "fiber", "gem", "bone", "essence", "star_dust",
+        "rock", "herbs", "leather", "fabric", "potion", "scroll", "special", "food", "seed"
     )
 
     # Nivel mínimo de skill requerido por rareza (integración con cFarm/cSkill)
@@ -384,7 +404,7 @@ class cMaterial:
             raise ValueError(f"MATERIAL_ID debe ser un entero >= 0, recibido: {MATERIAL_ID!r}")
         self.MATERIAL_ID: int = MATERIAL_ID
 
-        raw_types: List[str] = [TypeStr.lower()] if isinstance(TypeStr.lower(), str) else list(TypeStr.lower())
+        raw_types: List[str] = [TypeStr.lower()] if isinstance(TypeStr, str) else [t.lower() for t in TypeStr]
         if not raw_types:
             raise ValueError("TypeStr no puede estar vacío.")
         invalid = [t for t in raw_types if t not in self.VALID_TYPES]
@@ -448,48 +468,27 @@ class cMaterial:
 
     def can_be_gathered_by(self, farm: "cFarm", skill_key: Optional[str] = None) -> bool:
         """
-        Devuelve True si el cFarm dado tiene el nivel suficiente para recolectar
-        este material. Usa self.SkillName por defecto; acepta skill_key para override.
+        Devuelve True si el nivel en la skill requerida es suficiente.
         """
-        key = skill_key or self.SkillName
-        skill = farm.gathering.get(key)
-        if skill is None:
+        if skill_key is None:
+            skill_key = self.SkillName
+        if skill_key not in farm.gathering:
             return False
-        return skill.current_level >= self.Level_Req
-
-    def __repr__(self) -> str:
-        types = ", ".join(t.replace("TYPE_M:", "") for t in self.Material_Types)
-        return (
-            f"cMaterial(id={self.MATERIAL_ID!r}, name={self.Name!r}, "
-            f"types=[{types}], hardness={self.Hardness}, "
-            f"skill={self.SkillName!r}, rarity={self.Rarity!r}, lvl_req={self.Level_Req})"
-        )
+        return farm.gathering[skill_key].current_level >= self.Level_Req
 
 class cTool:
-    def __init__(self, ID, TypeStr, Name, Desc, Efficiency, Gold_Cost, MaxStack, Enchantments: List):
+    def __init__(self, ID, Name, TypeStr=None, Efficiency=1.0, Gold_Cost=0, Description="Sin descripción", ToolTypeStr=None, Desc=None, MaxStack=1, Enchantments=None):
         self.ID = ID
-
-        # ── soporte a múltiples tipos de material ──────────────────────────
-        if isinstance(TypeStr, str):
-            raw_types = [TypeStr]
-        else:
-            raw_types = list(TypeStr)
-        self.ToolTypeStr: List[str] = ["TYPE_M:" + t for t in raw_types]
-
         self.Name = Name
-        self.Desc = Desc
+        
+        # Soporte para ambos nombres de argumento (TypeStr de ItemManager, ToolTypeStr de GatheringSystem)
+        raw_type = TypeStr or ToolTypeStr or "Unknown"
+        self.ToolTypeStr = ["TYPE_M:" + t.lower() for t in (raw_type if isinstance(raw_type, list) else [raw_type])]
+        
         self.Efficiency = Efficiency
         self.Gold_Cost = Gold_Cost
+        self.Description = Desc or Description
         self.MaxStack = MaxStack
-        self.Enchantments = Enchantments
-
-    def can_gather(self, material: "cMaterial") -> bool:
-        """Devuelve True si esta herramienta es compatible con el material dado."""
-        return material.compatible_with_tool(self)
-
-
-def Gathering(cFarmv, cMaterialv, cToolv, cPlayerv, vInventory):
-    if cFarmv.gather(cMaterialv, cToolv, cPlayerv): 
-        vInventory.addObject(cMaterialv)
+        self.Enchantments = Enchantments or []
 
 Gathering_init = cFarm()

@@ -85,10 +85,27 @@ def _item_cost(item) -> int:
     return getattr(item, "Gold_Cost", 0)
 
 
+def _is_discovered(item, player) -> bool:
+    """Comprueba si el item ha sido descubierto por el jugador."""
+    if player is None:
+        return True
+    # Algunos items usan ID, otros STATIC_ID o MATERIAL_ID
+    item_id = getattr(item, "ID", getattr(item, "STATIC_ID", getattr(item, "MATERIAL_ID", None)))
+    if item_id is None:
+        return True
+    return item_id in getattr(player, "discovered_items", set())
+
+
+def _obscure(text: str) -> str:
+    """Reemplaza caracteres por bloques para ocultar información."""
+    # Preservar espacios para mantener estructura visual básica
+    return "".join("█" if not c.isspace() else c for c in text)
+
+
 # ──────────────────────────────────────────────
 #  Panel: lista de inventario (lado izquierdo)
 # ──────────────────────────────────────────────
-def _render_item_list(slots, selected_idx: int, scroll_offset: int, max_visible: int) -> Panel:
+def _render_item_list(slots, selected_idx: int, scroll_offset: int, max_visible: int, player=None) -> Panel:
     t = Table(show_header=False, box=None, padding=(0, 1), expand=True)
     t.add_column("Idx",   width=3,  no_wrap=True)
     t.add_column("Icon",  width=2,  no_wrap=True)
@@ -103,7 +120,9 @@ def _render_item_list(slots, selected_idx: int, scroll_offset: int, max_visible:
         selected = abs_idx == selected_idx
         itype    = _item_type(slot.item)
         icon     = _TYPE_ICON.get(itype, "?")
-        name     = _item_name(slot.item)
+        
+        discovered = _is_discovered(slot.item, player)
+        name     = _item_name(slot.item) if discovered else _obscure(_item_name(slot.item))
         label    = _TYPE_LABEL.get(itype, itype)
         qty      = str(slot.quantity) if slot.quantity > 1 else ""
 
@@ -154,8 +173,10 @@ def _render_item_detail(slot, player=None) -> Panel:
 
     item  = slot.item
     itype = _item_type(item)
-    name  = _item_name(item)
-    desc  = _item_desc(item)
+    discovered = _is_discovered(item, player)
+    
+    name  = _item_name(item) if discovered else _obscure(_item_name(item))
+    desc  = _item_desc(item) if discovered else _obscure(_item_desc(item))
     cost  = _item_cost(item)
     icon  = _TYPE_ICON.get(itype, "?")
     tcolor = _TYPE_COLOR.get(itype, "white")
@@ -177,6 +198,19 @@ def _render_item_detail(slot, player=None) -> Panel:
         slot_label = getattr(item, "objectcheck", "?")
         type_line.append(f"  ({slot_label})", style="dim")
     lines.append(type_line)
+
+    if not discovered:
+        lines.append(Text(""))
+        lines.append(Text(desc, style="italic dim"))
+        lines.append(Text(""))
+        lines.append(Rule(style="grey35"))
+        lines.append(Text("  [?] Ítem no descubierto", style="bold red"))
+        return Panel(
+            Group(*lines),
+            title=f"[bold {tcolor}]  DETALLE  [/bold {tcolor}]",
+            border_style=tcolor.replace("bold ", ""),
+            padding=(0, 1),
+        )
 
     # ── Descripción ──
     lines.append(Text(""))
@@ -371,10 +405,11 @@ def _render_actions(slot, message: str, message_style: str) -> Panel:
 # ──────────────────────────────────────────────
 #  Pantalla de información detallada
 # ──────────────────────────────────────────────
-def _show_item_info_screen(item, console: Console):
+def _show_item_info_screen(item, console: Console, player=None):
     """Muestra pantalla completa de información y espera Enter."""
     itype  = _item_type(item)
-    name   = _item_name(item)
+    discovered = _is_discovered(item, player)
+    name   = _item_name(item) if discovered else _obscure(_item_name(item))
     tcolor = _TYPE_COLOR.get(itype, "white")
 
     lines: List[Any] = []
@@ -382,10 +417,16 @@ def _show_item_info_screen(item, console: Console):
     lines.append(Rule(style="grey35"))
     lines.append(Text(f"  Tipo: {_TYPE_LABEL.get(itype, itype)}", style="dim"))
     lines.append(Text(""))
-    lines.append(Text(f"  {_item_desc(item)}", style="italic"))
-    lines.append(Text(""))
+    
+    if not discovered:
+        lines.append(Text(f"  {_obscure(_item_desc(item))}", style="italic"))
+        lines.append(Text(""))
+        lines.append(Text("  [!] Debes descubrir este ítem para ver sus detalles.", style="bold red"))
+    else:
+        lines.append(Text(f"  {_item_desc(item)}", style="italic"))
+        lines.append(Text(""))
 
-    if itype == "cWeapon":
+    if discovered and itype == "cWeapon":
         dmg     = getattr(item, "DMG",     [0]*5)
         dmg_min = getattr(item, "DMG_min", [0]*4)
         lines.append(Text("  ─── Estadísticas de Daño ───", style="bold"))
@@ -592,8 +633,8 @@ def open_inventory_menu(
     def _full_render() -> Panel:
         slots = _slots()
         slot  = _current_slot()
-
-        left  = _render_item_list(slots, state["idx"], state["scroll"], MAX_VISIBLE)
+        
+        left  = _render_item_list(slots, state["idx"], state["scroll"], MAX_VISIBLE, player)
         right = _render_item_detail(slot, player)
         bottom = _render_actions(slot, state["message"], state["msg_style"])
 
@@ -621,9 +662,10 @@ def open_inventory_menu(
         with keyboard_listener_scope():
             kb_thread = threading.Thread(
                 target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0},
+                kwargs={"on_press": _on_press, "sequential": True, "delay_second_char": 0.0},
                 daemon=True,
             )
+            kb_thread.start()
             kb_thread.start()
 
             try:
@@ -631,7 +673,8 @@ def open_inventory_menu(
                     _full_render(),
                     console=console,
                     refresh_per_second=30,
-                    transient=True,
+                    transient=False,
+                    screen=True,
                 ) as live:
                     while not state["done"]:
                         if state["dirty"]:
@@ -645,7 +688,7 @@ def open_inventory_menu(
                 except Exception:
                     pass
                 if kb_thread is not None and kb_thread.is_alive():
-                    kb_thread.join(timeout=3.0)
+                    kb_thread.join(timeout=1.0)
                 time.sleep(0.05)
 
         action = state["action"]
@@ -658,7 +701,7 @@ def open_inventory_menu(
         elif action == "info":
             slot = _current_slot()
             if slot:
-                _show_item_info_screen(slot.item, console)
+                _show_item_info_screen(slot.item, console, player)
             # vuelve al loop
 
         elif action == "equip":
