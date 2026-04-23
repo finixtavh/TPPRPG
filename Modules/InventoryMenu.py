@@ -666,7 +666,6 @@ def open_inventory_menu(
                 daemon=True,
             )
             kb_thread.start()
-            kb_thread.start()
 
             try:
                 with Live(
