@@ -21,7 +21,7 @@ from Modules.EnchantmentSystem import open_enchantment_menu
 from Modules.MasterySystem import ensure_mastery, MASTERY_MAX_LEVEL
 from Modules.input_utils import wait_for_enter, interactive_menu_select, keyboard_listener_scope
 from Modules.InventoryMenu import open_inventory_menu
-from Modules.SaveSystem import save_load_menu
+from Modules.SaveSystem import save_load_menu, get_slot_info
 from Modules.ZoneManager import get_all_zones, get_zones_for_selector
 from Modules.BuffManager import get_buff_manager
 from Modules.CraftingSystem import open_crafting_menu
@@ -1655,11 +1655,8 @@ def init_game():
     mod_loader_instance = get_mod_loader()
     mod_loader_instance.load_all_mods()
 
-    from Modules.QuestSystem import quest_manager
     get_mod_api().integrate_with_quest_manager(quest_manager)
 
-    from Modules.SaveSystem import get_slot_info, save_load_menu
-    
     has_saves = False
     for s in [1, 2, 3]:
         info = get_slot_info(s)
