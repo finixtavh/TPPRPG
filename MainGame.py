@@ -1591,57 +1591,19 @@ def main():
         quest_manager.open_quest_board(player, vInventory)
 
     elif main_input == 16 and CONFIG["DEBUG"]["ENABLED"]:
-        debug_input = int(
-            input("""DEBUG: 
-                  [1] ARMAS
-                  [2] GOLD Y EXP
-                  [3] Mastery & Gathering
-                  [4] LOOK Variables
-                  [5] AÑADIR COMPAÑERO DE PRUEBA
-                  > """)
-        )
-        if debug_input == 1:
-            vInventory.addObject(load_item_by_id(3, cWeapon, cEquippableItems, cObject, cTool))
-            vInventory.addObject(load_item_by_id(100, cWeapon, cEquippableItems, cObject, cTool))
-
-        elif debug_input == 2:
-            player.Gold += 9999999
-            player.EXP += 9999999
-        elif debug_input == 3:
-            for skill in Gathering_init.gathering.values():
-                skill.current_level += 10
-                print("Done")
-            for skill in Gathering_init.weapons.values():
-                skill.current_level += 10
-                print("Done")
-        elif debug_input == 4:
-            debug_text = dump_debug_snapshot(
-                player=player,
-                inventory=vInventory,
-                mod_loader=get_mod_loader(),
-                mod_api=None,
-                current_state=None,
-                chosen_area=chosen_area,
+        try:
+            from Modules.DebugMenu import open_enhanced_debug_menu
+            open_enhanced_debug_menu(
+                player=player, 
+                inventory=vInventory, 
+                gathering_init=Gathering_init, 
+                mod_loader=get_mod_loader(), 
+                mod_api=get_mod_api(), 
+                chosen_area=chosen_area
             )
-            console.print(Panel(debug_text, title="Debug Variables", border_style="magenta"))
-            app_logger.debug("Debug snapshot requested from in-game debug menu.")
-            wait_for_enter()
-        elif debug_input == 5:
-            # Añadir compañero de prueba
-            test_comp = cCompanion(
-                companion_id="lyra",
-                name="Lyra",
-                health_max=75,
-                mana_max=50,
-            )
-            # Darle un arma básica si hay en el inventario
-            for slot in vInventory.slots:
-                if isinstance(slot.item, cWeapon):
-                    test_comp.equip_weapon(slot.item)
-                    break
-            player.companion.append(test_comp)
-            console.print(f"[success]Compañero de prueba '{test_comp.name}' añadido.[/success]")
-            wait_for_enter()
+        except Exception as e:
+            console.print(f"[danger]Error en el menú debug: {e}[/danger]")
+            sp.sleep(2)
 
 
 # Save functions handled by Modules.SaveSystem
