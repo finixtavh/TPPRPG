@@ -11,6 +11,91 @@ Regla de renderizado: cada función interactiva tiene su propio
 NO se anidan screens. open_guild_menu es solo un loop de navegación.
 """
 
+# ── Edificios de Guild ────────────────────────────────────────────────────────
+GUILD_BUILDINGS = {
+    "cuartel": {
+        "name":        "Cuartel",
+        "icon":        "⚔",
+        "description": "+20 Poder Militar permanente.",
+        "cost":        {"madera": 25, "piedra": 20},
+        "effect":      {"military_power": 20},
+        "unique":      True,
+    },
+    "granero": {
+        "name":        "Granero",
+        "icon":        "🏚",
+        "description": "Reduce el consumo de Comida a la mitad.",
+        "cost":        {"madera": 30},
+        "effect":      {"food_efficiency": True},
+        "unique":      True,
+    },
+    "torre_guardia": {
+        "name":        "Torre de Guardia",
+        "icon":        "🗼",
+        "description": "+30 defensa de territorios ante ataques enemigos.",
+        "cost":        {"piedra": 35, "lingote_xar": 10},
+        "effect":      {"territory_defense": 30},
+        "unique":      True,
+    },
+    "mercado": {
+        "name":        "Mercado",
+        "icon":        "🪙",
+        "description": "+15% producción de recursos por tick.",
+        "cost":        {"madera": 20, "piedra": 20, "ganado": 15},
+        "effect":      {"resource_bonus": 0.15},
+        "unique":      True,
+    },
+    "herreria": {
+        "name":        "Herrería",
+        "icon":        "🔨",
+        "description": "+15 Poder Militar y acceso a equipamiento avanzado.",
+        "cost":        {"madera": 15, "lingote_xar": 20},
+        "effect":      {"military_power": 15},
+        "unique":      True,
+    },
+    "almacen": {
+        "name":        "Gran Almacén",
+        "icon":        "🗃",
+        "description": "+150 capacidad Común, +75 Poco Común.",
+        "cost":        {"madera": 40, "piedra": 30},
+        "effect":      {},
+        "unique":      True,
+    },
+    "templo": {
+        "name":        "Templo",
+        "icon":        "⛪",
+        "description": "Aumenta pasivamente la moral.",
+        "cost":        {"piedra": 20, "lingote_xar": 10},
+        "effect":      {},
+        "unique":      True,
+    },
+    "academia": {
+        "name":        "Academia",
+        "icon":        "🎓",
+        "description": "Genera 1 Skill Point de vez en cuando.",
+        "cost":        {"madera": 25, "lingote_xar": 15},
+        "effect":      {},
+        "unique":      True,
+    },
+    "granja": {
+        "name":        "Granja Comunal",
+        "icon":        "🚜",
+        "description": "+50% al crecimiento base poblacional por tick.",
+        "cost":        {"madera": 15, "ganado": 10},
+        "effect":      {},
+        "unique":      True,
+    },
+    "muralla": {
+        "name":        "Muralla",
+        "icon":        "🧱",
+        "description": "+50 defensa territorial.",
+        "cost":        {"piedra": 50, "lingote_zir": 5},
+        "effect":      {"territory_defense": 50},
+        "unique":      True,
+    },
+}
+
+
 import os
 import time
 import threading
@@ -98,20 +183,32 @@ def _render_territories(guild: Guild, gm: GuildManager):
 
 def _render_resources(guild: Guild, gm: GuildManager):
     t = Table(show_header=True, box=box.SIMPLE, expand=True)
-    t.add_column("", width=3)
-    t.add_column("Recurso",  ratio=2)
-    t.add_column("Cantidad", width=10)
-    t.add_column("Rareza",   width=12)
+    t.add_column("",       width=3)    # icon
+    t.add_column("Recurso", ratio=3)   # name
+    t.add_column("Cant/Max", width=14) # numbers
+    t.add_column("",       ratio=2)    # bar
+    t.add_column("Rareza", width=12)   # rareza
 
     for rid, defn in gm.resource_defs.items():
         amount = guild.get_resource(rid)
+        cap    = guild.get_resource_cap(rid, gm.resource_defs, gm.guild_type_defs)
         rarity = defn.get("rarity", "Common")
         color  = RARITY_COLORS.get(rarity, "white")
         icon   = defn.get("icon", "?")
-        bar    = "█" * min(20, amount // 5)
-        t.add_row(icon, defn.get("name", rid), f"[{color}]{amount:,}[/] {bar}", f"[{color}]{rarity}[/]")
+        
+        ratio_fill = min(1.0, amount / max(1, cap))
+        bar_len = int(30 * ratio_fill)
+        bar_str = "█" * bar_len + "░" * (30 - bar_len)
+        
+        t.add_row(
+            icon,
+            defn.get("name", rid),
+            f"[{color}]{amount:,}/{cap}[/]",
+            f"[{color}]{bar_str}[/]",
+            f"[{color}]{rarity}[/]",
+        )
 
-    food_needed = max(1, guild.population // 10)
+    food_needed = max(1, guild.population // 8)
     food_have   = guild.get_resource("comida")
     ticks_left  = food_have // food_needed if food_needed > 0 else 9999
     footer = Text(f"\n🍞 Consumo: {food_needed}/tick | Stock: {food_have} ({ticks_left} ticks)\n", style="dim")
@@ -172,44 +269,261 @@ def _render_diplomacy(guild: Guild, gm: GuildManager, player):
 
 
 # ── Función auxiliar de loop de Live ─────────────────────────────────────────
+# (cada función interna usa el patrón directamente, sin helper compartido)
 
-def _run_live_loop(render_fn, on_press_fn, exit_key="esc", con=None):
-    """
-    Patrón estándar: console.screen + keyboard_listener + Live.
-    Maneja limpieza correctamente y evita pantallas anidadas.
-    """
-    if con is None:
-        con = console
-    state_exit = {"v": False}
-    orig_on_press = on_press_fn
 
-    def _wrapped_on_press(key):
-        orig_on_press(key)
+# ── Pantallas interactivas de acción ──────────────────────────────────────────
+
+import random
+
+def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con):
+    """Pantalla interactiva para conquistar o ver territorios."""
+    all_territories = sorted(gm.territories.values(), key=lambda t: t.name)
+    state = {
+        "idx":       0,
+        "exit":      False,
+        "message":   "↑↓: Navegar | [ENTER]: Atacar | [ESC]: Volver",
+        "msg_style": "dim",
+    }
+
+    def _render():
+        t = Table(show_header=True, box=box.SIMPLE, expand=True)
+        t.add_column("",            width=3)
+        t.add_column("Territorio",  ratio=2)
+        t.add_column("Dueño",       ratio=2)
+        t.add_column("Recursos",    ratio=3)
+        t.add_column("Dif",         width=5)
+        t.add_column("Estado",      width=12)
+
+        for i, terr in enumerate(all_territories):
+            sel   = i == state["idx"]
+            is_own = terr.owner == player_guild.guild_id
+            if terr.owner == "neutral":
+                owner_str = "[dim]Neutral[/]"
+                status    = "[dim]Libre[/]"
+                s_color   = "white"
+            elif is_own:
+                owner_str = f"[bold green]{player_guild.icon} {player_guild.name}[/]"
+                status    = "[bold green]★ Tuyo[/]"
+                s_color   = "green"
+            else:
+                og = gm.guilds.get(terr.owner)
+                owner_str = f"{og.icon} {og.name}" if og else "??"
+                status    = "[red]Enemigo[/]"
+                s_color   = "red"
+
+            res_str = " ".join(
+                f"{gm.resource_defs.get(rid,{}).get('icon','?')}{amt}"
+                for rid, amt in list(terr.resource_output.items())[:3]
+            )
+            nm = Text(f"{terr.icon} {terr.name}")
+            if sel:
+                nm.stylize("bold reverse")
+            t.add_row(
+                "▶" if sel else " ",
+                nm, owner_str, res_str,
+                str(terr.difficulty), status,
+                style="bold bright_cyan" if sel else s_color,
+            )
+
+        # Detalle del seleccionado
+        if all_territories:
+            terr  = all_territories[state["idx"]]
+            is_own = terr.owner == player_guild.guild_id
+            detail = Text()
+            detail.append(f"\n  {terr.icon} {terr.name} — {terr.description}\n", style="bold cyan")
+            if not is_own:
+                cost_xar = terr.difficulty * 8
+                cost_mad = terr.difficulty * 5
+                detail.append(f"  Coste de ataque: ⚡{cost_xar} Lingote de Xar + 🪵{cost_mad} Madera\n", style="yellow")
+                detail.append(f"  Poder militar tu guild: {player_guild.military_power}  |  Defensa: {terr.defense_value}\n", style="dim")
+                detail.append("  [ENTER] Atacar\n", style="bold bright_cyan")
+            else:
+                detail.append("  Ya controlas este territorio.\n", style="dim")
+
+        else:
+            detail = Text("Sin territorios disponibles.", style="dim")
+
+        footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
+        return Panel(
+            Group(t, Rule(style="dim"), detail, footer),
+            title="[bold green]🗺 TERRITORIOS — ATACAR / DEFENDER[/]",
+            border_style="green",
+        )
+
+    def _on_press(key):
+        if key == "up":
+            state["idx"] = max(0, state["idx"] - 1)
+        elif key == "down":
+            state["idx"] = min(len(all_territories) - 1, state["idx"] + 1)
+        elif key == "enter" and all_territories:
+            terr  = all_territories[state["idx"]]
+            is_own = terr.owner == player_guild.guild_id
+            if is_own:
+                state["message"]   = "✗ Ya controlas este territorio."
+                state["msg_style"] = "bold yellow"
+                return
+            cost_xar = terr.difficulty * 8
+            cost_mad = terr.difficulty * 5
+            if player_guild.get_resource("lingote_xar") < cost_xar:
+                state["message"]   = f"✗ Necesitas {cost_xar} Lingotes de Xar para atacar."
+                state["msg_style"] = "bold red"
+                return
+            if player_guild.get_resource("madera") < cost_mad:
+                state["message"]   = f"✗ Necesitas {cost_mad} de Madera para atacar."
+                state["msg_style"] = "bold red"
+                return
+            # Consumir recursos
+            player_guild.consume_resource("lingote_xar", cost_xar)
+            player_guild.consume_resource("madera", cost_mad)
+            # Resolver ataque
+            msg = gm._attack_territory(player_guild, gm.guilds.get(terr.owner) if terr.owner not in ("neutral","") else None, terr)
+            state["message"]   = msg
+            state["msg_style"] = "bold green" if player_guild.guild_id == terr.owner else "bold red"
+        elif key == "esc":
+            state["exit"] = True
 
     with con.screen():
         with keyboard_listener_scope():
             kb_thread = threading.Thread(
                 target=listen_keyboard,
-                kwargs={"on_press": _wrapped_on_press, "sequential": False, "until": None},
+                kwargs={"on_press": _on_press, "sequential": False, "until": None},
                 daemon=True,
             )
             kb_thread.start()
             try:
                 with Live(console=con, refresh_per_second=20) as live:
-                    while True:
-                        live.update(render_fn())
+                    while not state["exit"]:
+                        live.update(_render())
                         time.sleep(0.05)
-                        # Check exit from outside (state dict passed via closure)
-                        if _check_exit():
-                            break
             finally:
                 stop_listening()
                 if kb_thread.is_alive():
                     kb_thread.join(timeout=0.2)
         con.clear()
 
-# We won't use the helper above — simpler to inline the pattern directly.
-# Each function below follows the exact same pattern as CraftingSystem.py
+
+def _buildings_menu(player_guild: Guild, gm: GuildManager, con):
+    """Menú de construcciones de Guild. Los edificios usan materiales de Guild."""
+    if not hasattr(player_guild, "buildings"):
+        player_guild.buildings = []
+
+    building_ids = list(GUILD_BUILDINGS.keys())
+    state = {
+        "idx":       0,
+        "exit":      False,
+        "message":   "↑↓: Navegar | [ENTER]: Construir | [ESC]: Volver",
+        "msg_style": "dim",
+    }
+
+    def _can_build(bid):
+        b = GUILD_BUILDINGS[bid]
+        if b.get("unique") and bid in player_guild.buildings:
+            return False, "Ya construido"
+        for rid, qty in b["cost"].items():
+            if player_guild.get_resource(rid) < qty:
+                rname = gm.resource_defs.get(rid, {}).get("name", rid)
+                return False, f"Faltan {rname}"
+        return True, "Disponible"
+
+    def _render():
+        t = Table(show_header=True, box=box.SIMPLE, expand=True)
+        t.add_column("",            width=3)
+        t.add_column("Edificio",    ratio=2)
+        t.add_column("Descripción", ratio=3)
+        t.add_column("Coste",       ratio=2)
+        t.add_column("Estado",      width=14)
+
+        for i, bid in enumerate(building_ids):
+            b   = GUILD_BUILDINGS[bid]
+            sel = i == state["idx"]
+            ok, reason = _can_build(bid)
+            built = bid in player_guild.buildings
+
+            cost_str = "  ".join(
+                f"{gm.resource_defs.get(r,{}).get('icon','?')} {q} {gm.resource_defs.get(r,{}).get('name',r)}"
+                for r, q in b["cost"].items()
+            )
+
+            if built:
+                s_col  = "bold green"
+                s_text = "[bold green]✓ CONSTRUIDO[/]"
+            elif ok:
+                s_col  = "white"
+                s_text = "[dim]Disponible[/]"
+            else:
+                s_col  = "dim"
+                s_text = f"[dim red]{reason}[/]"
+
+            nm = Text(f"{b['icon']} {b['name']}")
+            if sel:
+                nm.stylize("bold reverse")
+            t.add_row(
+                "▶" if sel else " ",
+                nm, b["description"], cost_str, s_text,
+                style="bold bright_cyan" if sel else s_col,
+            )
+
+        # Log de edificios activos
+        active = Text("\n  Edificios activos: ")
+        if player_guild.buildings:
+            for bid in player_guild.buildings:
+                b = GUILD_BUILDINGS.get(bid, {})
+                active.append(f"{b.get('icon','?')} {b.get('name','?')}  ", style="green")
+        else:
+            active.append("Ninguno aún.", style="dim")
+
+        footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
+        return Panel(
+            Group(t, active, footer),
+            title="[bold]🏗 CONSTRUCCIONES DE GUILD[/]",
+            border_style="bright_yellow",
+        )
+
+    def _on_press(key):
+        if key == "up":
+            state["idx"] = max(0, state["idx"] - 1)
+        elif key == "down":
+            state["idx"] = min(len(building_ids) - 1, state["idx"] + 1)
+        elif key == "enter":
+            bid = building_ids[state["idx"]]
+            ok, reason = _can_build(bid)
+            if not ok:
+                state["message"]   = f"✗ No se puede construir: {reason}"
+                state["msg_style"] = "bold red"
+                return
+            b = GUILD_BUILDINGS[bid]
+            for rid, qty in b["cost"].items():
+                player_guild.consume_resource(rid, qty)
+            player_guild.buildings.append(bid)
+            # Aplicar efectos inmediatos
+            for eff_key, eff_val in b["effect"].items():
+                if eff_key == "military_power" and isinstance(eff_val, int):
+                    player_guild.military_power += eff_val
+            player_guild.log_event(f"🏗 Construido: {b['icon']} {b['name']}")
+            state["message"]   = f"✓ {b['icon']} {b['name']} construido."
+            state["msg_style"] = "bold green"
+        elif key == "esc":
+            state["exit"] = True
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(
+                target=listen_keyboard,
+                kwargs={"on_press": _on_press, "sequential": False, "until": None},
+                daemon=True,
+            )
+            kb_thread.start()
+            try:
+                with Live(console=con, refresh_per_second=20) as live:
+                    while not state["exit"]:
+                        live.update(_render())
+                        time.sleep(0.05)
+            finally:
+                stop_listening()
+                if kb_thread.is_alive():
+                    kb_thread.join(timeout=0.2)
+        con.clear()
 
 
 # ── Menú sin guild ────────────────────────────────────────────────────────────
@@ -420,17 +734,17 @@ def _join_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
 
 def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
     """
-    Menú con 7 pestañas para la guild del jugador.
-    Retorna: 'exit' | 'skill_tree' | 'missions'
+    Menú con pestañas para la guild del jugador.
+    Retorna acción seleccionada.
     """
-    tabs  = ["Resumen", "Territorios", "Recursos", "Mundo", "Misiones", "Habilidades", "Diplomacia"]
+    tabs  = ["Resumen", "Territorios", "Recursos", "Mundo", "Misiones", "Militar", "Habilidades", "Diplomacia", "Construcciones"]
     state = {
         "tab_idx":        0,
         "exit":           False,
         "inner_action":   "exit",
-        "open_sub":       None,   # 'skill_tree' | 'missions' | None
-        "message":        f"{player_guild.icon} {player_guild.name}  |  Skill pts: {player_guild.skill_points}",
-        "msg_style":      "dim",
+        "open_sub":       None,
+        "message":        f"{player_guild.icon} {player_guild.name}  |  Skill pts: {player_guild.skill_points}  |  Eventos: {len(player_guild.pending_events)}",
+        "msg_style":      "bold bright_cyan" if player_guild.pending_events else "dim",
     }
 
     def _render():
@@ -458,6 +772,11 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
                 Text("\n  Pulsa [ENTER] para abrir el árbol de habilidades.\n", style="dim"),
                 border_style="cyan",
             )
+        elif tab == "Militar":
+            content = Panel(
+                Text("\n  Pulsa [ENTER] para gestionar tu ejército.\n", style="dim"),
+                border_style="red",
+            )
         elif tab == "Misiones":
             content = Panel(
                 Text("\n  Pulsa [ENTER] para abrir el gestor de misiones.\n", style="dim"),
@@ -469,7 +788,7 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
             content = Panel(Text("Próximamente.", style="dim"))
 
         footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
-        hint   = Text("← →: Pestañas | [ENTER]: Acción | [ESC]: Salir", style="dim")
+        hint   = Text("← →: Pestañas | [ENTER]: Acción | [M]: Eventos | [ESC]: Salir", style="dim")
         return Panel(
             Group(h, Rule(style="cyan"), content, hint, footer),
             title=f"[bold cyan]⚔ GUILDS — {player_guild.icon} {player_guild.name}[/]",
@@ -489,6 +808,18 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
             elif tab == "Misiones":
                 state["open_sub"] = "missions"
                 state["exit"]     = True
+            elif tab == "Territorios":
+                state["open_sub"] = "territories"
+                state["exit"]     = True
+            elif tab == "Construcciones":
+                state["open_sub"] = "buildings"
+                state["exit"]     = True
+            elif tab == "Militar":
+                state["open_sub"] = "military"
+                state["exit"]     = True
+        elif key == "m":
+            state["open_sub"] = "events"
+            state["exit"]     = True
         elif key == "esc":
             state["open_sub"] = None
             state["exit"]     = True
@@ -515,10 +846,216 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
     return state["open_sub"] or "exit"
 
 
+# ── Pestaña Eventos ──────────────────────────────────────────────────────────
+
+def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
+    state = {
+        "idx":       0,
+        "exit":      False,
+        "message":   "↑↓: Navegar | [ENTER]: Seleccionar opción | [ESC]: Volver",
+        "msg_style": "dim",
+        "opt_idx":   0,
+        "mode":      "list",  # "list" o "detail"
+    }
+
+    def _render():
+        if state["mode"] == "list":
+            if not player_guild.pending_events:
+                return Panel(Text("\n  No hay eventos pendientes.\n", style="dim"),
+                             title="[bold bright_cyan]📬 EVENTOS PENDIENTES[/]", border_style="cyan")
+            t = Table(show_header=False, box=None, expand=True)
+            for i, ev in enumerate(player_guild.pending_events):
+                sel = i == state["idx"]
+                nm = Text(f"✉ {ev['title']}")
+                if sel: nm.stylize("bold reverse")
+                t.add_row("▶" if sel else " ", nm, style="bold bright_cyan" if sel else "white")
+            hint = Text("\n  [ENTER] Ver detalles | [ESC] Volver\n", style="dim")
+            return Panel(Group(t, hint), title="[bold bright_cyan]📬 EVENTOS PENDIENTES[/]", border_style="cyan")
+        else:
+            ev = player_guild.pending_events[state["idx"]]
+            t = Table(show_header=False, box=None, expand=True, padding=(0, 2))
+            for i, opt in enumerate(ev["options"]):
+                sel = i == state["opt_idx"]
+                nm = Text(f"{i+1}. {opt['text']}")
+                if sel: nm.stylize("bold reverse")
+                t.add_row("▶" if sel else " ", nm, style="bold bright_cyan" if sel else "dim")
+            
+            desc = Text(f"\n  {ev['description']}\n\n", style="white")
+            hint = Text("  ↑↓: Elegir opción | [ENTER]: Confirmar | [ESC]: Volver a lista\n", style="dim")
+            return Panel(Group(desc, t, hint), title=f"[bold cyan]📬 {ev['title']}[/]", border_style="cyan")
+
+    def _on_press(key):
+        if key == "esc":
+            if state["mode"] == "detail":
+                state["mode"] = "list"
+            else:
+                state["exit"] = True
+        elif state["mode"] == "list" and player_guild.pending_events:
+            if key == "up":
+                state["idx"] = max(0, state["idx"] - 1)
+            elif key == "down":
+                state["idx"] = min(len(player_guild.pending_events) - 1, state["idx"] + 1)
+            elif key == "enter":
+                state["mode"] = "detail"
+                state["opt_idx"] = 0
+        elif state["mode"] == "detail":
+            ev = player_guild.pending_events[state["idx"]]
+            if key == "up":
+                state["opt_idx"] = max(0, state["opt_idx"] - 1)
+            elif key == "down":
+                state["opt_idx"] = min(len(ev["options"]) - 1, state["opt_idx"] + 1)
+            elif key == "enter":
+                # Aplicar efectos
+                opt = ev["options"][state["opt_idx"]]
+                eff = opt.get("effects", {})
+                for k, v in eff.items():
+                    if k == "soldiers":       player_guild.soldiers = max(0, player_guild.soldiers + v)
+                    elif k == "population":   player_guild.population = max(10, player_guild.population + v)
+                    elif k == "moral":        player_guild.change_moral(v)
+                    elif k == "rel_src":
+                        if ev["source_guild_id"]:
+                            player_guild.relations[ev["source_guild_id"]] = max(-100, min(100, player_guild.relations.get(ev["source_guild_id"], 0) + v))
+                            if ev["source_guild_id"] in gm.guilds:
+                                gm.guilds[ev["source_guild_id"]].relations[player_guild.guild_id] = player_guild.relations[ev["source_guild_id"]]
+                    elif k == "rel_all":
+                        for gid in gm.guilds:
+                            player_guild.relations[gid] = max(-100, min(100, player_guild.relations.get(gid, 0) + v))
+                    elif k == "trade_accept":
+                        offer_rid = eff.get("offer_rid")
+                        offer_amt = eff.get("offer_amt")
+                        req_rid   = eff.get("req_rid")
+                        req_amt   = eff.get("req_amt")
+                        if offer_rid and req_rid:
+                            if player_guild.get_resource(req_rid) >= req_amt:
+                                player_guild.consume_resource(req_rid, req_amt)
+                                player_guild.add_resource(offer_rid, offer_amt, gm.resource_defs)
+                                player_guild.log_event(f"🤝 Trade completado con éxito.")
+                                if ev["source_guild_id"] in gm.guilds:
+                                    g = gm.guilds[ev["source_guild_id"]]
+                                    g.consume_resource(offer_rid, offer_amt)
+                                    g.add_resource(req_rid, req_amt, gm.resource_defs)
+                            else:
+                                player_guild.log_event(f"✗ Trade fallido: no tienes suficientes recursos.")
+                    else:
+                        # Asumir que es un recurso
+                        if v > 0: player_guild.add_resource(k, v, gm.resource_defs)
+                        else:     player_guild.consume_resource(k, abs(v))
+                player_guild.pending_events.pop(state["idx"])
+                state["idx"] = max(0, state["idx"] - 1)
+                state["mode"] = "list"
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
+            kb_thread.start()
+            try:
+                with Live(console=con, refresh_per_second=20) as live:
+                    while not state["exit"]:
+                        live.update(_render())
+                        time.sleep(0.05)
+            finally:
+                stop_listening()
+                if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
+        con.clear()
+
+# ── Pestaña Militar ──────────────────────────────────────────────────────────
+
+def _military_management_menu(player_guild: Guild, gm: GuildManager, con):
+    sections = ["Reclutar", "Mejorar Ataque", "Mejorar Defensa", "Mejorar Armadura", "Crecimiento Poblacional"]
+    state = {
+        "idx":       0,
+        "exit":      False,
+        "message":   "↑↓: Navegar | [ENTER]: Confirmar | [ESC]: Volver",
+        "msg_style": "dim",
+        "rec_amt":   5,
+    }
+
+    def _render():
+        t = Table(show_header=False, box=None, expand=True)
+        max_sol = player_guild.get_max_soldiers(gm.guild_type_defs)
+        
+        info = Text(f"  Poder Militar: {player_guild.military_power}  |  Soldados: {player_guild.soldiers} / {max_sol}\n"
+                    f"  Ataque Lv.{player_guild.attack_rating}  |  Defensa Lv.{player_guild.defense_rating}  |  Armadura Lv.{player_guild.armor_rating}\n"
+                    f"  Crecimiento actual: {player_guild.population_growth_pct * 100:.1f}%\n", style="bold cyan")
+        
+        for i, sec in enumerate(sections):
+            sel = i == state["idx"]
+            nm  = Text(sec)
+            desc = ""
+            if sec == "Reclutar":
+                desc = f" (Coste: {state['rec_amt']} Comida, {max(1, state['rec_amt']//2)} Cuero) [+ {state['rec_amt']} soldados]"
+            elif sec == "Mejorar Ataque":
+                desc = f" (Coste: {5 * player_guild.attack_rating} Cuero)"
+            elif sec == "Mejorar Defensa":
+                desc = f" (Coste: {5 * player_guild.defense_rating} Cuero)"
+            elif sec == "Mejorar Armadura":
+                desc = f" (Coste: {8 * player_guild.armor_rating} Cuero)"
+            elif sec == "Crecimiento Poblacional":
+                desc = f" (Ajustar con ← →)"
+            
+            if sel: nm.stylize("bold reverse")
+            t.add_row("▶" if sel else " ", nm, Text(desc, style="dim"), style="bold bright_cyan" if sel else "white")
+        
+        hint = Text("\n  ← →: Ajustar cantidad (Reclutar/Crecimiento) | [ENTER]: Aplicar | [ESC]: Volver\n", style="dim")
+        footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
+        return Panel(Group(info, t, hint, footer), title="[bold red]⚔ ADMINISTRACIÓN MILITAR[/]", border_style="red")
+
+    def _on_press(key):
+        if key == "esc":
+            state["exit"] = True
+        elif key == "up":
+            state["idx"] = max(0, state["idx"] - 1)
+        elif key == "down":
+            state["idx"] = min(len(sections) - 1, state["idx"] + 1)
+        elif key == "left":
+            sec = sections[state["idx"]]
+            if sec == "Reclutar":
+                state["rec_amt"] = max(1, state["rec_amt"] - 1)
+            elif sec == "Crecimiento Poblacional":
+                player_guild.population_growth_pct = max(0.0, player_guild.population_growth_pct - 0.01)
+        elif key == "right":
+            sec = sections[state["idx"]]
+            if sec == "Reclutar":
+                state["rec_amt"] = min(50, state["rec_amt"] + 1)
+            elif sec == "Crecimiento Poblacional":
+                player_guild.population_growth_pct = min(0.10, player_guild.population_growth_pct + 0.01)
+        elif key == "enter":
+            sec = sections[state["idx"]]
+            if sec == "Reclutar":
+                n, msg = player_guild.recruit_soldiers(state["rec_amt"], gm.resource_defs, gm.guild_type_defs)
+                state["message"] = msg
+                state["msg_style"] = "bold green" if n > 0 else "bold red"
+            elif sec == "Mejorar Ataque":
+                ok, msg = player_guild.upgrade_army_stat("attack", gm.resource_defs)
+                state["message"] = msg
+                state["msg_style"] = "bold green" if ok else "bold red"
+            elif sec == "Mejorar Defensa":
+                ok, msg = player_guild.upgrade_army_stat("defense", gm.resource_defs)
+                state["message"] = msg
+                state["msg_style"] = "bold green" if ok else "bold red"
+            elif sec == "Mejorar Armadura":
+                ok, msg = player_guild.upgrade_army_stat("armor", gm.resource_defs)
+                state["message"] = msg
+                state["msg_style"] = "bold green" if ok else "bold red"
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
+            kb_thread.start()
+            try:
+                with Live(console=con, refresh_per_second=20) as live:
+                    while not state["exit"]:
+                        live.update(_render())
+                        time.sleep(0.05)
+            finally:
+                stop_listening()
+                if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
+        con.clear()
+
 # ── Punto de entrada principal ────────────────────────────────────────────────
 
 def open_guild_menu(player, console=None):
-    """Opción 16 del menú principal. Sin console.screen() propio — cada sub-función tiene el suyo."""
+    """Opción 16 del menú principal."""
     if console is None:
         console = Console()
 
@@ -534,7 +1071,6 @@ def open_guild_menu(player, console=None):
             if action == "create":
                 guild = _create_guild_flow(player, gm, console)
                 if guild:
-                    # Breve confirmación en pantalla limpia
                     console.print(f"\n[bold green]✨ Guild '{guild.name}' ({guild.guild_type}) creada con éxito![/bold green]")
                     time.sleep(1.5)
                 continue
@@ -545,9 +1081,8 @@ def open_guild_menu(player, console=None):
                     time.sleep(1.5)
                 continue
             else:
-                break  # "back" → volver al menú principal
+                break
 
-        # Jugador tiene guild — mostrar menú con pestañas
         sub_action = _main_guild_tabs(player_guild, player, gm, console)
 
         if sub_action == "exit":
@@ -556,3 +1091,11 @@ def open_guild_menu(player, console=None):
             open_guild_skill_tree(player_guild, console)
         elif sub_action == "missions":
             open_guild_missions_menu(player_guild, player, gm, console)
+        elif sub_action == "territories":
+            _territories_action_menu(player_guild, player, gm, console)
+        elif sub_action == "buildings":
+            _buildings_menu(player_guild, gm, console)
+        elif sub_action == "military":
+            _military_management_menu(player_guild, gm, console)
+        elif sub_action == "events":
+            _events_menu(player_guild, player, gm, console)

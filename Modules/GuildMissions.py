@@ -286,6 +286,14 @@ def resolve_autonomous_mission(
         )
         guild.log_event(msg)
         guild.change_moral(-5)
+        
+        # Pérdida de soldados en misiones de asalto o sabotaje fallidas
+        if mission.mission_type in ["asalto", "sabotaje"]:
+            import random
+            soldier_loss = random.randint(1, max(1, mission.difficulty // 2))
+            guild.soldiers = max(0, getattr(guild, 'soldiers', 0) - soldier_loss)
+            guild.population = max(10, getattr(guild, 'population', 10) - soldier_loss)
+            guild.log_event(f"✗ Perdimos {soldier_loss} soldados en la misión.")
 
     return success, msg, rewards
 
@@ -358,10 +366,11 @@ def open_guild_missions_menu(guild: Guild, player, guild_manager: GuildManager, 
     def _render():
         if state["mode"] == "list":
             t = Table(show_header=True, box=box.SIMPLE, expand=True)
-            t.add_column("", width=3)
-            t.add_column("Tipo", width=12)
-            t.add_column("Nombre", ratio=2)
-            t.add_column("Dif", width=4)
+            t.add_column("",         width=3)   # selector
+            t.add_column("",         width=3)   # icono de tipo
+            t.add_column("Tipo",     width=14)  # nombre del tipo (sin icono → cabe)
+            t.add_column("Nombre",   ratio=2)
+            t.add_column("Dif",      width=4)
             t.add_column("Duración", width=12)
 
             for i, m in enumerate(available_missions):
@@ -373,7 +382,8 @@ def open_guild_missions_menu(guild: Guild, player, guild_manager: GuildManager, 
                     mname.stylize("bold reverse")
                 t.add_row(
                     "▶" if selected else " ",
-                    f"{icon} {mtype.get('name', m.mission_type)}",
+                    icon,
+                    mtype.get("name", m.mission_type),
                     mname,
                     str(m.difficulty),
                     f"{m.duration_combats} combates",

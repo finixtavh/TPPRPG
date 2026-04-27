@@ -57,6 +57,26 @@ GUILD_SKILL_TREE: Dict[str, dict] = {
         "requires":    ["mil_assault"],
         "effect":      {"military_power_bonus": 0.40},
     },
+    "mil_logistics": {
+        "id":          "mil_logistics",
+        "name":        "Reclutamiento Eficiente",
+        "branch":      "Militar",
+        "icon":        "⛺",
+        "description": "El ejército puede reclutar hasta un +5% de la población total.",
+        "cost":        3,
+        "requires":    ["mil_vanguard"],
+        "effect":      {"recruit_pct_bonus": 0.05},
+    },
+    "mil_fortress": {
+        "id":          "mil_fortress",
+        "name":        "Fortaleza Permanente",
+        "branch":      "Militar",
+        "icon":        "🏰",
+        "description": "+50 Defensa en todos tus territorios.",
+        "cost":        4,
+        "requires":    ["mil_assault"],
+        "effect":      {"territory_defense_bonus": 50},
+    },
 
     # ── RAMA ECONOMÍA ────────────────────────────────────────────────────────
     "eco_logistics": {
@@ -98,6 +118,26 @@ GUILD_SKILL_TREE: Dict[str, dict] = {
         "cost":        5,
         "requires":    ["eco_trade"],
         "effect":      {"territory_production_bonus": 0.50},
+    },
+    "eco_storage": {
+        "id":          "eco_storage",
+        "name":        "Almacenes Ampliados",
+        "branch":      "Economía",
+        "icon":        "🗃",
+        "description": "Aumenta la capacidad de almacenamiento (+100 Común, +50 Poco Común).",
+        "cost":        2,
+        "requires":    ["eco_logistics"],
+        "effect":      {"storage_bonus": {"Common": 100, "Uncommon": 50}},
+    },
+    "eco_population": {
+        "id":          "eco_population",
+        "name":        "Colonos",
+        "branch":      "Economía",
+        "icon":        "👨‍👩‍👧‍👦",
+        "description": "+1% a la tasa de crecimiento poblacional por tick.",
+        "cost":        3,
+        "requires":    ["eco_granaries"],
+        "effect":      {"population_growth_bonus": 0.01},
     },
 
     # ── RAMA DIPLOMACIA ───────────────────────────────────────────────────────
@@ -144,8 +184,8 @@ GUILD_SKILL_TREE: Dict[str, dict] = {
 }
 
 BRANCH_ORDER = {
-    "Militar":    ["mil_tactics", "mil_vanguard", "mil_assault", "mil_professional"],
-    "Economía":   ["eco_logistics", "eco_granaries", "eco_trade", "eco_hegemony"],
+    "Militar":    ["mil_tactics", "mil_vanguard", "mil_logistics", "mil_assault", "mil_fortress", "mil_professional"],
+    "Economía":   ["eco_logistics", "eco_storage", "eco_granaries", "eco_population", "eco_trade", "eco_hegemony"],
     "Diplomacia": ["dip_ambassador", "dip_alliances", "dip_espionage", "dip_hegemony"],
 }
 

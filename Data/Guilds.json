@@ -9,7 +9,7 @@
       "la Llama Dorada", "los Cuervos", "el Escudo Norte", "la Espada Roja",
       "los Lobos Grises", "el Martillo", "la Corona Caída", "los Ojos del Rey",
       "la Tierra Muerta", "el Alba", "el Ocaso", "los Dientes del Dragón",
-      "la Mano Negra", "los Mercaderes", "la Flecha Perdida", "el Tróno Vacío"
+      "la Mano Negra", "los Mercaderes", "la Flecha Perdida", "el Trono Vacío"
     ],
     "adjectives": [
       "Inmortal", "Eterna", "Oscura", "Dorada", "Carmesí", "Plateada",
@@ -25,47 +25,62 @@
       "military_bonus": 0.0,
       "economy_bonus": 0.3,
       "diplomacy_bonus": 0.0,
+      "recruit_pct_bonus": 0.0,
+      "storage_bonus": { "Common": 100, "Rare": 25 },
+      "skill_branch_pref": ["Economía", "Militar", "Diplomacia"],
       "starting_territories": ["northern_mines", "crystal_caves"]
     },
     "Militar": {
       "icon": "⚔",
       "description": "Organización de combatientes élite, orientada a la conquista.",
-      "bonus_resources": {},
+      "bonus_resources": { "cuero_endurecido": 0.3 },
       "military_penalty": 0.0,
-      "military_bonus": 0.4,
+      "military_bonus": 0.3,
       "economy_bonus": 0.0,
-      "diplomacy_bonus": -0.1,
+      "diplomacy_bonus": 0.0,
+      "recruit_pct_bonus": 0.08,
+      "storage_bonus": {},
+      "skill_branch_pref": ["Militar", "Economía", "Diplomacia"],
       "starting_territories": ["iron_fortress", "war_fields"]
     },
     "Sigilosa": {
       "icon": "🗡",
       "description": "Maestros del engaño. Sus sabotajes son legendarios.",
-      "bonus_resources": {},
-      "military_penalty": -0.3,
-      "military_bonus": 0.0,
-      "economy_bonus": 0.1,
+      "bonus_resources": { "cuero_endurecido": 0.2, "lingote_xar": 0.2 },
+      "military_penalty": 0.0,
+      "military_bonus": 0.1,
+      "economy_bonus": 0.0,
       "diplomacy_bonus": 0.2,
+      "recruit_pct_bonus": 0.03,
+      "storage_bonus": {},
+      "skill_branch_pref": ["Diplomacia", "Militar", "Economía"],
       "starting_territories": ["shadow_district", "old_ruins"]
     },
     "Agraria": {
       "icon": "🌾",
       "description": "Control de tierras fértiles. Su comida alimenta ejércitos.",
-      "bonus_resources": { "madera": 0.3, "ganado": 0.5, "comida": 0.5 },
+      "bonus_resources": { "comida": 0.5, "ganado": 0.4 },
       "military_penalty": -0.1,
       "military_bonus": 0.0,
-      "economy_bonus": 0.5,
+      "economy_bonus": 0.4,
       "diplomacy_bonus": 0.1,
+      "recruit_pct_bonus": 0.0,
+      "storage_bonus": { "Common": 100, "Uncommon": 50 },
+      "skill_branch_pref": ["Economía", "Diplomacia", "Militar"],
       "starting_territories": ["fertile_plains", "great_forest"]
     },
     "Noble": {
       "icon": "🏛",
       "description": "Clase gobernante con influencia política masiva.",
-      "bonus_resources": { "lingote_zir": 0.2 },
+      "bonus_resources": { "lingote_zir": 0.3, "lingote_xar": 0.2 },
       "military_penalty": 0.0,
-      "military_bonus": 0.1,
-      "economy_bonus": 0.2,
+      "military_bonus": 0.0,
+      "economy_bonus": 0.1,
       "diplomacy_bonus": 0.4,
-      "starting_territories": ["capital_district", "noble_quarter"]
+      "recruit_pct_bonus": 0.02,
+      "storage_bonus": { "Rare": 25, "Legendary": 10 },
+      "skill_branch_pref": ["Diplomacia", "Economía", "Militar"],
+      "starting_territories": ["noble_quarter", "capital_district"]
     }
   }
 }
