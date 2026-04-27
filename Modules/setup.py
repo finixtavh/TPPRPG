@@ -118,6 +118,11 @@ class cPlayer:
         self.favorite_recipes = [] # Store recipe IDs
         self.favorite_items = [] # Store item IDs
 
+        # Guild system
+        self.guild_id: str = ""           # ID de la guild actual del jugador
+        self.guild_reputation: dict = {}  # { guild_id: -100..100 }
+        self.combat_counter: int = 0      # Nº de combates realizados (trigger de simulación)
+
         # Seems like this can changed fore something better
         self.items_in_PlayerClass = [self.weapon, self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3]
 
