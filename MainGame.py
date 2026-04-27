@@ -8,9 +8,23 @@ from rich.progress import Progress, SpinnerColumn, TextColumn # IDK HOW TO USE T
 from rich.align import Align 
 from typing import List, Dict, Optional, Tuple, Any, Union
 from rich import box
+import sys
+import time
 from rich.live import Live
 from sshkeyboard import listen_keyboard, stop_listening
 
+# -- Patch definitivo para evitar BlockingIOError (Errno 11) en todo el motor --
+_original_stdout_write = sys.stdout.write
+
+def _safe_stdout_write(text):
+    while True:
+        try:
+            return _original_stdout_write(text)
+        except BlockingIOError:
+            time.sleep(0.001)  # Esperar a que el buffer se drene
+
+sys.stdout.write = _safe_stdout_write
+# -----------------------------------------------------------------------------
 # Modules/
 from Modules.Loader import Write, Read
 from Modules.ModLoader import get_mod_loader, get_mod_api

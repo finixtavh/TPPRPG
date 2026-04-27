@@ -416,13 +416,13 @@ def open_guild_skill_tree(guild, console=None):
                 daemon=True,
             )
             kb_thread.start()
-            try:
-                with Live(console=console, refresh_per_second=20) as live:
+            with Live(console=console, refresh_per_second=20) as live:
+                try:
                     while not state["exit"]:
                         live.update(_render())
                         time.sleep(0.05)
-            finally:
-                stop_listening()
-                if kb_thread.is_alive():
-                    kb_thread.join(timeout=0.2)
-        console.clear()
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive():
+                        kb_thread.join(timeout=0.2)
+            console.clear()

@@ -1,7 +1,7 @@
 {
   "territories": {
-    "northern_mines": {
-      "id": "northern_mines",
+    "northern_mines_0": {
+      "id": "northern_mines_0",
       "name": "Minas del Norte",
       "icon": "⛏",
       "description": "Profundas minas repletas de mineral y piedra.",
@@ -12,8 +12,8 @@
       "owner": "neutral",
       "position": [0, 0]
     },
-    "crystal_caves": {
-      "id": "crystal_caves",
+    "crystal_caves_1": {
+      "id": "crystal_caves_1",
       "name": "Cavernas de Cristal",
       "icon": "💎",
       "description": "Cuevas donde crecen cristales únicos.",
@@ -24,8 +24,8 @@
       "owner": "neutral",
       "position": [1, 0]
     },
-    "iron_fortress": {
-      "id": "iron_fortress",
+    "iron_fortress_2": {
+      "id": "iron_fortress_2",
       "name": "Fortaleza de Hierro",
       "icon": "🏰",
       "description": "Bastión militar inexpugnable.",
@@ -36,20 +36,44 @@
       "owner": "neutral",
       "position": [2, 0]
     },
-    "war_fields": {
-      "id": "war_fields",
-      "name": "Campos de Guerra",
-      "icon": "⚔",
-      "description": "Llanuras donde se libran las grandes batallas.",
-      "resource_output": { "cuero_endurecido": 8 },
-      "difficulty": 4,
-      "defense_value": 20,
-      "population_capacity": 80,
+    "frozen_wastes_3": {
+      "id": "frozen_wastes_3",
+      "name": "Yermos Helados",
+      "icon": "❄",
+      "description": "Tierras frías donde solo sobreviven los más fuertes.",
+      "resource_output": { "cuero_endurecido": 5, "lingote_zir": 1 },
+      "difficulty": 6,
+      "defense_value": 45,
+      "population_capacity": 20,
       "owner": "neutral",
       "position": [3, 0]
     },
-    "shadow_district": {
-      "id": "shadow_district",
+    "glacier_peak_4": {
+      "id": "glacier_peak_4",
+      "name": "Pico Glaciar",
+      "icon": "🏔",
+      "description": "Una montaña majestuosa y peligrosa.",
+      "resource_output": { "piedra": 15, "lingote_zir": 2 },
+      "difficulty": 7,
+      "defense_value": 60,
+      "population_capacity": 10,
+      "owner": "neutral",
+      "position": [4, 0]
+    },
+    "northern_outpost_5": {
+      "id": "northern_outpost_5",
+      "name": "Avanzada Norte",
+      "icon": "🗼",
+      "description": "Vigilancia en los límites del mundo conocido.",
+      "resource_output": { "madera": 5, "cuero_endurecido": 2 },
+      "difficulty": 3,
+      "defense_value": 25,
+      "population_capacity": 40,
+      "owner": "neutral",
+      "position": [5, 0]
+    },
+    "shadow_district_6": {
+      "id": "shadow_district_6",
       "name": "Barrio de las Sombras",
       "icon": "🌑",
       "description": "Un laberinto urbano donde todos tienen secretos.",
@@ -60,8 +84,8 @@
       "owner": "neutral",
       "position": [0, 1]
     },
-    "old_ruins": {
-      "id": "old_ruins",
+    "old_ruins_7": {
+      "id": "old_ruins_7",
       "name": "Ruinas Antiguas",
       "icon": "🏚",
       "description": "Vestigios de una civilización olvidada.",
@@ -72,32 +96,56 @@
       "owner": "neutral",
       "position": [1, 1]
     },
-    "fertile_plains": {
-      "id": "fertile_plains",
-      "name": "Llanuras Fértiles",
-      "icon": "🌾",
-      "description": "Tierras ricas donde el ganado y los cultivos prosperan.",
-      "resource_output": { "ganado": 8, "comida": 15, "madera": 5 },
-      "difficulty": 1,
-      "defense_value": 10,
-      "population_capacity": 120,
+    "abandoned_keep_8": {
+      "id": "abandoned_keep_8",
+      "name": "Torreón Abandonado",
+      "icon": "🏯",
+      "description": "Antigua estructura defensiva.",
+      "resource_output": { "piedra": 10, "lingote_xar": 2 },
+      "difficulty": 4,
+      "defense_value": 50,
+      "population_capacity": 30,
       "owner": "neutral",
       "position": [2, 1]
     },
-    "great_forest": {
-      "id": "great_forest",
-      "name": "Gran Bosque",
-      "icon": "🌲",
-      "description": "Bosque ancestral con madera de alta calidad.",
-      "resource_output": { "madera": 20, "ganado": 5 },
-      "difficulty": 2,
+    "war_fields_9": {
+      "id": "war_fields_9",
+      "name": "Campos de Guerra",
+      "icon": "⚔",
+      "description": "Llanuras donde se libran las grandes batallas.",
+      "resource_output": { "cuero_endurecido": 8 },
+      "difficulty": 4,
       "defense_value": 20,
-      "population_capacity": 70,
+      "population_capacity": 80,
       "owner": "neutral",
       "position": [3, 1]
     },
-    "capital_district": {
-      "id": "capital_district",
+    "blood_plains_10": {
+      "id": "blood_plains_10",
+      "name": "Llanos Sangrientos",
+      "icon": "🩸",
+      "description": "Tierras teñidas por la guerra constante.",
+      "resource_output": { "cuero_endurecido": 10, "lingote_xar": 1 },
+      "difficulty": 5,
+      "defense_value": 25,
+      "population_capacity": 50,
+      "owner": "neutral",
+      "position": [4, 1]
+    },
+    "merchants_pass_11": {
+      "id": "merchants_pass_11",
+      "name": "Paso del Mercader",
+      "icon": "💰",
+      "description": "Ruta comercial clave fuertemente custodiada.",
+      "resource_output": { "comida": 5, "ganado": 5, "lingote_xar": 3 },
+      "difficulty": 4,
+      "defense_value": 35,
+      "population_capacity": 90,
+      "owner": "neutral",
+      "position": [5, 1]
+    },
+    "capital_district_12": {
+      "id": "capital_district_12",
       "name": "Distrito Capital",
       "icon": "🏛",
       "description": "El corazón político del mundo. Quien lo controla, controla todo.",
@@ -108,8 +156,8 @@
       "owner": "neutral",
       "position": [0, 2]
     },
-    "noble_quarter": {
-      "id": "noble_quarter",
+    "noble_quarter_13": {
+      "id": "noble_quarter_13",
       "name": "Barrio Noble",
       "icon": "👑",
       "description": "Residencias de la élite. Riqueza concentrada.",
@@ -120,8 +168,8 @@
       "owner": "neutral",
       "position": [1, 2]
     },
-    "river_crossing": {
-      "id": "river_crossing",
+    "river_crossing_14": {
+      "id": "river_crossing_14",
       "name": "Cruce del Río",
       "icon": "🌊",
       "description": "Punto estratégico de paso. Quien controla el cruce, controla el comercio.",
@@ -132,8 +180,92 @@
       "owner": "neutral",
       "position": [2, 2]
     },
-    "eastern_outpost": {
-      "id": "eastern_outpost",
+    "fertile_plains_15": {
+      "id": "fertile_plains_15",
+      "name": "Llanuras Fértiles",
+      "icon": "🌾",
+      "description": "Tierras ricas donde el ganado y los cultivos prosperan.",
+      "resource_output": { "ganado": 8, "comida": 15, "madera": 5 },
+      "difficulty": 1,
+      "defense_value": 10,
+      "population_capacity": 120,
+      "owner": "neutral",
+      "position": [3, 2]
+    },
+    "great_forest_16": {
+      "id": "great_forest_16",
+      "name": "Gran Bosque",
+      "icon": "🌲",
+      "description": "Bosque ancestral con madera de alta calidad.",
+      "resource_output": { "madera": 20, "ganado": 5 },
+      "difficulty": 2,
+      "defense_value": 20,
+      "population_capacity": 70,
+      "owner": "neutral",
+      "position": [4, 2]
+    },
+    "hunters_camp_17": {
+      "id": "hunters_camp_17",
+      "name": "Campamento Cazadores",
+      "icon": "🏹",
+      "description": "Refugio de cazadores expertos.",
+      "resource_output": { "cuero_endurecido": 6, "comida": 8 },
+      "difficulty": 2,
+      "defense_value": 15,
+      "population_capacity": 40,
+      "owner": "neutral",
+      "position": [5, 2]
+    },
+    "whispering_woods_18": {
+      "id": "whispering_woods_18",
+      "name": "Bosque Susurrante",
+      "icon": "🌳",
+      "description": "Un bosque mágico con madera especial.",
+      "resource_output": { "madera": 12, "lingote_xar": 2 },
+      "difficulty": 4,
+      "defense_value": 25,
+      "population_capacity": 50,
+      "owner": "neutral",
+      "position": [0, 3]
+    },
+    "elven_sanctuary_19": {
+      "id": "elven_sanctuary_19",
+      "name": "Santuario Élfico",
+      "icon": "🧝",
+      "description": "Lugar de descanso pacífico protegido por antigua magia.",
+      "resource_output": { "comida": 10, "lingote_zir": 1 },
+      "difficulty": 6,
+      "defense_value": 60,
+      "population_capacity": 30,
+      "owner": "neutral",
+      "position": [1, 3]
+    },
+    "golden_fields_20": {
+      "id": "golden_fields_20",
+      "name": "Campos Dorados",
+      "icon": "🌻",
+      "description": "Interminables campos de cultivo dorado.",
+      "resource_output": { "comida": 25 },
+      "difficulty": 2,
+      "defense_value": 15,
+      "population_capacity": 150,
+      "owner": "neutral",
+      "position": [2, 3]
+    },
+    "cattle_ranch_21": {
+      "id": "cattle_ranch_21",
+      "name": "Rancho Ganadero",
+      "icon": "🐄",
+      "description": "Extensos ranchos de animales.",
+      "resource_output": { "ganado": 15, "cuero_endurecido": 5 },
+      "difficulty": 2,
+      "defense_value": 15,
+      "population_capacity": 60,
+      "owner": "neutral",
+      "position": [3, 3]
+    },
+    "eastern_outpost_22": {
+      "id": "eastern_outpost_22",
       "name": "Puesto del Este",
       "icon": "🗼",
       "description": "Avanzada fronteriza con recursos escasos pero posición privilegiada.",
@@ -142,7 +274,91 @@
       "defense_value": 20,
       "population_capacity": 35,
       "owner": "neutral",
-      "position": [3, 2]
+      "position": [4, 3]
+    },
+    "forgotten_swamp_23": {
+      "id": "forgotten_swamp_23",
+      "name": "Pantano Olvidado",
+      "icon": "🐸",
+      "description": "Tierras fangosas difíciles de transitar.",
+      "resource_output": { "madera": 5, "lingote_xar": 3 },
+      "difficulty": 4,
+      "defense_value": 40,
+      "population_capacity": 20,
+      "owner": "neutral",
+      "position": [5, 3]
+    },
+    "obsidian_volcano_24": {
+      "id": "obsidian_volcano_24",
+      "name": "Volcán de Obsidiana",
+      "icon": "🌋",
+      "description": "Peligroso y caliente, pero rico en metales.",
+      "resource_output": { "piedra": 10, "lingote_zir": 3 },
+      "difficulty": 8,
+      "defense_value": 55,
+      "population_capacity": 15,
+      "owner": "neutral",
+      "position": [0, 4]
+    },
+    "dragon_nest_25": {
+      "id": "dragon_nest_25",
+      "name": "Nido de Dragón",
+      "icon": "🐉",
+      "description": "Territorio infernal. Entra bajo tu propio riesgo.",
+      "resource_output": { "lingote_zir": 5, "lingote_xar": 5 },
+      "difficulty": 9,
+      "defense_value": 90,
+      "population_capacity": 5,
+      "owner": "neutral",
+      "position": [1, 4]
+    },
+    "ash_wastes_26": {
+      "id": "ash_wastes_26",
+      "name": "Yermos de Ceniza",
+      "icon": "💨",
+      "description": "Todo está cubierto de ceniza volcánica.",
+      "resource_output": { "piedra": 8, "cuero_endurecido": 2 },
+      "difficulty": 5,
+      "defense_value": 20,
+      "population_capacity": 30,
+      "owner": "neutral",
+      "position": [2, 4]
+    },
+    "hidden_valley_27": {
+      "id": "hidden_valley_27",
+      "name": "Valle Oculto",
+      "icon": "🏞",
+      "description": "Un paraíso escondido entre montañas.",
+      "resource_output": { "comida": 10, "ganado": 8, "madera": 5 },
+      "difficulty": 3,
+      "defense_value": 35,
+      "population_capacity": 100,
+      "owner": "neutral",
+      "position": [3, 4]
+    },
+    "bandit_camp_28": {
+      "id": "bandit_camp_28",
+      "name": "Campamento Bandido",
+      "icon": "🦹",
+      "description": "Fortaleza improvisada de criminales.",
+      "resource_output": { "cuero_endurecido": 8, "lingote_xar": 2 },
+      "difficulty": 4,
+      "defense_value": 25,
+      "population_capacity": 50,
+      "owner": "neutral",
+      "position": [4, 4]
+    },
+    "southern_coast_29": {
+      "id": "southern_coast_29",
+      "name": "Costa del Sur",
+      "icon": "🏖",
+      "description": "Tierras costeras ideales para la pesca y comercio.",
+      "resource_output": { "comida": 12, "lingote_xar": 1 },
+      "difficulty": 2,
+      "defense_value": 15,
+      "population_capacity": 110,
+      "owner": "neutral",
+      "position": [5, 4]
     }
   }
 }

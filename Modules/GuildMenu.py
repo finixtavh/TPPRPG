@@ -155,12 +155,16 @@ def _render_summary(guild: Guild, player, gm: GuildManager):
                  title=f"[bold]{guild.icon} {guild.name}[/]", border_style="bright_magenta")
 
 
-def _render_territories(guild: Guild, gm: GuildManager):
+def _render_territories(guild: Guild, gm: GuildManager, page: int = 0):
     map_rows = gm.get_territory_map_rows()
     map_text = Text()
     map_text.append("  ★ = Tuyo  · = Neutral  🔸 = Otro\n\n", style="dim")
     for row in map_rows:
         map_text.append("  " + row + "\n")
+
+    PAGE_SIZE = 6
+    total_pages = max(1, (len(guild.territories) + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
 
     t = Table(show_header=True, box=box.SIMPLE, expand=True)
     t.add_column("Territorio")
@@ -168,7 +172,9 @@ def _render_territories(guild: Guild, gm: GuildManager):
     if not guild.territories:
         t.add_row("[dim]Sin territorios[/]", "[dim]—[/]")
     else:
-        for tid in guild.territories:
+        start = page * PAGE_SIZE
+        end = start + PAGE_SIZE
+        for tid in guild.territories[start:end]:
             terr = gm.territories.get(tid)
             if terr:
                 res_str = "  ".join(
@@ -177,8 +183,12 @@ def _render_territories(guild: Guild, gm: GuildManager):
                 )
                 t.add_row(f"{terr.icon} {terr.name}", res_str)
 
-    return Panel(Group(map_text, Rule(style="dim"), t),
-                 title="[bold]🗺 TERRITORIOS[/]", border_style="green")
+    footer = Text()
+    if total_pages > 1:
+        footer.append(f"\n  Página {page+1}/{total_pages} (↑↓ para cambiar)\n", style="bold yellow")
+
+    return Panel(Group(map_text, Rule(style="dim"), t, footer),
+                 title="[bold]🗺 TERRITORIOS[/]", border_style="green"), total_pages
 
 
 def _render_resources(guild: Guild, gm: GuildManager):
@@ -216,7 +226,12 @@ def _render_resources(guild: Guild, gm: GuildManager):
     return Panel(Group(t, footer), title="[bold]💰 RECURSOS DE GUILD[/]", border_style="yellow")
 
 
-def _render_world(gm: GuildManager, player):
+def _render_world(gm: GuildManager, player, page: int = 0):
+    guilds = gm.get_sorted_guilds_by_power()
+    PAGE_SIZE = 10
+    total_pages = max(1, (len(guilds) + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+
     t = Table(show_header=True, box=box.SIMPLE, expand=True)
     t.add_column("#",       width=3)
     t.add_column("Guild",   ratio=2)
@@ -226,7 +241,9 @@ def _render_world(gm: GuildManager, player):
     t.add_column("Terr.",   width=6)
     t.add_column("Tu Rep.", width=12)
 
-    for i, guild in enumerate(gm.get_sorted_guilds_by_power(), 1):
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    for i, guild in enumerate(guilds[start:end], start + 1):
         rep       = gm.get_player_reputation(player, guild.guild_id)
         rank, col = gm.get_reputation_rank(rep)
         is_player = guild.guild_id == gm.player_guild_id
@@ -237,12 +254,14 @@ def _render_world(gm: GuildManager, player):
                   str(len(guild.territories)), f"[{col}]{rank}[/]", style=row_style)
 
     ev_text = Text("\n")
+    if total_pages > 1:
+        ev_text.append(f"  Página {page+1}/{total_pages} (↑↓ para cambiar)\n", style="bold yellow")
     ev_text.append("  Últimos eventos del mundo:\n", style="bold dim")
-    for ev in gm.world_events[-8:]:
+    for ev in gm.world_events[-6:]:
         ev_text.append(f"  • {ev}\n", style="dim")
 
     return Panel(Group(t, Rule(style="dim"), ev_text),
-                 title="[bold]🌍 ESTADO DEL MUNDO[/]", border_style="blue")
+                 title="[bold]🌍 ESTADO DEL MUNDO[/]", border_style="blue"), total_pages
 
 
 def _render_diplomacy(guild: Guild, gm: GuildManager, player):
@@ -352,6 +371,7 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
         )
 
     def _on_press(key):
+        state["dirty"] = True
         if key == "up":
             state["idx"] = max(0, state["idx"] - 1)
         elif key == "down":
@@ -391,16 +411,18 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
                 daemon=True,
             )
             kb_thread.start()
-            try:
-                with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, refresh_per_second=20) as live:
+                try:
                     while not state["exit"]:
-                        live.update(_render())
-                        time.sleep(0.05)
-            finally:
-                stop_listening()
-                if kb_thread.is_alive():
-                    kb_thread.join(timeout=0.2)
-        con.clear()
+                        if state["dirty"]:
+                            live.update(_render())
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive():
+                        kb_thread.join(timeout=0.2)
+            con.clear()
 
 
 def _buildings_menu(player_guild: Guild, gm: GuildManager, con):
@@ -481,6 +503,7 @@ def _buildings_menu(player_guild: Guild, gm: GuildManager, con):
         )
 
     def _on_press(key):
+        state["dirty"] = True
         if key == "up":
             state["idx"] = max(0, state["idx"] - 1)
         elif key == "down":
@@ -514,16 +537,18 @@ def _buildings_menu(player_guild: Guild, gm: GuildManager, con):
                 daemon=True,
             )
             kb_thread.start()
-            try:
-                with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, refresh_per_second=20) as live:
+                try:
                     while not state["exit"]:
-                        live.update(_render())
-                        time.sleep(0.05)
-            finally:
-                stop_listening()
-                if kb_thread.is_alive():
-                    kb_thread.join(timeout=0.2)
-        con.clear()
+                        if state["dirty"]:
+                            live.update(_render())
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive():
+                        kb_thread.join(timeout=0.2)
+            con.clear()
 
 
 # ── Menú sin guild ────────────────────────────────────────────────────────────
@@ -551,6 +576,7 @@ def _no_guild_menu(player, gm: GuildManager, con) -> str:
                      border_style="cyan", padding=(1, 2))
 
     def _on_press(key):
+        state["dirty"] = True
         if key == "up":
             state["idx"] = (state["idx"] - 1) % len(options)
         elif key == "down":
@@ -575,16 +601,18 @@ def _no_guild_menu(player, gm: GuildManager, con) -> str:
                 daemon=True,
             )
             kb_thread.start()
-            try:
-                with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, refresh_per_second=20) as live:
+                try:
                     while not state["exit"]:
-                        live.update(_render())
-                        time.sleep(0.05)
-            finally:
-                stop_listening()
-                if kb_thread.is_alive():
-                    kb_thread.join(timeout=0.2)
-        con.clear()
+                        if state["dirty"]:
+                            live.update(_render())
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive():
+                        kb_thread.join(timeout=0.2)
+            con.clear()
 
     return state["action"]
 
@@ -619,6 +647,7 @@ def _create_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
             )
 
     def _on_press(key):
+        state["dirty"] = True
         if state["mode"] == "type":
             if key == "up":
                 state["type_idx"] = (state["type_idx"] - 1) % len(guild_types)
@@ -648,16 +677,18 @@ def _create_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
                 daemon=True,
             )
             kb_thread.start()
-            try:
-                with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, refresh_per_second=20) as live:
+                try:
                     while not state["done"]:
-                        live.update(_render())
-                        time.sleep(0.05)
-            finally:
-                stop_listening()
-                if kb_thread.is_alive():
-                    kb_thread.join(timeout=0.2)
-        con.clear()
+                        if state.get("dirty", True):
+                            live.update(_render())
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive():
+                        kb_thread.join(timeout=0.2)
+            con.clear()
 
     if state["action"] == "confirm":
         guild_type = guild_types[state["type_idx"]]
@@ -693,6 +724,7 @@ def _join_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
         return Panel(Group(t, hint), title="[bold cyan]🤝 UNIRSE A UNA GUILD[/]", border_style="cyan")
 
     def _on_press(key):
+        state["dirty"] = True
         if key == "up":
             state["idx"] = max(0, state["idx"] - 1)
         elif key == "down":
@@ -712,16 +744,18 @@ def _join_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
                 daemon=True,
             )
             kb_thread.start()
-            try:
-                with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, refresh_per_second=20) as live:
+                try:
                     while not state["done"]:
-                        live.update(_render())
-                        time.sleep(0.05)
-            finally:
-                stop_listening()
-                if kb_thread.is_alive():
-                    kb_thread.join(timeout=0.2)
-        con.clear()
+                        if state.get("dirty", True):
+                            live.update(_render())
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive():
+                        kb_thread.join(timeout=0.2)
+            con.clear()
 
     if state["action"] == "join":
         chosen = guilds[state["idx"]]
@@ -745,6 +779,9 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
         "open_sub":       None,
         "message":        f"{player_guild.icon} {player_guild.name}  |  Skill pts: {player_guild.skill_points}  |  Eventos: {len(player_guild.pending_events)}",
         "msg_style":      "bold bright_cyan" if player_guild.pending_events else "dim",
+        "page":           0,
+        "total_pages":    1,
+        "dirty":          True,
     }
 
     def _render():
@@ -759,14 +796,15 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
                 h.append("  ")
 
         tab = tabs[state["tab_idx"]]
+        state["total_pages"] = 1
         if tab == "Resumen":
             content = _render_summary(player_guild, player, gm)
         elif tab == "Territorios":
-            content = _render_territories(player_guild, gm)
+            content, state["total_pages"] = _render_territories(player_guild, gm, state["page"])
         elif tab == "Recursos":
             content = _render_resources(player_guild, gm)
         elif tab == "Mundo":
-            content = _render_world(gm, player)
+            content, state["total_pages"] = _render_world(gm, player, state["page"])
         elif tab == "Habilidades":
             content = Panel(
                 Text("\n  Pulsa [ENTER] para abrir el árbol de habilidades.\n", style="dim"),
@@ -783,7 +821,7 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
                 border_style="yellow",
             )
         elif tab == "Diplomacia":
-            content = _render_diplomacy(player_guild, gm, player)
+            content, state["total_pages"] = _render_diplomacy(player_guild, gm, player, state["page"])
         else:
             content = Panel(Text("Próximamente.", style="dim"))
 
@@ -796,6 +834,7 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
         )
 
     def _on_press(key):
+        state["dirty"] = True
         if key == "left":
             state["tab_idx"] = (state["tab_idx"] - 1) % len(tabs)
         elif key == "right":
@@ -832,16 +871,18 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
                 daemon=True,
             )
             kb_thread.start()
-            try:
-                with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, refresh_per_second=20) as live:
+                try:
                     while not state["exit"]:
-                        live.update(_render())
-                        time.sleep(0.05)
-            finally:
-                stop_listening()
-                if kb_thread.is_alive():
-                    kb_thread.join(timeout=0.2)
-        con.clear()
+                        if state["dirty"]:
+                            live.update(_render())
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive():
+                        kb_thread.join(timeout=0.2)
+            con.clear()
 
     return state["open_sub"] or "exit"
 
@@ -885,6 +926,7 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
             return Panel(Group(desc, t, hint), title=f"[bold cyan]📬 {ev['title']}[/]", border_style="cyan")
 
     def _on_press(key):
+        state["dirty"] = True
         if key == "esc":
             if state["mode"] == "detail":
                 state["mode"] = "list"
@@ -948,15 +990,17 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            try:
-                with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, refresh_per_second=20) as live:
+                try:
                     while not state["exit"]:
-                        live.update(_render())
-                        time.sleep(0.05)
-            finally:
-                stop_listening()
-                if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
-        con.clear()
+                        if state["dirty"]:
+                            live.update(_render())
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
+                    con.clear()
 
 # ── Pestaña Militar ──────────────────────────────────────────────────────────
 
@@ -1001,6 +1045,7 @@ def _military_management_menu(player_guild: Guild, gm: GuildManager, con):
         return Panel(Group(info, t, hint, footer), title="[bold red]⚔ ADMINISTRACIÓN MILITAR[/]", border_style="red")
 
     def _on_press(key):
+        state["dirty"] = True
         if key == "esc":
             state["exit"] = True
         elif key == "up":
@@ -1042,15 +1087,17 @@ def _military_management_menu(player_guild: Guild, gm: GuildManager, con):
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            try:
-                with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, refresh_per_second=20) as live:
+                try:
                     while not state["exit"]:
-                        live.update(_render())
-                        time.sleep(0.05)
-            finally:
-                stop_listening()
-                if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
-        con.clear()
+                        if state["dirty"]:
+                            live.update(_render())
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
+                    con.clear()
 
 # ── Punto de entrada principal ────────────────────────────────────────────────
 

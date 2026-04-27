@@ -426,7 +426,7 @@ class GuildManager:
 
     def generate_random_guilds(self, count=None):
         if count is None:
-            count = random.randint(3, 10)
+            count = random.randint(20, 35)
         prefixes   = self.guild_name_data.get("prefixes", ["Orden de"])
         nouns      = self.guild_name_data.get("nouns", ["las Sombras"])
         guild_types = list(self.guild_type_defs.keys())
@@ -440,12 +440,10 @@ class GuildManager:
             g = Guild(f"npc_guild_{i}", name, gt, td.get("icon","⚔"),
                       random.randint(30,80), random.randint(80,200),
                       random.randint(60,90), random.randint(20,80))
-            for tid in td.get("starting_territories", []):
-                if tid in territory_pool:
-                    g.territories.append(tid)
-                    if tid in self.territories:
-                        self.territories[tid].owner = g.guild_id
-                    territory_pool.remove(tid)
+            if territory_pool:
+                tid = territory_pool.pop()
+                g.territories.append(tid)
+                self.territories[tid].owner = g.guild_id
             for rid in self.resource_defs:
                 g.add_resource(rid, random.randint(20,80), self.resource_defs)
             # Initial soldiers = ~10% population
@@ -810,11 +808,17 @@ class GuildManager:
     def get_territory_map_rows(self) -> List[str]:
         rows = []
         idx: Dict[Tuple[int,int], Territory] = {}
+        max_row = 0
+        max_col = 0
         for t in self.territories.values():
-            idx[(int(t.position[0]), int(t.position[1]))] = t
-        for row in range(3):
+            col, row = int(t.position[0]), int(t.position[1])
+            idx[(col, row)] = t
+            max_col = max(max_col, col)
+            max_row = max(max_row, row)
+        
+        for row in range(max_row + 1):
             cells = []
-            for col in range(4):
+            for col in range(max_col + 1):
                 t = idx.get((col, row))
                 if t:
                     if t.owner == "neutral":          sym = "·"
