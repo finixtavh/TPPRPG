@@ -30,19 +30,34 @@ class CraftingSystem:
         self._load_recipes()
 
     def _load_recipes(self):
-        config_path = os.path.join(os.path.dirname(__file__), "..", "config.json")
-        data = Read(config_path, "CRAFTING_RECIPES")
-        if data:
-            for r_id, r_data in data.items():
-                r_data["id"] = r_id
-                self.recipes.append(r_data)
+        data_path = os.path.join(os.path.dirname(__file__), "..", "Data", "DataRecipes.json")
         try:
-            
+            import json
+            with open(data_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # DataRecipes.json has {"recipes": [...]}
+            for r in data.get("recipes", []):
+                # Normalise field names to what the UI expects
+                self.recipes.append({
+                    "id":          r.get("recipe_id", "???"),
+                    "result_name": r.get("name", "???"),
+                    "result_id":   r.get("result_item_id"),
+                    "result_qty":  r.get("result_qty", 1),
+                    "materials":   r.get("materials_required", {}),
+                    "description": r.get("description", ""),
+                    "gold_cost":   r.get("gold_cost", 0),
+                })
+        except Exception as e:
+            pass  # No recipes — menu will show empty state gracefully
+
+        try:
             mod_api = get_mod_api()
             if hasattr(mod_api, "recipe_injections"):
                 for r_id, r_data in mod_api.recipe_injections.items():
-                    r_data["id"] = r_id; self.recipes.append(r_data)
-        except ImportError: pass
+                    r_data["id"] = r_id
+                    self.recipes.append(r_data)
+        except Exception:
+            pass
 
 def open_crafting_menu(player, inventory):
     system = CraftingSystem(player, inventory)

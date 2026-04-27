@@ -1,0 +1,148 @@
+{
+  "territories": {
+    "northern_mines": {
+      "id": "northern_mines",
+      "name": "Minas del Norte",
+      "icon": "⛏",
+      "description": "Profundas minas repletas de mineral y piedra.",
+      "resource_output": { "piedra": 12, "lingote_xar": 3 },
+      "difficulty": 3,
+      "defense_value": 30,
+      "population_capacity": 50,
+      "owner": "neutral",
+      "position": [0, 0]
+    },
+    "crystal_caves": {
+      "id": "crystal_caves",
+      "name": "Cavernas de Cristal",
+      "icon": "💎",
+      "description": "Cuevas donde crecen cristales únicos.",
+      "resource_output": { "lingote_xar": 5, "lingote_zir": 1 },
+      "difficulty": 6,
+      "defense_value": 40,
+      "population_capacity": 30,
+      "owner": "neutral",
+      "position": [1, 0]
+    },
+    "iron_fortress": {
+      "id": "iron_fortress",
+      "name": "Fortaleza de Hierro",
+      "icon": "🏰",
+      "description": "Bastión militar inexpugnable.",
+      "resource_output": { "piedra": 8, "cuero_endurecido": 6 },
+      "difficulty": 5,
+      "defense_value": 70,
+      "population_capacity": 100,
+      "owner": "neutral",
+      "position": [2, 0]
+    },
+    "war_fields": {
+      "id": "war_fields",
+      "name": "Campos de Guerra",
+      "icon": "⚔",
+      "description": "Llanuras donde se libran las grandes batallas.",
+      "resource_output": { "cuero_endurecido": 8 },
+      "difficulty": 4,
+      "defense_value": 20,
+      "population_capacity": 80,
+      "owner": "neutral",
+      "position": [3, 0]
+    },
+    "shadow_district": {
+      "id": "shadow_district",
+      "name": "Barrio de las Sombras",
+      "icon": "🌑",
+      "description": "Un laberinto urbano donde todos tienen secretos.",
+      "resource_output": { "cuero_endurecido": 4, "lingote_xar": 2 },
+      "difficulty": 4,
+      "defense_value": 25,
+      "population_capacity": 60,
+      "owner": "neutral",
+      "position": [0, 1]
+    },
+    "old_ruins": {
+      "id": "old_ruins",
+      "name": "Ruinas Antiguas",
+      "icon": "🏚",
+      "description": "Vestigios de una civilización olvidada.",
+      "resource_output": { "lingote_xar": 4, "lingote_zir": 1 },
+      "difficulty": 5,
+      "defense_value": 15,
+      "population_capacity": 20,
+      "owner": "neutral",
+      "position": [1, 1]
+    },
+    "fertile_plains": {
+      "id": "fertile_plains",
+      "name": "Llanuras Fértiles",
+      "icon": "🌾",
+      "description": "Tierras ricas donde el ganado y los cultivos prosperan.",
+      "resource_output": { "ganado": 8, "comida": 15, "madera": 5 },
+      "difficulty": 1,
+      "defense_value": 10,
+      "population_capacity": 120,
+      "owner": "neutral",
+      "position": [2, 1]
+    },
+    "great_forest": {
+      "id": "great_forest",
+      "name": "Gran Bosque",
+      "icon": "🌲",
+      "description": "Bosque ancestral con madera de alta calidad.",
+      "resource_output": { "madera": 20, "ganado": 5 },
+      "difficulty": 2,
+      "defense_value": 20,
+      "population_capacity": 70,
+      "owner": "neutral",
+      "position": [3, 1]
+    },
+    "capital_district": {
+      "id": "capital_district",
+      "name": "Distrito Capital",
+      "icon": "🏛",
+      "description": "El corazón político del mundo. Quien lo controla, controla todo.",
+      "resource_output": { "comida": 10, "lingote_zir": 2, "madera": 8 },
+      "difficulty": 7,
+      "defense_value": 80,
+      "population_capacity": 200,
+      "owner": "neutral",
+      "position": [0, 2]
+    },
+    "noble_quarter": {
+      "id": "noble_quarter",
+      "name": "Barrio Noble",
+      "icon": "👑",
+      "description": "Residencias de la élite. Riqueza concentrada.",
+      "resource_output": { "lingote_zir": 3, "lingote_xar": 5 },
+      "difficulty": 6,
+      "defense_value": 50,
+      "population_capacity": 40,
+      "owner": "neutral",
+      "position": [1, 2]
+    },
+    "river_crossing": {
+      "id": "river_crossing",
+      "name": "Cruce del Río",
+      "icon": "🌊",
+      "description": "Punto estratégico de paso. Quien controla el cruce, controla el comercio.",
+      "resource_output": { "comida": 8, "madera": 8, "ganado": 5 },
+      "difficulty": 3,
+      "defense_value": 30,
+      "population_capacity": 60,
+      "owner": "neutral",
+      "position": [2, 2]
+    },
+    "eastern_outpost": {
+      "id": "eastern_outpost",
+      "name": "Puesto del Este",
+      "icon": "🗼",
+      "description": "Avanzada fronteriza con recursos escasos pero posición privilegiada.",
+      "resource_output": { "piedra": 6, "cuero_endurecido": 4 },
+      "difficulty": 2,
+      "defense_value": 20,
+      "population_capacity": 35,
+      "owner": "neutral",
+      "position": [3, 2]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "resources": {
+    "madera": {
+      "id": "madera",
+      "name": "Madera",
+      "icon": "🪵",
+      "rarity": "Common",
+      "description": "Material básico para construcción y estructuras de la guild.",
+      "base_value": 1
+    },
+    "piedra": {
+      "id": "piedra",
+      "name": "Piedra",
+      "icon": "🪨",
+      "rarity": "Common",
+      "description": "Material básico para defensas y edificios de piedra.",
+      "base_value": 1
+    },
+    "cuero_endurecido": {
+      "id": "cuero_endurecido",
+      "name": "Cuero Endurecido",
+      "icon": "🥩",
+      "rarity": "Uncommon",
+      "description": "Material resistente para equipamiento militar de la tropa.",
+      "base_value": 3
+    },
+    "ganado": {
+      "id": "ganado",
+      "name": "Ganado",
+      "icon": "🐄",
+      "rarity": "Uncommon",
+      "description": "Fuente de Comida. Cada unidad de ganado produce Comida periódicamente.",
+      "base_value": 4,
+      "food_production": 3
+    },
+    "comida": {
+      "id": "comida",
+      "name": "Comida",
+      "icon": "🍞",
+      "rarity": "Uncommon",
+      "description": "Mantiene la población de la guild. Sin comida, la moral cae.",
+      "base_value": 2,
+      "consumption_per_100_pop": 10
+    },
+    "lingote_xar": {
+      "id": "lingote_xar",
+      "name": "Lingote de Xar",
+      "icon": "💠",
+      "rarity": "Rare",
+      "description": "Metal raro con propiedades mágicas. Necesario para mejoras avanzadas.",
+      "base_value": 15
+    },
+    "lingote_zir": {
+      "id": "lingote_zir",
+      "name": "Lingote de Zir",
+      "icon": "⚡",
+      "rarity": "Legendary",
+      "description": "El metal más valioso conocido. Reservado para las mejoras más poderosas de la guild.",
+      "base_value": 100
+    }
+  }
+}

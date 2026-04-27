@@ -108,6 +108,30 @@ def _serialize_gathering() -> dict:
         return {}
 
 
+def _serialize_guild_system() -> dict:
+    """Serializa el estado completo del GuildManager."""
+    try:
+        from Modules.GuildSystem import get_guild_manager
+        return get_guild_manager().to_dict()
+    except Exception:
+        return {}
+
+
+def _restore_guild_system(data: dict, player) -> None:
+    """Restaura el GuildManager desde el guardado y sincroniza con el jugador."""
+    try:
+        from Modules.GuildSystem import get_guild_manager, reset_guild_manager
+        if not data:
+            return
+        gm = reset_guild_manager()
+        gm.load_from_dict(data)
+        # Sincronizar player_guild_id con el jugador
+        if player.guild_id:
+            gm.player_guild_id = player.guild_id
+    except Exception as e:
+        print(f"[SaveSystem] Error restaurando GuildSystem: {e}")
+
+
 def build_save_data(player, inventory, chosen_area, active_enemies_ids=None) -> dict:
     """Construye el dict completo de guardado."""
     # Equipamiento del jugador (todos los slots)
@@ -141,6 +165,9 @@ def build_save_data(player, inventory, chosen_area, active_enemies_ids=None) -> 
             "discovered_items": list(getattr(player, "discovered_items", [])),
             "favorite_recipes": list(getattr(player, "favorite_recipes", [])),
             "favorite_items": list(getattr(player, "favorite_items", [])),
+            "guild_id": getattr(player, "guild_id", ""),
+            "guild_reputation": dict(getattr(player, "guild_reputation", {})),
+            "combat_counter": getattr(player, "combat_counter", 0),
         },
         "equipment": equipment,
         "inventory": _serialize_inventory(inventory),
@@ -151,6 +178,7 @@ def build_save_data(player, inventory, chosen_area, active_enemies_ids=None) -> 
         "base": _serialize_base(player),
         "gathering_skills": _serialize_gathering(),
         "quests": quest_manager.get_save_data(),
+        "guild_system": _serialize_guild_system(),
         "game_state": {
             "chosen_area": chosen_area,
         },
@@ -213,6 +241,7 @@ def load_from_slot(slot: int, player, inventory, item_manager) -> Optional[dict]
         _restore_gathering(data.get("gathering_skills", {}))
         if "quests" in data:
             quest_manager.load_save_data(data["quests"])
+        _restore_guild_system(data.get("guild_system", {}), player)
         return data.get("game_state", {})
     except Exception as e:
         print(f"[SaveSystem] Error restaurando estado del slot {slot}: {e}")
@@ -235,6 +264,12 @@ def _restore_player(player, pdata: dict):
         player.favorite_recipes = list(pdata["favorite_recipes"])
     if "favorite_items" in pdata:
         player.favorite_items = list(pdata["favorite_items"])
+    if "guild_id" in pdata:
+        player.guild_id = pdata["guild_id"]
+    if "guild_reputation" in pdata:
+        player.guild_reputation = dict(pdata["guild_reputation"])
+    if "combat_counter" in pdata:
+        player.combat_counter = int(pdata["combat_counter"])
     if "DEF" in pdata:
         player.DEF = list(pdata["DEF"])
     if "DefensePercentage" in pdata:

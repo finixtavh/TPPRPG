@@ -1,0 +1,71 @@
+{
+  "guild_names": {
+    "prefixes": [
+      "Orden de", "Hermandad de", "Legión de", "Clan de", "Alianza de",
+      "Fraternidad de", "Gremio de", "Cofradía de", "Pacto de", "Círculo de"
+    ],
+    "nouns": [
+      "la Piedra Rota", "el Hierro Sagrado", "las Ruinas Eternas", "la Sombra Veloz",
+      "la Llama Dorada", "los Cuervos", "el Escudo Norte", "la Espada Roja",
+      "los Lobos Grises", "el Martillo", "la Corona Caída", "los Ojos del Rey",
+      "la Tierra Muerta", "el Alba", "el Ocaso", "los Dientes del Dragón",
+      "la Mano Negra", "los Mercaderes", "la Flecha Perdida", "el Tróno Vacío"
+    ],
+    "adjectives": [
+      "Inmortal", "Eterna", "Oscura", "Dorada", "Carmesí", "Plateada",
+      "Antigua", "Renacida", "Silenciosa", "Implacable"
+    ]
+  },
+  "guild_types": {
+    "Minera": {
+      "icon": "⛏",
+      "description": "Expertos en extracción de minerales y recursos del subsuelo.",
+      "bonus_resources": { "piedra": 0.5, "lingote_xar": 0.5 },
+      "military_penalty": -0.2,
+      "military_bonus": 0.0,
+      "economy_bonus": 0.3,
+      "diplomacy_bonus": 0.0,
+      "starting_territories": ["northern_mines", "crystal_caves"]
+    },
+    "Militar": {
+      "icon": "⚔",
+      "description": "Organización de combatientes élite, orientada a la conquista.",
+      "bonus_resources": {},
+      "military_penalty": 0.0,
+      "military_bonus": 0.4,
+      "economy_bonus": 0.0,
+      "diplomacy_bonus": -0.1,
+      "starting_territories": ["iron_fortress", "war_fields"]
+    },
+    "Sigilosa": {
+      "icon": "🗡",
+      "description": "Maestros del engaño. Sus sabotajes son legendarios.",
+      "bonus_resources": {},
+      "military_penalty": -0.3,
+      "military_bonus": 0.0,
+      "economy_bonus": 0.1,
+      "diplomacy_bonus": 0.2,
+      "starting_territories": ["shadow_district", "old_ruins"]
+    },
+    "Agraria": {
+      "icon": "🌾",
+      "description": "Control de tierras fértiles. Su comida alimenta ejércitos.",
+      "bonus_resources": { "madera": 0.3, "ganado": 0.5, "comida": 0.5 },
+      "military_penalty": -0.1,
+      "military_bonus": 0.0,
+      "economy_bonus": 0.5,
+      "diplomacy_bonus": 0.1,
+      "starting_territories": ["fertile_plains", "great_forest"]
+    },
+    "Noble": {
+      "icon": "🏛",
+      "description": "Clase gobernante con influencia política masiva.",
+      "bonus_resources": { "lingote_zir": 0.2 },
+      "military_penalty": 0.0,
+      "military_bonus": 0.1,
+      "economy_bonus": 0.2,
+      "diplomacy_bonus": 0.4,
+      "starting_territories": ["capital_district", "noble_quarter"]
+    }
+  }
+}

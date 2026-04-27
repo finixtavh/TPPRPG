@@ -25,6 +25,8 @@ from Modules.SaveSystem import save_load_menu, get_slot_info
 from Modules.ZoneManager import get_all_zones, get_zones_for_selector
 from Modules.BuffManager import get_buff_manager
 from Modules.CraftingSystem import open_crafting_menu
+from Modules.GuildMenu import open_guild_menu
+from Modules.GuildSystem import get_guild_manager, SIMULATION_INTERVAL
 from Modules.QuestSystem import quest_manager
 from Modules.BaseSystem import BaseManager, open_base_menu
 from Modules.CompanionSystem import (
@@ -574,9 +576,10 @@ def display_main_menu() -> int:
         (13, "Yunque de Crafteo"),
         (14, "Base"),
         (15, "Tablón de Misiones"),
+        (16, "⚔ Guilds"),
     ]
     if CONFIG["DEBUG"]["ENABLED"]:
-        options.append((16, "DEBUG"))
+        options.append((17, "DEBUG"))
     options.append((0, "Salir del juego"))
 
     index_by_value = {v: i for i, (v, _) in enumerate(options)}
@@ -1304,6 +1307,19 @@ def main():
                                     )
                                     vInventory.addObject(loot_item)
                             quest_manager.update_kill_quest(enemy.NAME, player)
+                            # ── Guild simulation trigger ──────────────────────
+                            player.combat_counter = getattr(player, "combat_counter", 0) + 1
+                            if player.combat_counter % SIMULATION_INTERVAL == 0:
+                                try:
+                                    gm = get_guild_manager()
+                                    tick_events = gm.tick()
+                                    if tick_events:
+                                        console.print("\n[bold dim]📜 Noticias del mundo:[/bold dim]")
+                                        for ev in tick_events[:3]:
+                                            console.print(f"  [dim]{ev}[/dim]")
+                                except Exception:
+                                    pass
+                            # ─────────────────────────────────────────────────
                             player.level_up()
                             input_done = input("Seguir?:: ")
                             if input_done:
@@ -1590,7 +1606,15 @@ def main():
     elif main_input == 15:
         quest_manager.open_quest_board(player, vInventory)
 
-    elif main_input == 16 and CONFIG["DEBUG"]["ENABLED"]:
+    elif main_input == 16:
+        try:
+            open_guild_menu(player, console)
+        except Exception as e:
+            console.print(f"[danger]Error en el menú de Guilds: {e}[/danger]")
+            import traceback; traceback.print_exc()
+            sp.sleep(2)
+
+    elif main_input == 17 and CONFIG["DEBUG"]["ENABLED"]:
         try:
             from Modules.DebugMenu import open_enhanced_debug_menu
             open_enhanced_debug_menu(
