@@ -445,7 +445,7 @@ def open_guild_missions_menu(guild: Guild, player, guild_manager: GuildManager, 
             )
             kb_thread.start()
             try:
-                with Live(console=console, refresh_per_second=20, transient=True) as live:
+                with Live(console=console, refresh_per_second=20) as live:
                     while not state["exit"]:
                         live.update(_render())
                         time.sleep(0.05)

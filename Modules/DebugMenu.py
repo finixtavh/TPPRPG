@@ -112,7 +112,7 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
                 kb_thread.start()
 
                 try:
-                    with Live(console=console, refresh_per_second=15, transient=True) as live:
+                    with Live(console=console, refresh_per_second=15) as live:
                         while not state["exit"] and not state.get("exit_for_variables", False):
                             t = Table(show_header=False, box=None, expand=True)
                             for i, (label, _) in enumerate(options):
@@ -232,7 +232,7 @@ def open_variable_viewer(player, inventory, gathering_init, mod_loader, mod_api,
         kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press_viewer, "sequential": False, "until": None}, daemon=True)
         kb_thread.start()
         try:
-            with Live(console=console, refresh_per_second=15, transient=True) as live:
+            with Live(console=console, refresh_per_second=15) as live:
                 while not exit_viewer:
                     live.update(_render_viewer(cur_tab))
                     time.sleep(0.06)

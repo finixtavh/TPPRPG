@@ -4,7 +4,7 @@ GuildMenu.py — UI principal del sistema de Guilds. Opción 16.
 Regla de renderizado: cada función interactiva tiene su propio
     with console.screen():
         with keyboard_listener_scope():
-            with Live(..., transient=True):
+            with Live(console=..., refresh_per_second=20):  # SIN transient=True
                 ...
     console.clear()
 
@@ -195,7 +195,7 @@ def _run_live_loop(render_fn, on_press_fn, exit_key="esc", con=None):
             )
             kb_thread.start()
             try:
-                with Live(console=con, refresh_per_second=20, transient=True) as live:
+                with Live(console=con, refresh_per_second=20) as live:
                     while True:
                         live.update(render_fn())
                         time.sleep(0.05)
@@ -262,7 +262,7 @@ def _no_guild_menu(player, gm: GuildManager, con) -> str:
             )
             kb_thread.start()
             try:
-                with Live(console=con, refresh_per_second=20, transient=True) as live:
+                with Live(console=con, refresh_per_second=20) as live:
                     while not state["exit"]:
                         live.update(_render())
                         time.sleep(0.05)
@@ -335,7 +335,7 @@ def _create_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
             )
             kb_thread.start()
             try:
-                with Live(console=con, refresh_per_second=20, transient=True) as live:
+                with Live(console=con, refresh_per_second=20) as live:
                     while not state["done"]:
                         live.update(_render())
                         time.sleep(0.05)
@@ -399,7 +399,7 @@ def _join_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
             )
             kb_thread.start()
             try:
-                with Live(console=con, refresh_per_second=20, transient=True) as live:
+                with Live(console=con, refresh_per_second=20) as live:
                     while not state["done"]:
                         live.update(_render())
                         time.sleep(0.05)
@@ -502,7 +502,7 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
             )
             kb_thread.start()
             try:
-                with Live(console=con, refresh_per_second=20, transient=True) as live:
+                with Live(console=con, refresh_per_second=20) as live:
                     while not state["exit"]:
                         live.update(_render())
                         time.sleep(0.05)

@@ -161,7 +161,7 @@ def open_item_browser(player, item_manager):
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
             try:
-                with Live(console=console, refresh_per_second=20, transient=True) as live:
+                with Live(console=console, refresh_per_second=20) as live:
                     while not state["exit"]:
                         items = _get_filtered_items()
                         if state["idx"] >= len(items) and len(items) > 0: state["idx"] = len(items) - 1

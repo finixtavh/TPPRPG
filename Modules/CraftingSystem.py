@@ -159,7 +159,7 @@ def open_crafting_menu(player, inventory):
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
             try:
-                with Live(console=console, refresh_per_second=20, transient=True) as live:
+                with Live(console=console, refresh_per_second=20) as live:
                     while not state["exit"]:
                         recipes = _get_filtered_recipes()
                         if state["idx"] >= len(recipes) and len(recipes) > 0: state["idx"] = len(recipes) - 1
