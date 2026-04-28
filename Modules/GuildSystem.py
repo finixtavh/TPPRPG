@@ -7,6 +7,12 @@ Motor del sistema de Guilds con economia viva, ejercitos, IA y eventos.
 import os, json, random
 from typing import Dict, List, Optional, Tuple
 
+try:
+    from Modules.WeatherSystem import apply_weather_combat_mods
+except ImportError:
+    def apply_weather_combat_mods(base_val: float, mod_key: str) -> float:
+        return base_val
+
 _GUILD_RESOURCES_JSON = os.path.join("Data", "GuildResources.json")
 _GUILDS_JSON          = os.path.join("Data", "Guilds.json")
 _ZONE_GUILDS_JSON     = os.path.join("Data", "ZoneGuilds.json")
@@ -648,6 +654,9 @@ class GuildManager:
                      + attacker.soldiers * 0.5
                      + attacker.attack_rating * 8
                      + random.randint(0, 25))
+        
+        # Apply weather to attacker
+        att_score *= apply_weather_combat_mods(1.0, "attack")
 
         def_score = territory.defense_value + random.randint(0, 20)
         # Torre de Guardia bonus
@@ -666,6 +675,9 @@ class GuildManager:
                 ally = self.guilds.get(ally_id)
                 if ally:
                     def_score += ally.military_power * 0.15
+
+        # Apply weather to defender
+        def_score *= apply_weather_combat_mods(1.0, "defense")
 
         # Bajas
         if att_score > def_score:

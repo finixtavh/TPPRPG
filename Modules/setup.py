@@ -8,6 +8,13 @@ from rich.box import ROUNDED
 
 import random
 import time as sp
+
+try:
+    from Modules.WeatherSystem import apply_weather_combat_mods
+except ImportError:
+    # Fallback in case WeatherSystem is not available yet
+    def apply_weather_combat_mods(base_val: float, mod_key: str) -> float:
+        return base_val
 from Modules.input_utils import wait_for_enter
 
 ##################      First Variables
@@ -150,6 +157,10 @@ class cPlayer:
         # Get damage from weapon - returns [physical, thermal, earth, electric, deep]
         damage_array = self.weapon.use_weapon(self)
         
+        # Apply weather modifiers to attack
+        attack_mod = apply_weather_combat_mods(1.0, "attack")
+        damage_array = [d * attack_mod for d in damage_array]
+        
         # Apply defense calcs
         final_damage = [0, 0, 0, 0, 0]
         damage_type_names = ["Físico", "Térmico", "Tierra", "Eléctrico", "Profundo"]
@@ -218,9 +229,10 @@ class cPlayer:
 
         # ── Paso 2: Aplicar defensas al daño restante ──
         final_damage = 0.0
+        def_mod = apply_weather_combat_mods(1.0, "defense")
         for i in range(min(len(damage), 5)):
             if damage[i] > 0:
-                player_def = self.DEF[i] if i < len(self.DEF) else 0
+                player_def = (self.DEF[i] if i < len(self.DEF) else 0) * def_mod
                 remaining = max(0, damage[i] - (player_def / 2))
                 block_ratio = 0.0
                 if isinstance(self.DefensePercentage, list) and i < len(self.DefensePercentage):
@@ -364,12 +376,13 @@ class cEnemy:
         damage_type_names = ["Físico", "Térmico", "Tierra", "Eléctrico", "Profundo"]
 
         # Calculate raw damage for each type
+        attack_mod = apply_weather_combat_mods(1.0, "attack")
         for i in range(5):
             if self.DMG[i] > 0:
                 if i == 4:  # Deep damage is always maximum
-                    raw_damage[i] = self.DMG[4]
+                    raw_damage[i] = self.DMG[4] * attack_mod
                 else:
-                    raw_damage[i] = random.randint(self.DMG_min[i], self.DMG[i])
+                    raw_damage[i] = random.randint(self.DMG_min[i], self.DMG[i]) * attack_mod
 
         total_raw = sum(raw_damage)
 

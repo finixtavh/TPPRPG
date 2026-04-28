@@ -255,12 +255,19 @@ def display_player_status() -> None:
     header.add_column(justify="left")
     header.add_column(justify="right")
 
+    try:
+        from Modules.WeatherSystem import get_weather_manager
+        w = get_weather_manager().get_current_weather()
+        weather_text = f"   [bold]Clima:[/bold] {w.icon} {w.name}"
+    except ImportError:
+        weather_text = ""
+
     zone_text = chosen_area if chosen_area is not None else "Ninguna"
     left = Text.from_markup(
         f"[bold]Nombre:[/bold] {player.name} [dim](Nivel {player.Level})[/dim]"
     )
     right = Text.from_markup(
-        f"[bold yellow]Oro:[/bold yellow] {player.Gold}   [bold]Zona:[/bold] {zone_text}"
+        f"[bold yellow]Oro:[/bold yellow] {player.Gold}   [bold]Zona:[/bold] {zone_text}{weather_text}"
     )
     header.add_row(left, right)
 
@@ -385,7 +392,14 @@ def create_hp_barrier_bar(
 
 def render_combat_menu(player, enemy, combat_round: int) -> None:
     """UI de combate con soporte de compañeros: [comp…] [jugador] vs [enemigo]."""
-    header = Text.from_markup(f"[bold]Combate - Ronda {combat_round}[/]")
+    try:
+        from Modules.WeatherSystem import get_weather_manager
+        w = get_weather_manager().get_current_weather()
+        weather_text = f"  |  Clima: {w.icon} {w.name}"
+    except ImportError:
+        weather_text = ""
+        
+    header = Text.from_markup(f"[bold]Combate - Ronda {combat_round}[/]{weather_text}")
 
     # ── Bloques de aliados (compañeros primero, jugador al final) ────────────
     ally_blocks = []
