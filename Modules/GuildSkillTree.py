@@ -416,7 +416,7 @@ def open_guild_skill_tree(guild, console=None):
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=console, refresh_per_second=20) as live:
+            with Live(console=console, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["exit"]:
                         live.update(_render())

@@ -138,9 +138,15 @@ class Territory:
         self.population_capacity = data.get("population_capacity", 50)
         self.owner               = data.get("owner", "neutral")
         self.position            = tuple(data.get("position", [0, 0]))
+        # V3: Guarnición física en el territorio
+        self.garrison: Dict[str, int] = data.get("garrison", {"infantry": 0, "archers": 0, "cavalry": 0, "siege": 0})
+        # V3: Lealtad del territorio
+        self.loyalty: int = data.get("loyalty", 100)
+        # V3: Gobernador (Companion ID o similar)
+        self.governor_id = data.get("governor_id", None)
 
     def to_dict(self):
-        return {"id": self.id, "owner": self.owner}
+        return {"id": self.id, "owner": self.owner, "garrison": self.garrison, "loyalty": self.loyalty, "governor_id": self.governor_id}
 
     def produce(self, bonus_multiplier=1.0):
         return {rid: max(1, int(amt * bonus_multiplier))
@@ -181,8 +187,8 @@ class Guild:
         # Pending events (solo guild del jugador)
         self.pending_events: List[dict] = []
 
-        # ── V2: Ejército ─────────────────────────────────────────────
-        self.soldiers:       int = 0
+        # ── V3: Ejército (Tipos de Tropas) ───────────────────────────────────────────
+        self.soldiers: Dict[str, int] = {"infantry": 0, "archers": 0, "cavalry": 0, "siege": 0}
         self.attack_rating:  int = 1   # nivel de ataque (1-10)
         self.defense_rating: int = 1   # nivel de defensa (1-10)
         self.armor_rating:   int = 1   # nivel de armadura (1-10)
@@ -242,6 +248,27 @@ class Guild:
 
     # ── Ejército ──────────────────────────────────────────────────────────────
 
+    def lose_soldiers(self, amount: int) -> None:
+        """Removes 'amount' soldiers proportionally from the army types."""
+        total = self.get_total_soldiers()
+        if total <= 0 or amount <= 0: return
+        amount = min(amount, total)
+        for ttype, count in self.soldiers.items():
+            if count > 0:
+                loss = int((count / total) * amount)
+                self.soldiers[ttype] = max(0, count - loss)
+        
+        remaining_loss = amount - (total - self.get_total_soldiers())
+        while remaining_loss > 0 and self.get_total_soldiers() > 0:
+            for ttype in self.soldiers:
+                if self.soldiers[ttype] > 0:
+                    self.soldiers[ttype] -= 1
+                    remaining_loss -= 1
+                    if remaining_loss <= 0: break
+
+    def get_total_soldiers(self) -> int:
+        return sum(self.soldiers.values())
+
     def get_max_soldiers(self, guild_type_defs: dict) -> int:
         type_data = guild_type_defs.get(self.guild_type, {})
         pct = 0.10 + type_data.get("recruit_pct_bonus", 0.0)
@@ -249,9 +276,12 @@ class Guild:
         if "mil_logistics"  in self.unlocked_skills: pct += 0.05
         return max(1, int(self.population * pct))
 
-    def recruit_soldiers(self, count: int, resource_defs: dict,
+    def recruit_soldiers(self, troop_type: str, count: int, resource_defs: dict,
                          guild_type_defs: dict) -> Tuple[int, str]:
-        slots = max(0, self.get_max_soldiers(guild_type_defs) - self.soldiers)
+        if troop_type not in ["infantry", "archers", "cavalry", "siege"]:
+            troop_type = "infantry"
+            
+        slots = max(0, self.get_max_soldiers(guild_type_defs) - self.get_total_soldiers())
         n     = min(count, slots)
         if n <= 0:
             return 0, "Ya tienes el máximo de soldados."
@@ -299,8 +329,8 @@ class Guild:
             ratio    = food_have / food_needed if food_needed > 0 else 0
             pop_loss = max(1, int(self.population * 0.02 * (1 - ratio)))
             self.population = max(10, self.population - pop_loss)
-            sol_loss = min(self.soldiers, pop_loss // 3)
-            self.soldiers   = max(0, self.soldiers - sol_loss)
+            sol_loss = min(self.get_total_soldiers(), pop_loss // 3)
+            self.lose_soldiers(sol_loss)
             self.change_moral(-3)
             self.log_event(f"🍞 Hambruna: -{pop_loss} población.")
             return f"Hambruna: -{pop_loss} pop."
@@ -386,7 +416,19 @@ class Guild:
         g.event_log              = data.get("event_log", [])
         g.buildings              = data.get("buildings", [])
         g.pending_events         = data.get("pending_events", [])
-        g.soldiers               = data.get("soldiers", 0)
+        
+        loaded_soldiers = data.get("soldiers", 0)
+        if isinstance(loaded_soldiers, int):
+            # Migración automática V2 -> V3
+            g.soldiers = {"infantry": loaded_soldiers, "archers": 0, "cavalry": 0, "siege": 0}
+        else:
+            g.soldiers = {
+                "infantry": loaded_soldiers.get("infantry", 0),
+                "archers": loaded_soldiers.get("archers", 0),
+                "cavalry": loaded_soldiers.get("cavalry", 0),
+                "siege": loaded_soldiers.get("siege", 0)
+            }
+            
         g.attack_rating          = data.get("attack_rating", 1)
         g.defense_rating         = data.get("defense_rating", 1)
         g.armor_rating           = data.get("armor_rating", 1)
@@ -453,7 +495,7 @@ class GuildManager:
             for rid in self.resource_defs:
                 g.add_resource(rid, random.randint(20,80), self.resource_defs)
             # Initial soldiers = ~10% population
-            g.soldiers = int(g.population * 0.10)
+            g.soldiers = {"infantry": int(g.population * 0.10), "archers": 0, "cavalry": 0, "siege": 0}
             self.guilds[g.guild_id] = g
 
         guild_ids = list(self.guilds.keys())
@@ -468,6 +510,7 @@ class GuildManager:
         events = []
         for guild in self.guilds.values():
             self._produce_resources(guild)
+            self._process_territories(guild, events)
             guild.clamp_resources(self.resource_defs, self.guild_type_defs)
             guild.grow_population(self.resource_defs)
             if guild.trade_cooldown > 0:
@@ -494,18 +537,60 @@ class GuildManager:
             self.world_events = self.world_events[-60:]
         return events
 
+    def _process_territories(self, guild: Guild, events: List[str]):
+        rebel_territories = []
+        for tid in list(guild.territories):
+            terr = self.territories.get(tid)
+            if not terr: continue
+            
+            total_garrison = sum(terr.garrison.values())
+            
+            if total_garrison == 0:
+                terr.loyalty = max(0, terr.loyalty - random.randint(2, 5))
+            else:
+                terr.loyalty = min(100, terr.loyalty + random.randint(2, 4))
+                
+            if terr.loyalty <= 0:
+                rebel_territories.append(tid)
+                
+        for tid in rebel_territories:
+            terr = self.territories.get(tid)
+            if tid in guild.territories:
+                guild.territories.remove(tid)
+            terr.owner = "neutral"
+            terr.loyalty = 100
+            msg = f"🔥 ¡REBELIÓN! [{terr.name}] se ha independizado de [{guild.icon} {guild.name}] por falta de guarnición."
+            events.append(msg)
+            guild.log_event(msg)
+
     def _produce_resources(self, guild: Guild):
         td       = self.guild_type_defs.get(guild.guild_type, {})
         eco_mult = guild.economy_multiplier(td)
         if "eco_logistics" in guild.unlocked_skills: eco_mult += 0.2
         if "eco_hegemony"  in guild.unlocked_skills: eco_mult += 0.5
         if "mercado"       in guild.buildings:        eco_mult += 0.15
+        
+        gold_income = 0
         for tid in guild.territories:
             terr = self.territories.get(tid)
             if not terr: continue
-            for rid, amt in terr.produce(eco_mult).items():
+            
+            local_eco_mult = eco_mult
+            if terr.governor_id is not None:
+                local_eco_mult += 0.20  # +20% prod si tiene gobernador
+                
+            for rid, amt in terr.produce(local_eco_mult).items():
                 bonus = td.get("bonus_resources", {}).get(rid, 0.0)
                 guild.add_resource(rid, max(1, int(amt * (1 + bonus))), self.resource_defs)
+                
+            # V3: Rutas Comerciales (Caravanas)
+            gold_income += terr.difficulty * 2
+            
+        if gold_income > 0:
+            if "mercado" in guild.buildings:
+                gold_income = int(gold_income * 1.5)
+            guild.add_resource("oro", gold_income, self.resource_defs)
+
         # Ganado produce comida
         ganado = guild.get_resource("ganado")
         if ganado > 0:
@@ -520,23 +605,38 @@ class GuildManager:
             food_terrs = [t for t in self.territories.values()
                           if ("comida" in t.resource_output or "ganado" in t.resource_output)
                           and t.owner != guild.guild_id and t.difficulty <= 3]
-            if food_terrs and guild.soldiers > 3:
+            if food_terrs and guild.get_total_soldiers() > 3:
                 target = min(food_terrs, key=lambda t: t.difficulty)
                 return self._attack_territory(guild,
                     self.guilds.get(target.owner) if target.owner not in ("neutral","") else None,
                     target)
 
         # 2. EXPANDIR: buen poder y moral
-        if guild.moral >= 55 and guild.military_power >= 35 and guild.soldiers > 0:
+        if guild.moral >= 55 and guild.military_power >= 35 and guild.get_total_soldiers() > 0:
             if random.randint(0, 100) < guild.aggressiveness:
                 return self._resolve_ai_attack(guild)
 
         # 3. FORTALECER: moral baja o pocos soldados
-        if guild.moral < 35 or guild.soldiers < guild.get_max_soldiers(self.guild_type_defs) // 4:
-            guild.recruit_soldiers(min(5, 20), self.resource_defs, self.guild_type_defs)
+        if guild.moral < 35 or guild.get_total_soldiers() < guild.get_max_soldiers(self.guild_type_defs) // 4:
+            guild.recruit_soldiers("infantry", min(5, 20), self.resource_defs, self.guild_type_defs)
             return None
 
-        # 4. DIPLOMACIA: proponer alianza si relación alta
+        # 4. COALICIONES: IA forma alianzas contra imperios dominantes
+        total_terrs = max(1, len(self.territories))
+        for other_id, other_guild in self.guilds.items():
+            if other_id == guild.guild_id: continue
+            if len(other_guild.territories) / total_terrs > 0.20 or other_guild.military_power > guild.military_power * 2.5:
+                if guild.military_power < other_guild.military_power:
+                    for third_id, third_guild in self.guilds.items():
+                        if third_id in [guild.guild_id, other_id]: continue
+                        if third_id not in guild.alliances and third_guild.military_power < other_guild.military_power:
+                            guild.alliances.append(third_id)
+                            third_guild.alliances.append(guild.guild_id)
+                            msg = f"🛡️ [COALICIÓN] [{guild.icon} {guild.name}] y [{third_guild.icon} {third_guild.name}] se han aliado para defenderse de la expansión de [{other_guild.icon} {other_guild.name}]."
+                            self.world_events.append(msg)
+                            return msg
+
+        # 5. DIPLOMACIA NORMAL: proponer alianza si relación alta
         if "dip_alliances" in guild.unlocked_skills:
             for gid, rel in guild.relations.items():
                 if rel > 45 and gid not in guild.alliances and gid in self.guilds:
@@ -642,6 +742,23 @@ class GuildManager:
 
     # ── Combate V2 (con soldados y ratings) ──────────────────────────────────
 
+    def _calculate_troop_power(self, troops: Dict[str, int], enemy_troops: Dict[str, int]) -> float:
+        power = 0.0
+        if not troops: return power
+        inf = troops.get("infantry", 0)
+        arc = troops.get("archers", 0)
+        cav = troops.get("cavalry", 0)
+        e_inf = enemy_troops.get("infantry", 0) if enemy_troops else 0
+        e_arc = enemy_troops.get("archers", 0) if enemy_troops else 0
+        e_cav = enemy_troops.get("cavalry", 0) if enemy_troops else 0
+        
+        power += inf * 0.5 + arc * 0.6 + cav * 0.8
+        # Counters
+        if inf > 0 and e_cav > 0: power += min(inf, e_cav) * 0.3
+        if arc > 0 and e_inf > 0: power += min(arc, e_inf) * 0.3
+        if cav > 0 and e_arc > 0: power += min(cav, e_arc) * 0.3
+        return power
+
     def _attack_territory(self, attacker: Guild, defender: Optional[Guild],
                           territory: Territory) -> str:
         td_att  = self.guild_type_defs.get(attacker.guild_type, {})
@@ -650,15 +767,27 @@ class GuildManager:
         if "mil_professional" in attacker.unlocked_skills: mil_mul += 0.40
 
         moral_bonus = attacker.moral / 200  # 0.0–0.5
+        
+        def_troops = defender.soldiers if defender else territory.garrison
+        att_troop_power = self._calculate_troop_power(attacker.soldiers, def_troops)
+        
+        # Asedio ignora/destruye parte de la defensa del territorio
+        siege_power = attacker.soldiers.get("siege", 0) * 2.0
+        
         att_score = (attacker.military_power * mil_mul * (1 + moral_bonus)
-                     + attacker.soldiers * 0.5
+                     + att_troop_power
                      + attacker.attack_rating * 8
+                     + siege_power
                      + random.randint(0, 25))
         
         # Apply weather to attacker
         att_score *= apply_weather_combat_mods(1.0, "attack")
 
-        def_score = territory.defense_value + random.randint(0, 20)
+        base_defense = max(0, territory.defense_value - siege_power)
+        if territory.governor_id is not None:
+            base_defense += 25  # Bonus del gobernador
+            
+        def_score = base_defense + random.randint(0, 20)
         # Torre de Guardia bonus
         if "torre_guardia" in (attacker.buildings if attacker else []):
             def_score += 30
@@ -666,8 +795,9 @@ class GuildManager:
             td_def   = self.guild_type_defs.get(defender.guild_type, {})
             def_mul  = defender.military_multiplier(td_def)
             def_moral = defender.moral / 200
+            def_troop_power = self._calculate_troop_power(defender.soldiers, attacker.soldiers)
             def_score += (defender.military_power * def_mul * (1 + def_moral)
-                          + defender.soldiers * 0.3
+                          + def_troop_power
                           + defender.defense_rating * 8
                           + defender.armor_rating * 5)
             # Alianza: bonus defensivo
@@ -681,16 +811,16 @@ class GuildManager:
 
         # Bajas
         if att_score > def_score:
-            att_losses = max(0, int(attacker.soldiers * 0.08 * (def_score / max(1, att_score))))
-            def_losses = max(0, int((defender.soldiers * 0.12) if defender else 0))
+            att_losses = max(0, int(attacker.get_total_soldiers() * 0.08 * (def_score / max(1, att_score))))
+            def_losses = max(0, int((defender.get_total_soldiers() * 0.12) if defender else 0))
         else:
-            att_losses = max(1, int(attacker.soldiers * 0.15))
-            def_losses = max(0, int((defender.soldiers * 0.05) if defender else 0))
+            att_losses = max(1, int(attacker.get_total_soldiers() * 0.15))
+            def_losses = max(0, int((defender.get_total_soldiers() * 0.05) if defender else 0))
 
-        attacker.soldiers   = max(0, attacker.soldiers   - att_losses)
+        attacker.lose_soldiers(att_losses)
         attacker.population = max(10, attacker.population - att_losses)
         if defender:
-            defender.soldiers   = max(0, defender.soldiers   - def_losses)
+            defender.lose_soldiers(def_losses)
             defender.population = max(10, defender.population - def_losses)
 
         if att_score > def_score:
@@ -777,7 +907,7 @@ class GuildManager:
                    30, 50, 80, 30, is_player_guild=True)
         for rid in self.resource_defs:
             g.add_resource(rid, 20, self.resource_defs)
-        g.soldiers = int(g.population * 0.10)
+        g.soldiers = {"infantry": int(g.population * 0.10), "archers": 0, "cavalry": 0, "siege": 0}
         for gid in self.guilds:
             g.relations[gid] = 0
             self.guilds[gid].relations["player_guild"] = 0

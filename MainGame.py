@@ -1341,6 +1341,13 @@ def main():
                                 try:
                                     gm = get_guild_manager()
                                     tick_events = gm.tick()
+                                    pg = gm.get_player_guild()
+                                    if pg:
+                                        exp_gain = len(pg.territories) * 5 + pg.get_total_soldiers() // 10
+                                        if exp_gain > 0:
+                                            player.AddExp(exp_gain, console)
+                                            console.print(f"[bold green]✨ Tu Guild ha generado {exp_gain} EXP pasiva.[/bold green]")
+                                            
                                     if tick_events:
                                         console.print("\n[bold dim]📜 Noticias del mundo:[/bold dim]")
                                         for ev in tick_events[:3]:

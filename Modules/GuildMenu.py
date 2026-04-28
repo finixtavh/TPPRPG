@@ -264,16 +264,24 @@ def _render_world(gm: GuildManager, player, page: int = 0):
                  title="[bold]🌍 ESTADO DEL MUNDO[/]", border_style="blue"), total_pages
 
 
-def _render_diplomacy(guild: Guild, gm: GuildManager, player):
+def _render_diplomacy(guild: Guild, gm: GuildManager, player, page: int = 0):
+    items_per_page = 8
+    all_guilds = [g for gid, g in gm.guilds.items() if gid != guild.guild_id]
+    total_pages = max(1, (len(all_guilds) + items_per_page - 1) // items_per_page)
+    page = max(0, min(page, total_pages - 1))
+    
+    start_idx = page * items_per_page
+    end_idx = start_idx + items_per_page
+    page_items = all_guilds[start_idx:end_idx]
+
     t = Table(show_header=True, box=box.SIMPLE, expand=True)
     t.add_column("Guild",    ratio=2)
     t.add_column("Relación", width=10)
     t.add_column("Tu Rep.",  width=12)
     t.add_column("Alianza",  width=8)
 
-    for gid, g in gm.guilds.items():
-        if gid == guild.guild_id:
-            continue
+    for g in page_items:
+        gid = g.guild_id
         relation  = guild.relations.get(gid, 0)
         rep       = gm.get_player_reputation(player, gid)
         rank, col = gm.get_reputation_rank(rep)
@@ -283,8 +291,8 @@ def _render_diplomacy(guild: Guild, gm: GuildManager, player):
         t.add_row(f"{g.icon} {g.name}", f"[{rel_color}]{relation:+d}[/]",
                   f"[{col}]{rank}[/]", ally_str)
 
-    hint = Text("\n  [F] Formar alianza  |  [S] Sabotear (requiere Espionaje)\n", style="dim")
-    return Panel(Group(t, hint), title="[bold]🕊 DIPLOMACIA[/]", border_style="bright_magenta")
+    hint = Text(f"\n  Página {page+1}/{total_pages} | [F] Formar alianza  |  [S] Sabotear (requiere Espionaje)\n", style="dim")
+    return Panel(Group(t, hint), title="[bold]🕊 DIPLOMACIA[/]", border_style="bright_magenta"), total_pages
 
 
 # ── Función auxiliar de loop de Live ─────────────────────────────────────────
@@ -411,10 +419,10 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["exit"]:
-                        if state["dirty"]:
+                        if state.get("dirty", True):
                             live.update(_render())
                             state["dirty"] = False
                         time.sleep(0.01)
@@ -537,10 +545,10 @@ def _buildings_menu(player_guild: Guild, gm: GuildManager, con):
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["exit"]:
-                        if state["dirty"]:
+                        if state.get("dirty", True):
                             live.update(_render())
                             state["dirty"] = False
                         time.sleep(0.01)
@@ -601,10 +609,10 @@ def _no_guild_menu(player, gm: GuildManager, con) -> str:
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["exit"]:
-                        if state["dirty"]:
+                        if state.get("dirty", True):
                             live.update(_render())
                             state["dirty"] = False
                         time.sleep(0.01)
@@ -677,7 +685,7 @@ def _create_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["done"]:
                         if state.get("dirty", True):
@@ -744,7 +752,7 @@ def _join_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["done"]:
                         if state.get("dirty", True):
@@ -826,7 +834,7 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
             content = Panel(Text("Próximamente.", style="dim"))
 
         footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
-        hint   = Text("← →: Pestañas | [ENTER]: Acción | [M]: Eventos | [ESC]: Salir", style="dim")
+        hint   = Text("← →: Pestañas | [ENTER]: Acción | [O]: Tributos | [M]: Eventos | [ESC]: Salir", style="dim")
         return Panel(
             Group(h, Rule(style="cyan"), content, hint, footer),
             title=f"[bold cyan]⚔ GUILDS — {player_guild.icon} {player_guild.name}[/]",
@@ -859,6 +867,16 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
         elif key == "m":
             state["open_sub"] = "events"
             state["exit"]     = True
+        elif key == "o":
+            oro = player_guild.get_resource("oro")
+            if oro > 0:
+                player_guild.consume_resource("oro", oro)
+                player.Gold += oro
+                state["message"] = f"💰 ¡Has recaudado {oro} Oro de Caravana! (Total: {player.Gold})"
+                state["msg_style"] = "bold yellow"
+            else:
+                state["message"] = "No hay Oro de Caravana disponible."
+                state["msg_style"] = "dim"
         elif key == "esc":
             state["open_sub"] = None
             state["exit"]     = True
@@ -871,10 +889,10 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["exit"]:
-                        if state["dirty"]:
+                        if state.get("dirty", True):
                             live.update(_render())
                             state["dirty"] = False
                         time.sleep(0.01)
@@ -990,10 +1008,10 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["exit"]:
-                        if state["dirty"]:
+                        if state.get("dirty", True):
                             live.update(_render())
                             state["dirty"] = False
                         time.sleep(0.01)
@@ -1005,44 +1023,62 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
 # ── Pestaña Militar ──────────────────────────────────────────────────────────
 
 def _military_management_menu(player_guild: Guild, gm: GuildManager, con):
-    sections = ["Reclutar", "Mejorar Ataque", "Mejorar Defensa", "Mejorar Armadura", "Crecimiento Poblacional"]
+    sections = [
+        "Reclutar Infantería", "Reclutar Arqueros", "Reclutar Caballería", "Reclutar Asedio",
+        "Gestionar Guarniciones",
+        "Mejorar Ataque", "Mejorar Defensa", "Mejorar Armadura"
+    ]
     state = {
         "idx":       0,
         "exit":      False,
+        "dirty":     True,
         "message":   "↑↓: Navegar | [ENTER]: Confirmar | [ESC]: Volver",
         "msg_style": "dim",
         "rec_amt":   5,
+        "action":    None
     }
 
     def _render():
         t = Table(show_header=False, box=None, expand=True)
         max_sol = player_guild.get_max_soldiers(gm.guild_type_defs)
         
-        info = Text(f"  Poder Militar: {player_guild.military_power}  |  Soldados: {player_guild.soldiers} / {max_sol}\n"
-                    f"  Ataque Lv.{player_guild.attack_rating}  |  Defensa Lv.{player_guild.defense_rating}  |  Armadura Lv.{player_guild.armor_rating}\n"
-                    f"  Crecimiento actual: {player_guild.population_growth_pct * 100:.1f}%\n", style="bold cyan")
+        inf = player_guild.soldiers.get("infantry", 0)
+        arc = player_guild.soldiers.get("archers", 0)
+        cav = player_guild.soldiers.get("cavalry", 0)
+        sie = player_guild.soldiers.get("siege", 0)
+        
+        info = Text(f"  Poder Militar: {player_guild.military_power}  |  Soldados Totales: {player_guild.get_total_soldiers()} / {max_sol}\n"
+                    f"  Infantería: {inf}  |  Arqueros: {arc}  |  Caballería: {cav}  |  Asedio: {sie}\n"
+                    f"  Ataque Lv.{player_guild.attack_rating}  |  Defensa Lv.{player_guild.defense_rating}  |  Armadura Lv.{player_guild.armor_rating}\n", style="bold cyan")
         
         for i, sec in enumerate(sections):
             sel = i == state["idx"]
             nm  = Text(sec)
             desc = ""
-            if sec == "Reclutar":
-                desc = f" (Coste: {state['rec_amt']} Comida, {max(1, state['rec_amt']//2)} Cuero) [+ {state['rec_amt']} soldados]"
+            if sec.startswith("Reclutar"):
+                if "Infantería" in sec:
+                    desc = f" (Coste: {state['rec_amt']} Comida, {max(1, state['rec_amt']//2)} Cuero) [+ {state['rec_amt']}]"
+                elif "Arqueros" in sec:
+                    desc = f" (Coste: {state['rec_amt']} Madera, {max(1, state['rec_amt']//2)} Cuero) [+ {state['rec_amt']}]"
+                elif "Caballería" in sec:
+                    desc = f" (Coste: {state['rec_amt']} Comida, {max(1, state['rec_amt']//3)} Ganado) [+ {state['rec_amt']}]"
+                elif "Asedio" in sec:
+                    desc = f" (Coste: {state['rec_amt']*2} Madera, {max(1, state['rec_amt']//5)} Lingotes Xar) [+ {state['rec_amt']}]"
+            elif sec == "Gestionar Guarniciones":
+                desc = " (Asignar tropas a territorios controlados)"
             elif sec == "Mejorar Ataque":
-                desc = f" (Coste: {5 * player_guild.attack_rating} Cuero)"
+                desc = f" (Coste: {5 * player_guild.attack_rating} Cuero Endurecido)"
             elif sec == "Mejorar Defensa":
-                desc = f" (Coste: {5 * player_guild.defense_rating} Cuero)"
+                desc = f" (Coste: {5 * player_guild.defense_rating} Cuero Endurecido)"
             elif sec == "Mejorar Armadura":
-                desc = f" (Coste: {8 * player_guild.armor_rating} Cuero)"
-            elif sec == "Crecimiento Poblacional":
-                desc = f" (Ajustar con ← →)"
+                desc = f" (Coste: {8 * player_guild.armor_rating} Cuero Endurecido)"
             
             if sel: nm.stylize("bold reverse")
             t.add_row("▶" if sel else " ", nm, Text(desc, style="dim"), style="bold bright_cyan" if sel else "white")
         
-        hint = Text("\n  ← →: Ajustar cantidad (Reclutar/Crecimiento) | [ENTER]: Aplicar | [ESC]: Volver\n", style="dim")
+        hint = Text("\n  ← →: Ajustar cantidad (Reclutar) | [ENTER]: Aplicar | [ESC]: Volver\n", style="dim")
         footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
-        return Panel(Group(info, t, hint, footer), title="[bold red]⚔ ADMINISTRACIÓN MILITAR[/]", border_style="red")
+        return Panel(Group(info, t, hint, footer), title="[bold red]⚔ ADMINISTRACIÓN MILITAR V3[/]", border_style="red")
 
     def _on_press(key):
         state["dirty"] = True
@@ -1054,22 +1090,22 @@ def _military_management_menu(player_guild: Guild, gm: GuildManager, con):
             state["idx"] = min(len(sections) - 1, state["idx"] + 1)
         elif key == "left":
             sec = sections[state["idx"]]
-            if sec == "Reclutar":
+            if sec.startswith("Reclutar"):
                 state["rec_amt"] = max(1, state["rec_amt"] - 1)
-            elif sec == "Crecimiento Poblacional":
-                player_guild.population_growth_pct = max(0.0, player_guild.population_growth_pct - 0.01)
         elif key == "right":
             sec = sections[state["idx"]]
-            if sec == "Reclutar":
+            if sec.startswith("Reclutar"):
                 state["rec_amt"] = min(50, state["rec_amt"] + 1)
-            elif sec == "Crecimiento Poblacional":
-                player_guild.population_growth_pct = min(0.10, player_guild.population_growth_pct + 0.01)
         elif key == "enter":
             sec = sections[state["idx"]]
-            if sec == "Reclutar":
-                n, msg = player_guild.recruit_soldiers(state["rec_amt"], gm.resource_defs, gm.guild_type_defs)
+            if sec.startswith("Reclutar"):
+                troop_map = {"Reclutar Infantería": "infantry", "Reclutar Arqueros": "archers", "Reclutar Caballería": "cavalry", "Reclutar Asedio": "siege"}
+                n, msg = player_guild.recruit_soldiers(troop_map[sec], state["rec_amt"], gm.resource_defs, gm.guild_type_defs)
                 state["message"] = msg
                 state["msg_style"] = "bold green" if n > 0 else "bold red"
+            elif sec == "Gestionar Guarniciones":
+                state["exit"] = True
+                state["action"] = "garrison"
             elif sec == "Mejorar Ataque":
                 ok, msg = player_guild.upgrade_army_stat("attack", gm.resource_defs)
                 state["message"] = msg
@@ -1087,10 +1123,133 @@ def _military_management_menu(player_guild: Guild, gm: GuildManager, con):
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["exit"]:
-                        if state["dirty"]:
+                        if state.get("dirty", True):
+                            live.update(_render())
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
+                    con.clear()
+
+    if state.get("action") == "garrison":
+        _garrison_management_menu(player_guild, gm, con)
+
+def _garrison_management_menu(player_guild: Guild, gm: GuildManager, con):
+    if not player_guild.territories:
+        con.print("\n[bold red]No controlas ningún territorio para gestionar guarniciones.[/bold red]")
+        time.sleep(2)
+        return
+        
+    state = {
+        "idx": 0,
+        "exit": False,
+        "dirty": True,
+        "message": "↑↓: Territorio | ← →: Cambiar Tropa | (+/a): Guarnecer | (-/q): Retirar",
+        "troop_idx": 0
+    }
+    
+    troop_types = ["infantry", "archers", "cavalry", "siege"]
+    troop_names = ["Infantería", "Arqueros", "Caballería", "Asedio"]
+
+    def _render():
+        t = Table(title="[bold green]🛡️ GUARNICIONES[/]", box=None, expand=True)
+        t.add_column("Territorio")
+        t.add_column("Tropa Activa")
+        t.add_column("En Guarnición", justify="right")
+        t.add_column("En Capital", justify="right")
+        t.add_column("Gobernador")
+        
+        ttype = troop_types[state["troop_idx"]]
+        tname = troop_names[state["troop_idx"]]
+        
+        for i, tid in enumerate(player_guild.territories):
+            terr = gm.territories.get(tid)
+            if not terr: continue
+            
+            sel = (i == state["idx"])
+            name_txt = Text(f"▶ {terr.name}" if sel else f"  {terr.name}", style="bold cyan" if sel else "white")
+            
+            garrison_qty = terr.garrison.get(ttype, 0)
+            capital_qty  = player_guild.soldiers.get(ttype, 0)
+            gov_name     = terr.governor_id if terr.governor_id else "Ninguno"
+            
+            t.add_row(name_txt, Text(tname, style="yellow"), str(garrison_qty), str(capital_qty), f"[bold magenta]{gov_name}[/]")
+            
+        info = Text(f"\n  [a] Mover 1 tropa a Guarnición  |  [A] Mover 10 tropas a Guarnición\n"
+                    f"  [q] Retirar 1 tropa a Capital   |  [Q] Retirar 10 tropas a Capital\n"
+                    f"  [g] Asignar Gobernador (Cíclico)\n", style="dim")
+        footer = Panel(Text(state["message"], style="yellow"), border_style="dim")
+        return Panel(Group(t, info, footer), border_style="green")
+
+    def _on_press(key):
+        state["dirty"] = True
+        if key == "esc":
+            state["exit"] = True
+        elif key == "up":
+            state["idx"] = max(0, state["idx"] - 1)
+        elif key == "down":
+            state["idx"] = min(len(player_guild.territories) - 1, state["idx"] + 1)
+        elif key == "left":
+            state["troop_idx"] = (state["troop_idx"] - 1) % 4
+        elif key == "right":
+            state["troop_idx"] = (state["troop_idx"] + 1) % 4
+        elif key in ["+", "a", "A"]:
+            tid = player_guild.territories[state["idx"]]
+            terr = gm.territories.get(tid)
+            ttype = troop_types[state["troop_idx"]]
+            amt = 10 if str(key) == "A" else 1
+            if player_guild.soldiers.get(ttype, 0) >= amt:
+                player_guild.soldiers[ttype] -= amt
+                terr.garrison[ttype] = terr.garrison.get(ttype, 0) + amt
+                state["message"] = f"Se movieron {amt} {troop_names[state['troop_idx']]} a la guarnición."
+            else:
+                state["message"] = "No tienes suficientes tropas en la capital."
+        elif key in ["-", "q", "Q"]:
+            tid = player_guild.territories[state["idx"]]
+            terr = gm.territories.get(tid)
+            ttype = troop_types[state["troop_idx"]]
+            amt = 10 if str(key) == "Q" else 1
+            if terr.garrison.get(ttype, 0) >= amt:
+                terr.garrison[ttype] -= amt
+                player_guild.soldiers[ttype] = player_guild.soldiers.get(ttype, 0) + amt
+                state["message"] = f"Se devolvieron {amt} {troop_names[state['troop_idx']]} a la capital."
+            else:
+                state["message"] = "No hay suficientes tropas en la guarnición."
+        elif key == "g":
+            tid = player_guild.territories[state["idx"]]
+            terr = gm.territories.get(tid)
+            # Fetch companions from MainGame implicitly by importing it if needed, or accessing player.companion
+            companions = getattr(player, "companion", [])
+            if not companions:
+                state["message"] = "No tienes compañeros para asignar como gobernadores."
+            else:
+                current_gov = terr.governor_id
+                if current_gov is None:
+                    terr.governor_id = getattr(companions[0], "name", "Compañero 1")
+                else:
+                    idx = next((i for i, c in enumerate(companions) if getattr(c, "name", "") == current_gov), -1)
+                    if idx == len(companions) - 1 or idx == -1:
+                        terr.governor_id = None
+                    else:
+                        terr.governor_id = getattr(companions[idx+1], "name", f"Compañero {idx+2}")
+                
+                if terr.governor_id:
+                    state["message"] = f"Gobernador asignado: {terr.governor_id} (+20% Prod, +25 Def)"
+                else:
+                    state["message"] = "Gobernador retirado."
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
+            kb_thread.start()
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
+                try:
+                    while not state["exit"]:
+                        if state.get("dirty", True):
                             live.update(_render())
                             state["dirty"] = False
                         time.sleep(0.01)

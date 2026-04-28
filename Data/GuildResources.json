@@ -48,6 +48,13 @@
       "rarity": "Legendary",
       "rarity_cap": 25,
       "base_value": 100
+    },
+    "oro": {
+      "name": "Oro de Caravana",
+      "icon": "🪙",
+      "rarity": "Common",
+      "rarity_cap": 99999,
+      "base_value": 1
     }
   }
 }
