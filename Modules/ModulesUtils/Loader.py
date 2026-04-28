@@ -65,22 +65,22 @@ def Read(FilePath, Object, Content=None, Values=None):
             else:
                 console.print(f"[yellow]Warning:[/] {Object} not found in the JSON file: {FilePath}")
                 logger.warning(f"Object {Object} not found in {FilePath}")
-                return []  # Return an empty list for consistency
+                return {}  # Return an empty dict for consistency
                 
     except FileNotFoundError as e:
         console.print(f"[bold red]Error:[/] File '{FilePath}' not found.")
         logger.error(f"File not found: {FilePath} - {str(e)}")
-        return []  # Return an empty list if the file doesn't exist
+        return {}  # Return an empty dict if the file doesn't exist
         
     except json.JSONDecodeError as e:
         console.print(f"[bold red]Error:[/] Failed to decode JSON (Malformed JSON): {e}")
         logger.error(f"JSON decode error in {FilePath}: {str(e)}")
-        return []  # Return an empty list if the JSON is malformed
+        return {}  # Return an empty dict if the JSON is malformed
         
     except Exception as e:
         console.print(f"[bold red]Unexpected Error:[/] {str(e)}")
         logger.error(f"Unexpected error reading {FilePath}: {str(e)}", exc_info=True)
-        return []  # Handle any other unexpected errors
+        return {}  # Handle any other unexpected errors
 
 def _handle_datastats(data, Object, Content):
     """

@@ -511,7 +511,7 @@ def load_all_companions(json_path: str = _DEFAULT_JSON_PATH) -> Dict[str, cCompa
         Dict { companion_id: cCompanion }
     """
     try:
-        from Modules.Loader import Read
+        from Modules.ModulesUtils.Loader import Read
     except ImportError:
         from Loader import Read  # type: ignore
 
@@ -541,7 +541,7 @@ def load_companion_by_id(
         Read(json_path, "COMPANIONS", companion_id)
     """
     try:
-        from Modules.Loader import Read
+        from Modules.ModulesUtils.Loader import Read
     except ImportError:
         from Loader import Read  # type: ignore
 
@@ -623,7 +623,7 @@ def companion_management_menu(
     from rich.panel import Panel
 
     try:
-        from Modules.setup import cWeapon, cEquippableItems
+        from Modules.ModulesUtils.setup import cWeapon, cEquippableItems
     except ImportError:
         from setup import cWeapon, cEquippableItems  # type: ignore
 

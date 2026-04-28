@@ -53,6 +53,12 @@ class ModAPI:
         self.recipe_injections = []
         self.gathering_injections = {}
         
+        # GUILD MODDING — inyecciones en el sistema de Guilds
+        self.guild_skill_injections: Dict[str, dict] = {}   # {skill_id: skill_def}
+        self.guild_event_injections: list = []              # list of event_pool dicts
+        self.guild_tick_handlers: List[Callable] = []       # fn(guild_manager) llamadas cada tick
+        self.weather_injections: List[dict] = []            # list of weather dicts
+        
         # NUEVO: Almacenar datos crudos de JSONs de mods
         self.mod_data_files = {}  # {mod_name: json_data}
     
@@ -166,6 +172,28 @@ class ModAPI:
             for skill_key, params in mod_data["gathering"].items():
                 self.gathering_injections[skill_key] = params
                 logger.info(f"[{mod_name}] Gathering config auto-inyectada: {skill_key}")
+        
+        # GUILD: Inyectar habilidades del árbol
+        if "guild_skills" in mod_data:
+            for skill_id, skill_def in mod_data["guild_skills"].items():
+                self.guild_skill_injections[skill_id] = skill_def
+                logger.info(f"[{mod_name}] Guild skill inyectada: {skill_id}")
+            # Aplicar inmediatamente al árbol en memoria
+            self._apply_guild_skills()
+        
+        # GUILD: Inyectar eventos en el pool de la IA
+        if "guild_events" in mod_data:
+            for ev in mod_data["guild_events"]:
+                self.guild_event_injections.append(ev)
+                logger.info(f"[{mod_name}] Guild event inyectado: {ev.get('event_id', '?')}")
+            self._apply_guild_events()
+
+        # Inyectar climas
+        if "weathers" in mod_data:
+            for w_data in mod_data["weathers"]:
+                self.weather_injections.append(w_data)
+                logger.info(f"[{mod_name}] Clima auto-inyectado: {w_data.get('id', '?')}")
+            self._apply_weathers()
     
     # =========================================================================
     # REGISTRO DE ITEMS (mantenido para compatibilidad)
@@ -282,6 +310,103 @@ class ModAPI:
         }
         logger.info(f"Comando registrado: {command_name}")
 
+    # =========================================================================
+    # GUILD MODDING API
+    # =========================================================================
+    
+    def register_guild_skill(self, skill_id: str, skill_def: dict):
+        """
+        Registra una nueva habilidad en el árbol de habilidades de Guild.
+        El dict debe seguir el esquema de GUILD_SKILL_TREE.
+        Ejemplo mínimo::
+            {
+              "id": "my_skill",
+              "name": "Mi Habilidad",
+              "branch": "Militar",   # 'Militar', 'Economía' o 'Diplomacia'
+              "icon": "🔥",
+              "description": "Descripción.",
+              "cost": 2,
+              "requires": [],
+              "effect": {"military_power_bonus": 0.1}
+            }
+        """
+        self.guild_skill_injections[skill_id] = skill_def
+        self._apply_guild_skills()
+        logger.info(f"Guild skill registrada: {skill_id}")
+    
+    def register_guild_event(self, event_def: dict):
+        """
+        Añade un nuevo evento al pool aleatorio de eventos de Guild.
+        El dict debe incluir: event_id, title, desc_tmpl, options.
+        """
+        self.guild_event_injections.append(event_def)
+        self._apply_guild_events()
+        logger.info(f"Guild event registrado: {event_def.get('event_id', '?')}")
+    
+    def register_guild_tick_handler(self, handler_func: Callable):
+        """
+        Registra una función que se llamará en cada tick de simulación de guilds.
+        La función recibe (guild_manager) como argumento.
+        """
+        self.guild_tick_handlers.append(handler_func)
+        logger.info(f"Guild tick handler registrado: {handler_func.__name__}")
+
+    def _apply_guild_skills(self):
+        """Inyecta las guild_skill_injections en el árbol en memoria."""
+        try:
+            from Modules.ModulesFunctions.GuildSkillTree import GUILD_SKILL_TREE, BRANCH_ORDER
+            for skill_id, skill_def in self.guild_skill_injections.items():
+                GUILD_SKILL_TREE[skill_id] = skill_def
+                branch = skill_def.get("branch", "Militar")
+                if branch in BRANCH_ORDER and skill_id not in BRANCH_ORDER[branch]:
+                    BRANCH_ORDER[branch].append(skill_id)
+            logger.info(f"{len(self.guild_skill_injections)} guild skills inyectadas en el árbol.")
+        except Exception as e:
+            logger.warning(f"No se pudo inyectar guild skills: {e}")
+    
+    def _apply_guild_events(self):
+        """Inyecta los guild_event_injections en el pool de eventos de GuildSystem."""
+        try:
+            import Modules.ModulesFunctions.GuildSystem as gs
+            for ev in self.guild_event_injections:
+                if not any(e.get("event_id") == ev.get("event_id") for e in gs.GUILD_EVENTS_POOL):
+                    gs.GUILD_EVENTS_POOL.append(ev)
+            logger.info(f"{len(self.guild_event_injections)} guild events inyectados al pool.")
+        except Exception as e:
+            logger.warning(f"No se pudo inyectar guild events: {e}")
+    
+    def fire_guild_tick_handlers(self, guild_manager):
+        """Llama a todos los tick handlers registrados por mods."""
+        for handler in self.guild_tick_handlers:
+            try:
+                handler(guild_manager)
+            except Exception as e:
+                logger.error(f"Error en guild tick handler {handler.__name__}: {e}")
+
+    # =========================================================================
+    # WEATHER MODDING API
+    # =========================================================================
+
+    def register_weather(self, weather_data: dict):
+        """
+        Registra un nuevo clima.
+        El dict debe incluir: id, name, icon, description, player_enemy_mods, guild_mods, probability.
+        """
+        self.weather_injections.append(weather_data)
+        self._apply_weathers()
+        logger.info(f"Clima registrado: {weather_data.get('id', '?')}")
+
+    def _apply_weathers(self):
+        """Inyecta los climas en WeatherManager."""
+        try:
+            from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
+            wm = get_weather_manager()
+            for w in self.weather_injections:
+                wm.register_weather(w)
+            logger.info(f"{len(self.weather_injections)} climas inyectados en WeatherManager.")
+        except Exception as e:
+            logger.warning(f"No se pudo inyectar climas: {e}")
+
     def register_building(self, building_id: str, building_data: Dict):
         """
         Registra un edificio personalizado desde un mod.
@@ -330,7 +455,7 @@ class ModAPI:
     def integrate_with_enchantment_system(self):
         """Integra encantamientos interactuando con EnchantmentSystem"""
         try:
-            from Modules.EnchantmentSystem import register_enchantment, load_enchantment_from_json
+            from Modules.ModulesFunctions.EnchantmentSystem import register_enchantment, load_enchantment_from_json
             count = 0
             for ench_key, ench_data in self.enchantment_injections.items():
                 ench_instance = load_enchantment_from_json(ench_data)
@@ -344,7 +469,7 @@ class ModAPI:
             
     def integrate_with_quest_manager(self, quest_manager):
         """Integra quests de mods con QuestManager"""
-        from Modules.QuestSystem import cQuest
+        from Modules.ModulesFunctions.QuestSystem import cQuest
         count = 0
         for quest_id, quest_data in self.quest_injections.items():
             if quest_id not in quest_manager.quests:
@@ -357,7 +482,7 @@ class ModAPI:
 
     def integrate_with_crafting_system(self, crafting_system):
         """Integra recetas de mods con CraftingSystem"""
-        from Modules.CraftingSystem import cRecipe
+        from Modules.ModulesFunctions.CraftingSystem import cRecipe
         count = 0
         for r_data in self.recipe_injections:
             crafting_system.recipes.append(cRecipe(r_data))
@@ -401,7 +526,7 @@ class ModAPI:
         for building_id, building_data in self.registered_buildings.items():
             if building_id not in base_manager.buildings:
                 try:
-                    from Modules.BaseSystem import Building
+                    from Modules.ModulesFunctions.BaseSystem import Building
                     base_manager.buildings[building_id] = Building(building_id, building_data)
                     logger.info(f"Edificio de mod inyectado en BaseManager: {building_id}")
                     count += 1
@@ -434,7 +559,7 @@ class ModLoader:
     """Cargador de mods con sistema de archivos por mod"""
     
     def __init__(self, mods_directory="mods"):
-        base_dir = Path(__file__).resolve().parent.parent
+        base_dir = Path(__file__).resolve().parent.parent.parent
         self.mods_directory = (base_dir / mods_directory) if not Path(mods_directory).is_absolute() else Path(mods_directory)
         self.loaded_mods = {}
         self.mod_api = ModAPI()

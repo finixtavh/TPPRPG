@@ -145,7 +145,7 @@ class ItemManager:
             elif item_type == "Material":
                 if cMaterial is None:
                     # Intentar importar si no se pasó
-                    from Modules.GatheringMasterySystem import cMaterial
+                    from Modules.ModulesFunctions.GatheringMasterySystem import cMaterial
                 return self._create_material(item_data, cMaterial)
 
             else:

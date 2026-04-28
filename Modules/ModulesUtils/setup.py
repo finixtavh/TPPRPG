@@ -1,6 +1,6 @@
 from rich.console import Console
 from rich.theme import Theme
-from Modules.Loader import Write, Read
+from Modules.ModulesUtils.Loader import Write, Read
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 from rich.panel import Panel
@@ -10,12 +10,12 @@ import random
 import time as sp
 
 try:
-    from Modules.WeatherSystem import apply_weather_combat_mods
+    from Modules.ModulesFunctions.WeatherSystem import apply_weather_combat_mods
 except ImportError:
     # Fallback in case WeatherSystem is not available yet
     def apply_weather_combat_mods(base_val: float, mod_key: str) -> float:
         return base_val
-from Modules.input_utils import wait_for_enter
+from Modules.ModulesUtils.input_utils import wait_for_enter
 
 ##################      First Variables
 player = None
@@ -333,7 +333,7 @@ class cPlayer:
         self.level_up()
 
     def Points(self):
-        from Modules.SkillTreeSystem import skill_tree_manager
+        from Modules.ModulesFunctions.SkillTreeSystem import skill_tree_manager
         skill_tree_manager.open_menu(self)
 
 class cEnemy:

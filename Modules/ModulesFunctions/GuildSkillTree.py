@@ -77,6 +77,26 @@ GUILD_SKILL_TREE: Dict[str, dict] = {
         "requires":    ["mil_assault"],
         "effect":      {"territory_defense_bonus": 50},
     },
+    "mil_siege_mastery": {
+        "id":          "mil_siege_mastery",
+        "name":        "Maestría de Asedio",
+        "branch":      "Militar",
+        "icon":        "🪨",
+        "description": "Reduce en -4 el coste en Madera al atacar territorios. El asedio es implacable.",
+        "cost":        4,
+        "requires":    ["mil_fortress"],
+        "effect":      {"attack_wood_cost_reduction": 4},
+    },
+    "mil_conscription": {
+        "id":          "mil_conscription",
+        "name":        "Leva Masiva",
+        "branch":      "Militar",
+        "icon":        "📣",
+        "description": "+2% crecimiento de población por tick. La guerra necesita más soldados.",
+        "cost":        3,
+        "requires":    ["mil_professional"],
+        "effect":      {"population_growth_bonus": 0.02},
+    },
 
     # ── RAMA ECONOMÍA ────────────────────────────────────────────────────────
     "eco_logistics": {
@@ -139,6 +159,26 @@ GUILD_SKILL_TREE: Dict[str, dict] = {
         "requires":    ["eco_granaries"],
         "effect":      {"population_growth_bonus": 0.01},
     },
+    "eco_caravans": {
+        "id":          "eco_caravans",
+        "name":        "Rutas de la Seda",
+        "branch":      "Economía",
+        "icon":        "🐪",
+        "description": "Las caravanas generan +100% de Oro por territorio controlado.",
+        "cost":        4,
+        "requires":    ["eco_trade"],
+        "effect":      {"caravan_gold_bonus": 1.0},
+    },
+    "eco_industry": {
+        "id":          "eco_industry",
+        "name":        "Revolución Industrial",
+        "branch":      "Economía",
+        "icon":        "⚙️",
+        "description": "+30% producción de Hierro y Piedra por tick. La maquinaria no descansa.",
+        "cost":        4,
+        "requires":    ["eco_hegemony"],
+        "effect":      {"industrial_bonus": 0.30},
+    },
 
     # ── RAMA DIPLOMACIA ───────────────────────────────────────────────────────
     "dip_ambassador": {
@@ -181,12 +221,32 @@ GUILD_SKILL_TREE: Dict[str, dict] = {
         "requires":    ["dip_espionage"],
         "effect":      {"peace_treaty_unlocked": True},
     },
+    "dip_pact": {
+        "id":          "dip_pact",
+        "name":        "Pactos de Sangre",
+        "branch":      "Diplomacia",
+        "icon":        "📜",
+        "description": "Las alianzas ceden +10 puntos de relación bonus. Los pactos son permanentes.",
+        "cost":        4,
+        "requires":    ["dip_alliances"],
+        "effect":      {"alliance_relation_bonus": 10},
+    },
+    "dip_shadows": {
+        "id":          "dip_shadows",
+        "name":        "Sombras Alargadas",
+        "branch":      "Diplomacia",
+        "icon":        "🌑",
+        "description": "+50% efectividad en Sabotaje. Los enemigos nunca te ven venir.",
+        "cost":        4,
+        "requires":    ["dip_espionage"],
+        "effect":      {"sabotage_bonus": 0.50},
+    },
 }
 
 BRANCH_ORDER = {
-    "Militar":    ["mil_tactics", "mil_vanguard", "mil_logistics", "mil_assault", "mil_fortress", "mil_professional"],
-    "Economía":   ["eco_logistics", "eco_storage", "eco_granaries", "eco_population", "eco_trade", "eco_hegemony"],
-    "Diplomacia": ["dip_ambassador", "dip_alliances", "dip_espionage", "dip_hegemony"],
+    "Militar":    ["mil_tactics", "mil_vanguard", "mil_logistics", "mil_assault", "mil_fortress", "mil_professional", "mil_siege_mastery", "mil_conscription"],
+    "Economía":   ["eco_logistics", "eco_storage", "eco_granaries", "eco_population", "eco_trade", "eco_hegemony", "eco_caravans", "eco_industry"],
+    "Diplomacia": ["dip_ambassador", "dip_alliances", "dip_pact", "dip_espionage", "dip_shadows", "dip_hegemony"],
 }
 
 BRANCH_ICONS = {
@@ -285,7 +345,7 @@ def open_guild_skill_tree(guild, console=None):
     if console is None:
         console = console_gs
 
-    from Modules.input_utils import keyboard_listener_scope
+    from Modules.ModulesUtils.input_utils import keyboard_listener_scope
 
     branches = list(BRANCH_ORDER.keys())
     state = {
@@ -408,7 +468,7 @@ def open_guild_skill_tree(guild, console=None):
             state["exit"] = True
 
     with console.screen():
-        from Modules.input_utils import keyboard_listener_scope
+        from Modules.ModulesUtils.input_utils import keyboard_listener_scope
         with keyboard_listener_scope():
             kb_thread = threading.Thread(
                 target=listen_keyboard,

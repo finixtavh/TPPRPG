@@ -1,5 +1,5 @@
 from typing import Dict, List, Tuple
-from Modules.Loader import Read
+from Modules.ModulesUtils.Loader import Read
 
 
 class ZoneManager:
@@ -71,7 +71,7 @@ class ZoneManager:
         zones = {}
         
         try:
-            from Modules.ModLoader import get_mod_api
+            from Modules.ModulesUtils.ModLoader import get_mod_api
             mod_api = get_mod_api()
             
             # Obtener zonas inyectadas por mods desde stats_injections

@@ -114,7 +114,7 @@ class QuestManager:
                 self.active_quests[qid] = self.quests[qid]
 
     def open_quest_board(self, player, vInventory):
-        from Modules.input_utils import interactive_menu_select
+        from Modules.ModulesUtils.input_utils import interactive_menu_select
         
         while True:
             console.clear()

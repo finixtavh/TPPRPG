@@ -1,4 +1,4 @@
-from Modules.input_utils import wait_for_enter, interactive_menu_select
+from Modules.ModulesUtils.input_utils import wait_for_enter, interactive_menu_select
 
 class EquipmentManager:
     """
@@ -133,7 +133,7 @@ class EquipmentManager:
             True si se equipó correctamente, False en caso contrario
         """
         # Manejo especial para herramientas (cTool)
-        from Modules.GatheringMasterySystem import cTool
+        from Modules.ModulesFunctions.GatheringMasterySystem import cTool
         if isinstance(item, cTool):
             current_tool = getattr(player, "tool", None)
             if current_tool is not None:
@@ -148,7 +148,7 @@ class EquipmentManager:
             return True
 
         # Manejo especial para armas (cWeapon, que no tiene objectcheck)
-        from Modules.setup import cWeapon
+        from Modules.ModulesUtils.setup import cWeapon
         if isinstance(item, cWeapon):
             current_weapon = getattr(player, "weapon", None)
             if current_weapon is not None:
@@ -377,8 +377,8 @@ def equip_menu(player, inventory):
 
         if choice == 1:
             # Mostrar items equipables del inventario
-            from Modules.GatheringMasterySystem import cTool
-            from Modules.setup import cWeapon
+            from Modules.ModulesFunctions.GatheringMasterySystem import cTool
+            from Modules.ModulesUtils.setup import cWeapon
             equipable_items = [
                 item for item in inventory.lObjectsInventory
                 if hasattr(item, 'objectcheck') or isinstance(item, (cTool, cWeapon))

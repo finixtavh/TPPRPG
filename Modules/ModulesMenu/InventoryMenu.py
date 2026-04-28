@@ -25,7 +25,7 @@ from rich.live import Live
 from rich.rule import Rule
 from sshkeyboard import listen_keyboard, stop_listening
 
-from Modules.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope
 
 # ──────────────────────────────────────────────
 #  Paleta / constantes visuales
@@ -307,7 +307,7 @@ def _render_item_detail(slot, player=None) -> Panel:
     # ── Encantamientos (para Armas, Equipo y Herramientas) ──
     if itype in ("cWeapon", "cEquippableItems", "cTool"):
         try:
-            from Modules.EnchantmentSystem import (
+            from Modules.ModulesFunctions.EnchantmentSystem import (
                 get_item_enchants, format_enchant_display,
                 ENCHANTMENTS_CATALOG, MAX_ENCHANT_SLOTS
             )
@@ -472,7 +472,7 @@ def _show_item_info_screen(item, console: Console, player=None):
     # ── Encantamientos (universal para armas, equipo y herramientas) ──
     if itype in ("cWeapon", "cEquippableItems", "cTool"):
         try:
-            from Modules.EnchantmentSystem import (
+            from Modules.ModulesFunctions.EnchantmentSystem import (
                 get_item_enchants, format_enchant_display,
                 ENCHANTMENTS_CATALOG, MAX_ENCHANT_SLOTS
             )
@@ -537,7 +537,7 @@ def open_inventory_menu(
     # ── fallback equip ──
     if on_equip is None:
         try:
-            from Modules.EquipmentSystem import EquipmentManager
+            from Modules.ModulesFunctions.EquipmentSystem import EquipmentManager
             on_equip = lambda p, i, inv: EquipmentManager.equip_item(p, i, inv)
         except ImportError:
             on_equip = lambda p, i, inv: False

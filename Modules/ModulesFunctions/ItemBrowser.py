@@ -13,10 +13,10 @@ from rich.rule import Rule
 from rich import box
 from sshkeyboard import listen_keyboard, stop_listening
 
-from Modules.input_utils import keyboard_listener_scope
-from Modules.ItemManager import get_item_manager
-from Modules.setup import cWeapon, cEquippableItems, cObject
-from Modules.GatheringMasterySystem import cMaterial, cTool  
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope
+from Modules.ModulesManager.ItemManager import get_item_manager
+from Modules.ModulesUtils.setup import cWeapon, cEquippableItems, cObject
+from Modules.ModulesFunctions.GatheringMasterySystem import cMaterial, cTool  
 
 console = Console()
 

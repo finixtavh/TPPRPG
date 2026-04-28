@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 def _get_guild_config():
-    cfg_path = Path(__file__).parent.parent / "config.json"
+    cfg_path = Path(__file__).parent.parent.parent / "config.json"
     try:
         with open(cfg_path, "r", encoding="utf-8") as f:
             return json.load(f).get("GUILDS_PARAMS", {})
@@ -17,7 +17,7 @@ def _get_guild_config():
         return {}
 
 try:
-    from Modules.WeatherSystem import apply_weather_combat_mods
+    from Modules.ModulesFunctions.WeatherSystem import apply_weather_combat_mods
 except ImportError:
     def apply_weather_combat_mods(base_val: float, mod_key: str) -> float:
         return base_val
@@ -549,6 +549,14 @@ class GuildManager:
         self.world_events.extend(events)
         if len(self.world_events) > 60:
             self.world_events = self.world_events[-60:]
+        
+        # Ejecutar tick handlers de mods
+        try:
+            from Modules.ModulesUtils.ModLoader import get_mod_api
+            get_mod_api().fire_guild_tick_handlers(self)
+        except Exception:
+            pass
+        
         return events
 
     def _process_territories(self, guild: Guild, events: List[str]):
@@ -758,7 +766,7 @@ class GuildManager:
 
     def _ai_spend_skill_point(self, guild: Guild):
         try:
-            from Modules.GuildSkillTree import BRANCH_ORDER, can_unlock, unlock_skill
+            from Modules.ModulesFunctions.GuildSkillTree import BRANCH_ORDER, can_unlock, unlock_skill
             prefs = self.guild_type_defs.get(guild.guild_type, {}).get(
                 "skill_branch_pref", ["Militar", "Economía", "Diplomacia"])
             for branch in prefs:

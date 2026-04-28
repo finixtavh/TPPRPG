@@ -110,7 +110,7 @@ class SkillTreeManager:
                 setattr(player, stat, actual + value)
 
     def open_menu(self, player):
-        from Modules.input_utils import interactive_menu_select
+        from Modules.ModulesUtils.input_utils import interactive_menu_select
         
         # Asegurarse que el tracking exista (retrocompatibilidad a dict)
         if hasattr(player, "skills_purchased") and isinstance(player.skills_purchased, list):

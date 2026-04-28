@@ -401,7 +401,7 @@ def format_enchant_display(entry: Dict[str, Any], catalog: Dict) -> str:
 def open_enchantment_menu(player, vInventory):
     from rich.console import Console
     from rich.panel import Panel
-    from Modules.input_utils import interactive_menu_select
+    from Modules.ModulesUtils.input_utils import interactive_menu_select
     import time
     
     console = Console()
@@ -411,9 +411,9 @@ def open_enchantment_menu(player, vInventory):
         console.print(Panel("[magenta]✦ Mesa de Encantamientos ✦[/]", style="bold blue", subtitle=f"Oro Disponible: {int(player.Gold)}g"))
         
         # Recolectar objetos encantables: slots equipados + inventario
-        from Modules.setup import cWeapon, cEquippableItems
+        from Modules.ModulesUtils.setup import cWeapon, cEquippableItems
         try:
-            from Modules.GatheringMasterySystem import cTool
+            from Modules.ModulesFunctions.GatheringMasterySystem import cTool
             has_tool_class = True
         except Exception:
             has_tool_class = False

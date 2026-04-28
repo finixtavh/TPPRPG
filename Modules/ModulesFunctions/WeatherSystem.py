@@ -101,6 +101,22 @@ class WeatherManager:
         self.check_and_update_weather()
         return self.current_weather
 
+    def register_weather(self, weather_data: Dict[str, Any]):
+        """Registra un nuevo tipo de clima."""
+        id_name = weather_data.get("id")
+        if not id_name:
+            return
+        
+        self.weathers[id_name] = WeatherType(
+            id_name=id_name,
+            name=weather_data.get("name", id_name),
+            icon=weather_data.get("icon", "❓"),
+            description=weather_data.get("description", ""),
+            player_enemy_mods=weather_data.get("player_enemy_mods", {}),
+            guild_mods=weather_data.get("guild_mods", {}),
+            probability=weather_data.get("probability", 10)
+        )
+
 def get_weather_manager() -> WeatherManager:
     return WeatherManager()
 

@@ -29,8 +29,8 @@ from rich.live import Live
 from rich import box
 from sshkeyboard import listen_keyboard, stop_listening
 
-from Modules.GuildSystem import Guild, GuildManager, get_guild_manager
-from Modules.GuildSkillTree import get_effective_mission_slots
+from Modules.ModulesFunctions.GuildSystem import Guild, GuildManager, get_guild_manager
+from Modules.ModulesFunctions.GuildSkillTree import get_effective_mission_slots
 
 console_gm = Console()
 
@@ -339,7 +339,7 @@ def open_guild_missions_menu(guild: Guild, player, guild_manager: GuildManager, 
     if console is None:
         console = console_gm
 
-    from Modules.input_utils import keyboard_listener_scope
+    from Modules.ModulesUtils.input_utils import keyboard_listener_scope
 
     # Generar misiones disponibles
     available_missions = generate_missions_for_guild(guild, guild_manager)

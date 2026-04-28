@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, List
 from pathlib import Path
 
-from Modules.Loader import Read
+from Modules.ModulesUtils.Loader import Read
 
 from rich.console import Console
 from rich.live import Live
@@ -15,7 +15,7 @@ from rich.panel import Panel
 from rich import box
 from sshkeyboard import listen_keyboard, stop_listening
 
-from Modules.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope
 
 class cSkill:
     BONUS_EFFICIENCY: float = 0.05   # +5% de eficiencia de recolección por nivel
@@ -74,7 +74,7 @@ class cSkill:
         return (self.current_level - 1) * self.BONUS_XP_FACTOR * 100
 
 class cFarm:
-    ruta = Path(__file__).parent.parent / "config.json"
+    ruta = Path(__file__).parent.parent.parent / "config.json"
 
     ZONE_BONUS = Read(ruta, "GATHERING_MINIGAME_PARAMS").get("ZONE_BONUS")
     TICK_INTERVAL = Read(ruta, "GATHERING_MINIGAME_PARAMS").get("TICK_INTERVAL")

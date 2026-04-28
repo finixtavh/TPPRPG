@@ -104,7 +104,7 @@ from pathlib import Path
 from typing import Optional
 
 def _get_guild_config():
-    cfg_path = Path(__file__).parent.parent / "config.json"
+    cfg_path = Path(__file__).parent.parent.parent / "config.json"
     try:
         with open(cfg_path, "r", encoding="utf-8") as f:
             return json.load(f).get("GUILDS_PARAMS", {})
@@ -120,10 +120,10 @@ from rich.live import Live
 from rich import box
 from sshkeyboard import listen_keyboard, stop_listening
 
-from Modules.GuildSystem import Guild, GuildManager, get_guild_manager, reset_guild_manager, SIMULATION_INTERVAL
-from Modules.GuildSkillTree import open_guild_skill_tree, BRANCH_ICONS
-from Modules.GuildMissions import open_guild_missions_menu
-from Modules.input_utils import keyboard_listener_scope
+from Modules.ModulesFunctions.GuildSystem import Guild, GuildManager, get_guild_manager, reset_guild_manager, SIMULATION_INTERVAL
+from Modules.ModulesFunctions.GuildSkillTree import open_guild_skill_tree, BRANCH_ICONS
+from Modules.ModulesFunctions.GuildMissions import open_guild_missions_menu
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope
 
 console = Console()
 
@@ -477,11 +477,30 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
         "idx":       0,
         "exit":      False,
         "confirm_war": None,
-        "message":   "↑↓: Navegar | [ENTER]: Atacar | [ESC]: Volver",
+        "page":      0,
+        "message":   "↑↓←→: Navegar | [ENTER]: Atacar | [ESC]: Volver",
         "msg_style": "dim",
     }
 
     def _render():
+        # Calcula cuántas filas caben en la terminal (max 10)
+        try:
+            term_h = os.get_terminal_size().lines
+        except OSError:
+            term_h = 40
+        # ~11 líneas de overhead (título, header tabla, detalle, footer, bordes)
+        overhead = 11
+        items_per_page = max(3, min(10, term_h - overhead))
+
+        total = len(all_territories)
+        total_pages = max(1, (total + items_per_page - 1) // items_per_page)
+
+        # La página se sincroniza automáticamente al índice seleccionado
+        page = state["idx"] // items_per_page
+        start = page * items_per_page
+        end   = min(start + items_per_page, total)
+        visible = all_territories[start:end]
+
         t = Table(show_header=True, box=box.SIMPLE, expand=True)
         t.add_column("",            width=3)
         t.add_column("Territorio",  ratio=2)
@@ -490,10 +509,10 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
         t.add_column("Dif",         width=5)
         t.add_column("Estado",      width=12)
 
-        for i, terr in enumerate(all_territories):
-            sel   = i == state["idx"]
+        for terr in visible:
+            real_i = all_territories.index(terr)
+            sel    = real_i == state["idx"]
             prio, status, s_color, owner_str = get_terr_status_and_priority(terr)
-
             res_str = " ".join(
                 f"{gm.resource_defs.get(rid,{}).get('icon','?')}{amt}"
                 for rid, amt in list(terr.resource_output.items())[:3]
@@ -510,25 +529,27 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
 
         # Detalle del seleccionado
         if all_territories:
-            terr  = all_territories[state["idx"]]
+            terr   = all_territories[state["idx"]]
             is_own = terr.owner == player_guild.guild_id
             detail = Text()
             detail.append(f"\n  {terr.icon} {terr.name} — {terr.description}\n", style="bold cyan")
             if not is_own:
                 cost_xar = terr.difficulty * 8
                 cost_mad = terr.difficulty * 5
+                if "mil_siege_mastery" in player_guild.unlocked_skills:
+                    cost_mad = max(0, cost_mad - 4)
                 detail.append(f"  Coste de ataque: ⚡{cost_xar} Lingote de Xar + 🪵{cost_mad} Madera\n", style="yellow")
                 detail.append(f"  Poder militar tu guild: {player_guild.military_power}  |  Defensa: {terr.defense_value}\n", style="dim")
                 detail.append("  [ENTER] Atacar\n", style="bold bright_cyan")
             else:
                 detail.append("  Ya controlas este territorio.\n", style="dim")
-
         else:
             detail = Text("Sin territorios disponibles.", style="dim")
 
+        page_hint = Text(f"  Pág. {page+1}/{total_pages} — {total} territorios totales", style="dim")
         footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
         return Panel(
-            Group(t, Rule(style="dim"), detail, footer),
+            Group(t, Rule(style="dim"), detail, page_hint, footer),
             title="[bold green]🗺 TERRITORIOS — ATACAR / DEFENDER[/]",
             border_style="green",
         )
@@ -542,6 +563,27 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
             state["idx"] = max(0, state["idx"] - 1)
         elif key == "down":
             state["idx"] = min(len(all_territories) - 1, state["idx"] + 1)
+        elif key == "left" or key == "right":
+            # Calcular items_per_page para el salto de página
+            try:
+                term_h = os.get_terminal_size().lines
+            except OSError:
+                term_h = 40
+            overhead = 11
+            items_per_page = max(3, min(10, term_h - overhead))
+            
+            if key == "left":
+                new_idx = state["idx"] - items_per_page
+                if new_idx < 0:
+                    state["idx"] = len(all_territories) - 1
+                else:
+                    state["idx"] = new_idx
+            else:
+                new_idx = state["idx"] + items_per_page
+                if new_idx >= len(all_territories):
+                    state["idx"] = 0
+                else:
+                    state["idx"] = new_idx
         elif key == "enter" and all_territories:
             terr  = all_territories[state["idx"]]
             is_own = terr.owner == player_guild.guild_id

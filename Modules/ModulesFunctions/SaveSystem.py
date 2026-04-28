@@ -4,14 +4,14 @@ import json
 import time
 from typing import Optional, Dict, Any
 
-from Modules.Loader import Read
-from Modules.GatheringMasterySystem import cTool, cMaterial
-from Modules.setup import cObject
-from Modules.setup import cWeapon, cEquippableItems
-from Modules.CompanionSystem import load_companion_by_id
-from Modules.MasterySystem import MasteryManager
-from Modules.BaseSystem import BaseManager
-from Modules.QuestSystem import quest_manager
+from Modules.ModulesUtils.Loader import Read
+from Modules.ModulesFunctions.GatheringMasterySystem import cTool, cMaterial
+from Modules.ModulesUtils.setup import cObject
+from Modules.ModulesUtils.setup import cWeapon, cEquippableItems
+from Modules.ModulesFunctions.CompanionSystem import load_companion_by_id
+from Modules.ModulesFunctions.MasterySystem import MasteryManager
+from Modules.ModulesFunctions.BaseSystem import BaseManager
+from Modules.ModulesFunctions.QuestSystem import quest_manager
 
 _SAVE_DIR = os.path.join("Data", "Saves")
 _SLOT_PATHS = {
@@ -95,7 +95,7 @@ def _serialize_base(player) -> dict:
 def _serialize_gathering() -> dict:
     """Serializa los niveles de gathering skills del Gathering_init global."""
     try:
-        from Modules.GatheringMasterySystem import Gathering_init
+        from Modules.ModulesFunctions.GatheringMasterySystem import Gathering_init
         result = {}
         for skill_key, skill_obj in Gathering_init.gathering.items():
             result[skill_key] = {
@@ -111,7 +111,7 @@ def _serialize_gathering() -> dict:
 def _serialize_guild_system() -> dict:
     """Serializa el estado completo del GuildManager."""
     try:
-        from Modules.GuildSystem import get_guild_manager
+        from Modules.ModulesFunctions.GuildSystem import get_guild_manager
         return get_guild_manager().to_dict()
     except Exception:
         return {}
@@ -120,7 +120,7 @@ def _serialize_guild_system() -> dict:
 def _restore_guild_system(data: dict, player) -> None:
     """Restaura el GuildManager desde el guardado y sincroniza con el jugador."""
     try:
-        from Modules.GuildSystem import get_guild_manager, reset_guild_manager
+        from Modules.ModulesFunctions.GuildSystem import get_guild_manager, reset_guild_manager
         if not data:
             return
         gm = reset_guild_manager()
@@ -278,10 +278,10 @@ def _restore_player(player, pdata: dict):
 
 def _restore_equipment(player, equip_data: dict, item_manager):
     """Restaura el equipamiento del jugador por ID."""
-    from Modules.setup import cWeapon, cEquippableItems
+    from Modules.ModulesUtils.setup import cWeapon, cEquippableItems
     try:
-        from Modules.GatheringMasterySystem import cTool
-        from Modules.setup import cObject
+        from Modules.ModulesFunctions.GatheringMasterySystem import cTool
+        from Modules.ModulesUtils.setup import cObject
     except ImportError:
         cTool = None
         cObject = None
@@ -385,7 +385,7 @@ def _restore_gathering(gathering_data: dict):
     if not gathering_data:
         return
     try:
-        from Modules.GatheringMasterySystem import Gathering_init
+        from Modules.ModulesFunctions.GatheringMasterySystem import Gathering_init
         for skill_key, sdata in gathering_data.items():
             if skill_key in Gathering_init.gathering:
                 skill_obj = Gathering_init.gathering[skill_key]

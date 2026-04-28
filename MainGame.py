@@ -26,34 +26,35 @@ def _safe_stdout_write(text):
 sys.stdout.write = _safe_stdout_write
 # -----------------------------------------------------------------------------
 # Modules/
-from Modules.Loader import Write, Read
-from Modules.ModLoader import get_mod_loader, get_mod_api
-from Modules.ItemManager import get_item_manager, load_item_by_id
-from Modules.ShopManager import get_shop_manager, display_shop
-from Modules.GatheringMasterySystem import cTool, cMaterial, Gathering_init
-from Modules.EnchantmentSystem import open_enchantment_menu
-from Modules.MasterySystem import ensure_mastery, MASTERY_MAX_LEVEL
-from Modules.input_utils import wait_for_enter, interactive_menu_select, keyboard_listener_scope
-from Modules.InventoryMenu import open_inventory_menu
-from Modules.SaveSystem import save_load_menu, get_slot_info
-from Modules.ZoneManager import get_all_zones, get_zones_for_selector
-from Modules.BuffManager import get_buff_manager
-from Modules.CraftingSystem import open_crafting_menu
-from Modules.GuildMenu import open_guild_menu
-from Modules.GuildSystem import get_guild_manager, SIMULATION_INTERVAL
-from Modules.QuestSystem import quest_manager
-from Modules.BaseSystem import BaseManager, open_base_menu
-from Modules.CompanionSystem import (
+from Modules.ModulesUtils.Loader import Write, Read
+from Modules.ModulesUtils.ModLoader import get_mod_loader, get_mod_api
+from Modules.ModulesManager.ItemManager import get_item_manager, load_item_by_id
+from Modules.ModulesManager.ShopManager import get_shop_manager, display_shop
+from Modules.ModulesFunctions.GatheringMasterySystem import cTool, cMaterial, Gathering_init
+from Modules.ModulesFunctions.EnchantmentSystem import open_enchantment_menu
+from Modules.ModulesFunctions.MasterySystem import ensure_mastery, MASTERY_MAX_LEVEL
+from Modules.ModulesUtils.input_utils import wait_for_enter, interactive_menu_select, keyboard_listener_scope
+from Modules.ModulesMenu.InventoryMenu import open_inventory_menu
+from Modules.ModulesFunctions.SaveSystem import save_load_menu, get_slot_info
+from Modules.ModulesManager.ZoneManager import get_all_zones, get_zones_for_selector
+from Modules.ModulesManager.BuffManager import get_buff_manager
+from Modules.ModulesFunctions.CraftingSystem import open_crafting_menu
+from Modules.ModulesMenu.GuildMenu import open_guild_menu
+from Modules.ModulesFunctions.GuildSystem import get_guild_manager, SIMULATION_INTERVAL
+from Modules.ModulesFunctions.QuestSystem import quest_manager
+from Modules.ModulesFunctions.BaseSystem import BaseManager, open_base_menu
+from Modules.ModulesFunctions.CompanionSystem import (
     cCompanion,
     companion_management_menu,
     COMPANION_REVIVAL_GOLD_COST,)
-from Modules.debug import (
+from Modules.ModulesUtils.debug import (
     setup_logging,
     attach_console_logging,
     install_exception_hooks,
     log_imported_modules,
     dump_debug_snapshot,)
-from Modules.setup import (
+from Modules.ModulesUtils.setup import (
+    cPlayer,
     cEnemy,
     cWeapon,
     cEquippableItems,
@@ -256,7 +257,7 @@ def display_player_status() -> None:
     header.add_column(justify="right")
 
     try:
-        from Modules.WeatherSystem import get_weather_manager
+        from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
         w = get_weather_manager().get_current_weather()
         weather_text = f"   [bold]Clima:[/bold] {w.icon} {w.name}"
     except ImportError:
@@ -302,7 +303,7 @@ def display_player_status() -> None:
     console.print(panel)
 
 
-player = setup_player()
+player = None
 
 
 def create_status_bar(
@@ -393,7 +394,7 @@ def create_hp_barrier_bar(
 def render_combat_menu(player, enemy, combat_round: int) -> None:
     """UI de combate con soporte de compañeros: [comp…] [jugador] vs [enemigo]."""
     try:
-        from Modules.WeatherSystem import get_weather_manager
+        from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
         w = get_weather_manager().get_current_weather()
         weather_text = f"  |  Clima: {w.icon} {w.name}"
     except ImportError:
@@ -1651,7 +1652,7 @@ def main():
 
     elif main_input == 17 and CONFIG["DEBUG"]["ENABLED"]:
         try:
-            from Modules.DebugMenu import open_enhanced_debug_menu
+            from Modules.ModulesMenu.DebugMenu import open_enhanced_debug_menu
             open_enhanced_debug_menu(
                 player=player, 
                 inventory=vInventory, 
@@ -1665,11 +1666,11 @@ def main():
             sp.sleep(2)
 
 
-# Save functions handled by Modules.SaveSystem
+# Save functions handled by Modules.ModulesFunctions.SaveSystem
 
 
 def init_game():
-    global item_manager, shop_manager, chosen_area
+    global player, item_manager, shop_manager, chosen_area
     
     item_manager = get_item_manager()
     shop_manager = get_shop_manager()
@@ -1695,12 +1696,21 @@ def init_game():
             border_style="yellow"
         )
         if response == 1:
+            # Crear player temporal para cargar encima
+            player = cPlayer("Cargando...", None)
             game_state = save_load_menu(
                 player, vInventory, chosen_area, item_manager,
                 console, interactive_menu_select, wait_for_enter
             )
             if game_state is not None:
                 chosen_area = game_state.get("chosen_area", chosen_area)
+            else:
+                # Si canceló carga, iniciar nueva partida
+                player = setup_player()
+        else:
+            player = setup_player()
+    else:
+        player = setup_player()
 
 # Execution
 if __name__ == "__main__":
