@@ -419,7 +419,7 @@ def open_guild_skill_tree(guild, console=None):
             with Live(console=console, screen=True, refresh_per_second=20) as live:
                 try:
                     while not state["exit"]:
-                        live.update(_render())
+                        live.update(_render(), refresh=True)
                         time.sleep(0.05)
                 finally:
                     stop_listening()

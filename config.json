@@ -1,7 +1,23 @@
 {
   "COMBAT": {
-    "DELAY_BETWEEN_ROUNDS": 2.5,
+    "DELAY_BETWEEN_ROUNDS": 0.5,
     "CHANCE_TO_FLEE": 0.1
+  },
+  "GUILDS_PARAMS": {
+    "MIN_NPC_GUILDS": 4,
+    "MAX_NPC_GUILDS": 8,
+    "SURPRISE_WAR_PENALTY": 20,
+    "FORMAL_WAR_PENALTY": 0,
+    "RESOURCE_BONUS_PCT": {
+      "oro": 0,
+      "comida": 0,
+      "hierro": 0,
+      "piedra": 0,
+      "madera": 0,
+      "cuero_endurecido": 0,
+      "lingote_xar": 0,
+      "ganado": 0
+    }
   },
   "DISPLAY": {
     "BAR_LENGTH": 25,

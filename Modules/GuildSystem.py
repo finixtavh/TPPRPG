@@ -5,7 +5,16 @@ Motor del sistema de Guilds con economia viva, ejercitos, IA y eventos.
 """
 
 import os, json, random
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+def _get_guild_config():
+    cfg_path = Path(__file__).parent.parent / "config.json"
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            return json.load(f).get("GUILDS_PARAMS", {})
+    except:
+        return {}
 
 try:
     from Modules.WeatherSystem import apply_weather_combat_mods
@@ -173,9 +182,9 @@ class Guild:
         self.resources: Dict[str, GuildResource] = {}
         # Territorios
         self.territories: List[str] = []
-        # Relaciones { guild_id -> -100..100 }
         self.relations:   Dict[str, int] = {}
         self.alliances:   List[str] = []
+        self.at_war_with: List[str] = []
         self.influence:   int = 0
         # Skill tree
         self.skill_points:    int = 0
@@ -293,7 +302,7 @@ class Guild:
             return 0, f"Necesitas {leather_cost} Cuero Endurecido para reclutar."
         self.consume_resource("comida", food_cost)
         self.consume_resource("cuero_endurecido", leather_cost)
-        self.soldiers += n
+        self.soldiers[troop_type] += n
         return n, f"✓ Reclutaste {n} soldados."
 
     def upgrade_army_stat(self, stat: str, resource_defs: dict) -> Tuple[bool, str]:
@@ -378,6 +387,7 @@ class Guild:
             "territories":          list(self.territories),
             "relations":            dict(self.relations),
             "alliances":            list(self.alliances),
+            "at_war_with":          list(self.at_war_with),
             "influence":            self.influence,
             "skill_points":         self.skill_points,
             "unlocked_skills":      list(self.unlocked_skills),
@@ -410,6 +420,7 @@ class Guild:
         g.territories            = data.get("territories", [])
         g.relations              = data.get("relations", {})
         g.alliances              = data.get("alliances", [])
+        g.at_war_with            = data.get("at_war_with", [])
         g.influence              = data.get("influence", 0)
         g.skill_points           = data.get("skill_points", 0)
         g.unlocked_skills        = data.get("unlocked_skills", [])
@@ -474,7 +485,10 @@ class GuildManager:
 
     def generate_random_guilds(self, count=None):
         if count is None:
-            count = random.randint(20, 35)
+            cfg = _get_guild_config()
+            min_g = cfg.get("MIN_NPC_GUILDS", 20)
+            max_g = cfg.get("MAX_NPC_GUILDS", 35)
+            count = random.randint(min_g, max_g)
         prefixes   = self.guild_name_data.get("prefixes", ["Orden de"])
         nouns      = self.guild_name_data.get("nouns", ["las Sombras"])
         guild_types = list(self.guild_type_defs.keys())
@@ -579,9 +593,13 @@ class GuildManager:
             if terr.governor_id is not None:
                 local_eco_mult += 0.20  # +20% prod si tiene gobernador
                 
+            cfg = _get_guild_config()
+            bonus_pct_dict = cfg.get("RESOURCE_BONUS_PCT", {})
+            
             for rid, amt in terr.produce(local_eco_mult).items():
                 bonus = td.get("bonus_resources", {}).get(rid, 0.0)
-                guild.add_resource(rid, max(1, int(amt * (1 + bonus))), self.resource_defs)
+                global_bonus = bonus_pct_dict.get(rid, 0) / 100.0
+                guild.add_resource(rid, max(1, int(amt * (1 + bonus + global_bonus))), self.resource_defs)
                 
             # V3: Rutas Comerciales (Caravanas)
             gold_income += terr.difficulty * 2
@@ -636,7 +654,19 @@ class GuildManager:
                             self.world_events.append(msg)
                             return msg
 
-        # 5. DIPLOMACIA NORMAL: proponer alianza si relación alta
+        # 5. GUERRA FORMAL: IA declara guerra si la relación es <= -5
+        for gid, rel in list(guild.relations.items()):
+            if rel <= -5 and gid != guild.guild_id and gid in self.guilds:
+                if gid not in getattr(guild, "at_war_with", []):
+                    guild.at_war_with.append(gid)
+                    other = self.guilds[gid]
+                    if guild.guild_id not in getattr(other, "at_war_with", []):
+                        other.at_war_with.append(guild.guild_id)
+                    msg = f"⚔ [GUERRA FORMAL] [{guild.icon} {guild.name}] le ha declarado la guerra a [{other.icon} {other.name}]."
+                    self.world_events.append(msg)
+                    return msg
+
+        # 6. DIPLOMACIA NORMAL: proponer alianza si relación alta
         if "dip_alliances" in guild.unlocked_skills:
             for gid, rel in guild.relations.items():
                 if rel > 45 and gid not in guild.alliances and gid in self.guilds:
@@ -859,7 +889,7 @@ class GuildManager:
             return self._attack_territory(attacker, None, terr)
         enemies = [gid for gid, g in self.guilds.items()
                    if gid != attacker.guild_id and g.territories
-                   and attacker.relations.get(gid, 0) < 20]
+                   and gid in getattr(attacker, "at_war_with", [])]
         if not enemies:
             return None
         def_id  = min(enemies, key=lambda gid: self.guilds[gid].military_power)

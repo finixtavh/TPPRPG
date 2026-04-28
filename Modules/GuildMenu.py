@@ -99,7 +99,17 @@ GUILD_BUILDINGS = {
 import os
 import time
 import threading
+import json
+from pathlib import Path
 from typing import Optional
+
+def _get_guild_config():
+    cfg_path = Path(__file__).parent.parent / "config.json"
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            return json.load(f).get("GUILDS_PARAMS", {})
+    except:
+        return {}
 
 from rich.console import Console, Group
 from rich.panel import Panel
@@ -295,6 +305,139 @@ def _render_diplomacy(guild: Guild, gm: GuildManager, player, page: int = 0):
     return Panel(Group(t, hint), title="[bold]🕊 DIPLOMACIA[/]", border_style="bright_magenta"), total_pages
 
 
+def _diplomacy_action_menu(player_guild: Guild, player, gm: GuildManager, con):
+    all_guilds = [g for gid, g in gm.guilds.items() if gid != player_guild.guild_id]
+    state = {
+        "idx": 0,
+        "exit": False,
+        "dirty": True,
+        "message": "↑↓: Navegar | [F]: Formar Alianza | [W]: Declarar Guerra Formal | [ESC]: Volver",
+        "msg_style": "dim"
+    }
+
+    if not all_guilds:
+        con.print("\n[bold dim]No hay otras guilds en el mundo.[/]")
+        time.sleep(2)
+        return
+
+    def _render():
+        t = Table(show_header=True, box=box.SIMPLE, expand=True)
+        t.add_column("", width=3)
+        t.add_column("Guild",    ratio=2)
+        t.add_column("Relación", width=10)
+        t.add_column("Tu Rep.",  width=12)
+        t.add_column("Estado",  width=12)
+
+        for i, g in enumerate(all_guilds):
+            sel = (i == state["idx"])
+            gid = g.guild_id
+            relation  = player_guild.relations.get(gid, 0)
+            rep       = gm.get_player_reputation(player, gid)
+            rank, col = gm.get_reputation_rank(rep)
+            rel_color = "green" if relation >= 30 else ("red" if relation < -20 else "dim white")
+            
+            is_ally   = gid in player_guild.alliances
+            is_war    = gid in getattr(player_guild, "at_war_with", [])
+            
+            if is_ally:
+                status = "[bold cyan]Alianza[/]"
+            elif is_war:
+                status = "[bold red]En Guerra[/]"
+            elif rep <= -5:
+                status = "[bold yellow]Enemiga[/]"
+            elif rep >= 20:
+                status = "[bold blue]Aliada[/]"
+            else:
+                status = "[white]Neutral[/]"
+
+            prefix = "▶" if sel else " "
+            nm = Text(f"{g.icon} {g.name}")
+            if sel: nm.stylize("bold reverse")
+            
+            t.add_row(prefix, nm, f"[{rel_color}]{relation:+d}[/]", f"[{col}]{rank}[/]", status)
+
+        footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
+        return Panel(Group(t, footer), title="[bold magenta]🕊 GESTIÓN DIPLOMÁTICA[/]", border_style="magenta")
+
+    def _on_press(key):
+        state["dirty"] = True
+        if key == "esc":
+            state["exit"] = True
+        elif key == "up":
+            state["idx"] = max(0, state["idx"] - 1)
+        elif key == "down":
+            state["idx"] = min(len(all_guilds) - 1, state["idx"] + 1)
+        elif key == "f":
+            g = all_guilds[state["idx"]]
+            if g.guild_id in player_guild.alliances:
+                state["message"] = "Ya estás en alianza."
+                state["msg_style"] = "bold yellow"
+            elif g.guild_id in getattr(player_guild, "at_war_with", []):
+                state["message"] = "No puedes aliarte con un enemigo en guerra."
+                state["msg_style"] = "bold red"
+            else:
+                rep = gm.get_player_reputation(player, g.guild_id)
+                if rep >= 20 and player_guild.relations.get(g.guild_id, 0) >= 30:
+                    player_guild.alliances.append(g.guild_id)
+                    g.alliances.append(player_guild.guild_id)
+                    state["message"] = f"¡Alianza formada con {g.name}!"
+                    state["msg_style"] = "bold green"
+                    gm.world_events.append(f"🕊 {player_guild.name} y {g.name} han formado una alianza formal.")
+                else:
+                    state["message"] = "Requiere +20 de Reputación y +30 de Relación de Guild."
+                    state["msg_style"] = "bold red"
+        elif key == "w":
+            g = all_guilds[state["idx"]]
+            if g.guild_id in player_guild.alliances:
+                state["message"] = "Debes romper la alianza primero."
+                state["msg_style"] = "bold yellow"
+            elif g.guild_id in getattr(player_guild, "at_war_with", []):
+                state["message"] = "Ya estás en guerra."
+                state["msg_style"] = "bold yellow"
+            else:
+                rep = gm.get_player_reputation(player, g.guild_id)
+                if rep <= -5:
+                    cfg = _get_guild_config()
+                    formal_penalty = cfg.get("FORMAL_WAR_PENALTY", 0)
+                    
+                    player_guild.at_war_with.append(g.guild_id)
+                    g.at_war_with.append(player_guild.guild_id)
+                    
+                    if formal_penalty > 0:
+                        if g.guild_id in player_guild.relations:
+                            player_guild.relations[g.guild_id] = max(-100, player_guild.relations[g.guild_id] - formal_penalty)
+                        else:
+                            player_guild.relations[g.guild_id] = -formal_penalty
+                            
+                    state["message"] = f"Has declarado Guerra Formal a {g.name}."
+                    state["msg_style"] = "bold red"
+                    gm.world_events.append(f"⚔ ¡GUERRA FORMAL! {player_guild.name} le ha declarado la guerra a {g.name}.")
+                else:
+                    state["message"] = "Solo puedes declarar guerra formal a guild enemigas (Reputación <= -5)."
+                    state["msg_style"] = "bold red"
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(
+                target=listen_keyboard,
+                kwargs={"on_press": _on_press, "sequential": False, "until": None},
+                daemon=True,
+            )
+            kb_thread.start()
+            with Live(console=con, screen=True, refresh_per_second=60) as live:
+                try:
+                    while not state["exit"]:
+                        if state.get("dirty", True):
+                            live.update(_render(), refresh=True)
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive():
+                        kb_thread.join(timeout=0.2)
+            con.clear()
+
+
 # ── Función auxiliar de loop de Live ─────────────────────────────────────────
 # (cada función interna usa el patrón directamente, sin helper compartido)
 
@@ -305,10 +448,35 @@ import random
 
 def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con):
     """Pantalla interactiva para conquistar o ver territorios."""
-    all_territories = sorted(gm.territories.values(), key=lambda t: t.name)
+    
+    def get_terr_status_and_priority(terr):
+        is_own = terr.owner == player_guild.guild_id
+        if is_own:
+            return 0, "[bold green]★ Tuyo[/]", "green", f"[bold green]{player_guild.icon} {player_guild.name}[/]"
+        elif terr.owner == "neutral":
+            return 5, "[dim]Libre[/]", "white", "[dim]Neutral[/]"
+        else:
+            og = gm.guilds.get(terr.owner)
+            owner_str = f"{og.icon} {og.name}" if og else "??"
+            if terr.owner in player_guild.alliances:
+                return 1, "[bold cyan]Alianza[/]", "cyan", owner_str
+            elif terr.owner in getattr(player_guild, "at_war_with", []):
+                return 6, "[bold red]En Guerra[/]", "red", owner_str
+            else:
+                rep = gm.get_player_reputation(player, terr.owner)
+                if rep >= 20:
+                    return 2, "[bold blue]Aliada[/]", "blue", owner_str
+                elif rep <= -5:
+                    return 4, "[bold yellow]Enemiga[/]", "yellow", owner_str
+                else:
+                    return 3, "[white]Neutral[/]", "white", owner_str
+
+    all_territories = sorted(gm.territories.values(), key=lambda t: (get_terr_status_and_priority(t)[0], t.name))
+    
     state = {
         "idx":       0,
         "exit":      False,
+        "confirm_war": None,
         "message":   "↑↓: Navegar | [ENTER]: Atacar | [ESC]: Volver",
         "msg_style": "dim",
     }
@@ -324,20 +492,7 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
 
         for i, terr in enumerate(all_territories):
             sel   = i == state["idx"]
-            is_own = terr.owner == player_guild.guild_id
-            if terr.owner == "neutral":
-                owner_str = "[dim]Neutral[/]"
-                status    = "[dim]Libre[/]"
-                s_color   = "white"
-            elif is_own:
-                owner_str = f"[bold green]{player_guild.icon} {player_guild.name}[/]"
-                status    = "[bold green]★ Tuyo[/]"
-                s_color   = "green"
-            else:
-                og = gm.guilds.get(terr.owner)
-                owner_str = f"{og.icon} {og.name}" if og else "??"
-                status    = "[red]Enemigo[/]"
-                s_color   = "red"
+            prio, status, s_color, owner_str = get_terr_status_and_priority(terr)
 
             res_str = " ".join(
                 f"{gm.resource_defs.get(rid,{}).get('icon','?')}{amt}"
@@ -380,6 +535,9 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
 
     def _on_press(key):
         state["dirty"] = True
+        if key != "enter":
+            state["confirm_war"] = None
+            
         if key == "up":
             state["idx"] = max(0, state["idx"] - 1)
         elif key == "down":
@@ -391,6 +549,37 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
                 state["message"]   = "✗ Ya controlas este territorio."
                 state["msg_style"] = "bold yellow"
                 return
+            
+            if terr.owner in player_guild.alliances:
+                state["message"]   = "✗ ¡No puedes atacar a un aliado! Rompe la alianza primero."
+                state["msg_style"] = "bold red"
+                return
+                
+            is_war = terr.owner in getattr(player_guild, "at_war_with", [])
+            is_neutral_zone = terr.owner == "neutral"
+            
+            cfg = _get_guild_config()
+            surprise_penalty = cfg.get("SURPRISE_WAR_PENALTY", 20)
+            
+            if not is_neutral_zone and not is_war:
+                if state.get("confirm_war") != terr.id:
+                    state["confirm_war"] = terr.id
+                    gname = gm.guilds[terr.owner].name if terr.owner in gm.guilds else "Desconocido"
+                    state["message"] = f"¿Declarar GUERRA SORPRESA a {gname}? (-{surprise_penalty} Reputación Global) [ENTER] para confirmar."
+                    state["msg_style"] = "bold red on yellow"
+                    return
+                else:
+                    state["confirm_war"] = None
+                    player_guild.at_war_with.append(terr.owner)
+                    if terr.owner in gm.guilds:
+                        gm.guilds[terr.owner].at_war_with.append(player_guild.guild_id)
+                    for gid in gm.guilds:
+                        if gid == player_guild.guild_id: continue
+                        if gid in player_guild.relations:
+                            player_guild.relations[gid] = max(-100, player_guild.relations[gid] - surprise_penalty)
+                        else:
+                            player_guild.relations[gid] = -surprise_penalty
+                    gm.world_events.append(f"💥 ¡{player_guild.name} ha declarado una GUERRA SORPRESA! El mundo los desprecia.")
             cost_xar = terr.difficulty * 8
             cost_mad = terr.difficulty * 5
             if player_guild.get_resource("lingote_xar") < cost_xar:
@@ -423,7 +612,7 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
-                            live.update(_render())
+                            live.update(_render(), refresh=True)
                             state["dirty"] = False
                         time.sleep(0.01)
                 finally:
@@ -549,7 +738,7 @@ def _buildings_menu(player_guild: Guild, gm: GuildManager, con):
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
-                            live.update(_render())
+                            live.update(_render(), refresh=True)
                             state["dirty"] = False
                         time.sleep(0.01)
                 finally:
@@ -613,7 +802,7 @@ def _no_guild_menu(player, gm: GuildManager, con) -> str:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
-                            live.update(_render())
+                            live.update(_render(), refresh=True)
                             state["dirty"] = False
                         time.sleep(0.01)
                 finally:
@@ -689,7 +878,7 @@ def _create_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
                 try:
                     while not state["done"]:
                         if state.get("dirty", True):
-                            live.update(_render())
+                            live.update(_render(), refresh=True)
                             state["dirty"] = False
                         time.sleep(0.01)
                 finally:
@@ -756,7 +945,7 @@ def _join_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
                 try:
                     while not state["done"]:
                         if state.get("dirty", True):
-                            live.update(_render())
+                            live.update(_render(), refresh=True)
                             state["dirty"] = False
                         time.sleep(0.01)
                 finally:
@@ -829,7 +1018,10 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
                 border_style="yellow",
             )
         elif tab == "Diplomacia":
-            content, state["total_pages"] = _render_diplomacy(player_guild, gm, player, state["page"])
+            content = Panel(
+                Text("\n  Pulsa [ENTER] para gestionar Diplomacia.\n", style="dim"),
+                border_style="magenta",
+            )
         else:
             content = Panel(Text("Próximamente.", style="dim"))
 
@@ -864,6 +1056,9 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
             elif tab == "Militar":
                 state["open_sub"] = "military"
                 state["exit"]     = True
+            elif tab == "Diplomacia":
+                state["open_sub"] = "diplomacy"
+                state["exit"]     = True
         elif key == "m":
             state["open_sub"] = "events"
             state["exit"]     = True
@@ -893,7 +1088,7 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
-                            live.update(_render())
+                            live.update(_render(), refresh=True)
                             state["dirty"] = False
                         time.sleep(0.01)
                 finally:
@@ -1012,7 +1207,7 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
-                            live.update(_render())
+                            live.update(_render(), refresh=True)
                             state["dirty"] = False
                         time.sleep(0.01)
                 finally:
@@ -1127,7 +1322,7 @@ def _military_management_menu(player_guild: Guild, player, gm: GuildManager, con
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
-                            live.update(_render())
+                            live.update(_render(), refresh=True)
                             state["dirty"] = False
                         time.sleep(0.01)
                 finally:
@@ -1148,7 +1343,7 @@ def _garrison_management_menu(player_guild: Guild, player, gm: GuildManager, con
         "idx": 0,
         "exit": False,
         "dirty": True,
-        "message": "↑↓: Territorio | ← →: Cambiar Tropa | (+/a): Guarnecer | (-/q): Retirar",
+        "message": "↑↓: Territorio | ← →: Cambiar Tropa | (z/x): Guarnecer | (c/v): Retirar",
         "troop_idx": 0
     }
     
@@ -1179,8 +1374,8 @@ def _garrison_management_menu(player_guild: Guild, player, gm: GuildManager, con
             
             t.add_row(name_txt, Text(tname, style="yellow"), str(garrison_qty), str(capital_qty), f"[bold magenta]{gov_name}[/]")
             
-        info = Text(f"\n  [a] Mover 1 tropa a Guarnición  |  [A] Mover 10 tropas a Guarnición\n"
-                    f"  [q] Retirar 1 tropa a Capital   |  [Q] Retirar 10 tropas a Capital\n"
+        info = Text(f"\n  [z] Mover 1 tropa a Guarnición  |  [x] Mover 10 tropas a Guarnición\n"
+                    f"  [c] Retirar 1 tropa a Capital   |  [v] Retirar 10 tropas a Capital\n"
                     f"  [g] Asignar Gobernador (Cíclico)\n", style="dim")
         footer = Panel(Text(state["message"], style="yellow"), border_style="dim")
         return Panel(Group(t, info, footer), border_style="green")
@@ -1197,22 +1392,22 @@ def _garrison_management_menu(player_guild: Guild, player, gm: GuildManager, con
             state["troop_idx"] = (state["troop_idx"] - 1) % 4
         elif key == "right":
             state["troop_idx"] = (state["troop_idx"] + 1) % 4
-        elif key in ["+", "a", "A"]:
+        elif key in ["+", "z", "x"]:
             tid = player_guild.territories[state["idx"]]
             terr = gm.territories.get(tid)
             ttype = troop_types[state["troop_idx"]]
-            amt = 10 if str(key) == "A" else 1
+            amt = 10 if str(key) == "x" else 1
             if player_guild.soldiers.get(ttype, 0) >= amt:
                 player_guild.soldiers[ttype] -= amt
                 terr.garrison[ttype] = terr.garrison.get(ttype, 0) + amt
                 state["message"] = f"Se movieron {amt} {troop_names[state['troop_idx']]} a la guarnición."
             else:
                 state["message"] = "No tienes suficientes tropas en la capital."
-        elif key in ["-", "q", "Q"]:
+        elif key in ["-", "c", "v"]:
             tid = player_guild.territories[state["idx"]]
             terr = gm.territories.get(tid)
             ttype = troop_types[state["troop_idx"]]
-            amt = 10 if str(key) == "Q" else 1
+            amt = 10 if str(key) == "v" else 1
             if terr.garrison.get(ttype, 0) >= amt:
                 terr.garrison[ttype] -= amt
                 player_guild.soldiers[ttype] = player_guild.soldiers.get(ttype, 0) + amt
@@ -1250,7 +1445,7 @@ def _garrison_management_menu(player_guild: Guild, player, gm: GuildManager, con
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
-                            live.update(_render())
+                            live.update(_render(), refresh=True)
                             state["dirty"] = False
                         time.sleep(0.01)
                 finally:
@@ -1303,5 +1498,7 @@ def open_guild_menu(player, console=None):
             _buildings_menu(player_guild, gm, console)
         elif sub_action == "military":
             _military_management_menu(player_guild, player, gm, console)
+        elif sub_action == "diplomacy":
+            _diplomacy_action_menu(player_guild, player, gm, console)
         elif sub_action == "events":
             _events_menu(player_guild, player, gm, console)
