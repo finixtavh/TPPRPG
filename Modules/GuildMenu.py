@@ -1022,7 +1022,7 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
 
 # ── Pestaña Militar ──────────────────────────────────────────────────────────
 
-def _military_management_menu(player_guild: Guild, gm: GuildManager, con):
+def _military_management_menu(player_guild: Guild, player, gm: GuildManager, con):
     sections = [
         "Reclutar Infantería", "Reclutar Arqueros", "Reclutar Caballería", "Reclutar Asedio",
         "Gestionar Guarniciones",
@@ -1136,9 +1136,9 @@ def _military_management_menu(player_guild: Guild, gm: GuildManager, con):
                     con.clear()
 
     if state.get("action") == "garrison":
-        _garrison_management_menu(player_guild, gm, con)
+        _garrison_management_menu(player_guild, player, gm, con)
 
-def _garrison_management_menu(player_guild: Guild, gm: GuildManager, con):
+def _garrison_management_menu(player_guild: Guild, player, gm: GuildManager, con):
     if not player_guild.territories:
         con.print("\n[bold red]No controlas ningún territorio para gestionar guarniciones.[/bold red]")
         time.sleep(2)
@@ -1302,6 +1302,6 @@ def open_guild_menu(player, console=None):
         elif sub_action == "buildings":
             _buildings_menu(player_guild, gm, console)
         elif sub_action == "military":
-            _military_management_menu(player_guild, gm, console)
+            _military_management_menu(player_guild, player, gm, console)
         elif sub_action == "events":
             _events_menu(player_guild, player, gm, console)
