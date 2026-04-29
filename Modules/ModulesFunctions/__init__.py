@@ -1,4 +1,3 @@
-# ModulesFunctions - Mecánicas y Funciones del juego
 from .BaseSystem import *
 from .CompanionSystem import *
 from .CraftingSystem import *

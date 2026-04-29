@@ -13,7 +13,7 @@ import time
 from rich.live import Live
 from sshkeyboard import listen_keyboard, stop_listening
 
-# -- Patch definitivo para evitar BlockingIOError (Errno 11) en todo el motor --
+
 _original_stdout_write = sys.stdout.write
 
 def _safe_stdout_write(text):
@@ -26,20 +26,20 @@ def _safe_stdout_write(text):
 sys.stdout.write = _safe_stdout_write
 # -----------------------------------------------------------------------------
 # Modules/
-from Modules.ModulesUtils.Loader import Write, Read
-from Modules.ModulesUtils.ModLoader import get_mod_loader, get_mod_api
+
 from Modules.ModulesManager.ItemManager import get_item_manager, load_item_by_id
 from Modules.ModulesManager.ShopManager import get_shop_manager, display_shop
+from Modules.ModulesManager.ZoneManager import get_all_zones, get_zones_for_selector
+from Modules.ModulesManager.BuffManager import get_buff_manager
+
+from Modules.ModulesMenu.InventoryMenu import open_inventory_menu
+from Modules.ModulesMenu.GuildMenu import open_guild_menu
+
 from Modules.ModulesFunctions.GatheringMasterySystem import cTool, cMaterial, Gathering_init
 from Modules.ModulesFunctions.EnchantmentSystem import open_enchantment_menu
 from Modules.ModulesFunctions.MasterySystem import ensure_mastery, MASTERY_MAX_LEVEL
-from Modules.ModulesUtils.input_utils import wait_for_enter, interactive_menu_select, keyboard_listener_scope
-from Modules.ModulesMenu.InventoryMenu import open_inventory_menu
 from Modules.ModulesFunctions.SaveSystem import save_load_menu, get_slot_info
-from Modules.ModulesManager.ZoneManager import get_all_zones, get_zones_for_selector
-from Modules.ModulesManager.BuffManager import get_buff_manager
 from Modules.ModulesFunctions.CraftingSystem import open_crafting_menu
-from Modules.ModulesMenu.GuildMenu import open_guild_menu
 from Modules.ModulesFunctions.GuildSystem import get_guild_manager, SIMULATION_INTERVAL
 from Modules.ModulesFunctions.QuestSystem import quest_manager
 from Modules.ModulesFunctions.BaseSystem import BaseManager, open_base_menu
@@ -47,6 +47,10 @@ from Modules.ModulesFunctions.CompanionSystem import (
     cCompanion,
     companion_management_menu,
     COMPANION_REVIVAL_GOLD_COST,)
+
+from Modules.ModulesUtils.Loader import Write, Read
+from Modules.ModulesUtils.ModLoader import get_mod_loader, get_mod_api
+from Modules.ModulesUtils.input_utils import wait_for_enter, interactive_menu_select, keyboard_listener_scope
 from Modules.ModulesUtils.debug import (
     setup_logging,
     attach_console_logging,
