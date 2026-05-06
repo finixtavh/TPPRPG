@@ -152,8 +152,8 @@ def build_save_data(player, inventory, chosen_area, active_enemies_ids=None) -> 
             "Mana_max": player.Mana_max,
             "EXP": player.EXP,
             "EXP_M": player.EXP_M,
-            "Gold": player.Gold,
             "DEF": list(player.DEF),
+            "Gold": player.Gold,
             "AGI": player.AGI,
             "DefensePercentage": list(player.DefensePercentage),
             "CounterAttack": player.CounterAttack,
@@ -297,7 +297,7 @@ def _restore_equipment(player, equip_data: dict, item_manager):
             item_obj = item_manager.create_item_object(
                 item_id, cWeapon, cEquippableItems, cObject, cTool
             )
-            if item_obj == True and not isinstance(item_obj, cWeapon):
+            if item_obj is not None and not isinstance(item_obj, cWeapon):
                 # Re-aplicar encantamientos si existen (simplificado)
                 setattr(player, slot_name, item_obj)
                 if hasattr(item_obj, "AppliedStats"):

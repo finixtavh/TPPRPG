@@ -247,15 +247,28 @@ def display_shop(shop_name: str, player, item_manager):
                 print(f"Descripción: {item_data.get('Description', 'N/A')}")
                 
                 # Mostrar stats
+                damage_type_names = ["Físico", "Térmico", "Tierra", "Eléctrico", "Profundo"]
+                
                 if "DMG" in item_data:
                     dmg = item_data["DMG"]
-                    print(f"Daño Físico: {dmg[0] if len(dmg) > 0 else 0}")
-                if "Magical_DMG" in item_data:
-                    mdmg = item_data["Magical_DMG"]
-                    if len(mdmg) > 1 and mdmg[1] > 0:
-                        print(f"Daño Mágico: {mdmg[1]}")
-                if "Defense" in item_data and item_data["Defense"] > 0:
-                    print(f"Defensa: +{item_data['Defense']}")
+                    if isinstance(dmg, list):
+                        print("Daño Máximo:")
+                        for i, val in enumerate(dmg):
+                            if val > 0 and i < len(damage_type_names):
+                                print(f"  - {damage_type_names[i]}: {val}")
+                    else:
+                        print(f"Daño Físico: {dmg}")
+                
+                if "Defense" in item_data:
+                    defense = item_data["Defense"]
+                    if isinstance(defense, list):
+                        print("Defensa:")
+                        for i, val in enumerate(defense):
+                            if val > 0 and i < len(damage_type_names):
+                                print(f"  - {damage_type_names[i]}: +{val}")
+                    elif isinstance(defense, (int, float)) and defense > 0:
+                        print(f"Defensa: +{defense}")
+                
                 if "HealthBoost" in item_data and item_data["HealthBoost"] > 0:
                     print(f"HP Máximo: +{item_data['HealthBoost']}")
                 if "DmgBoost" in item_data and item_data["DmgBoost"] > 0:

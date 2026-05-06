@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+import random
 from typing import List, Dict, Optional, Any
 
 from rich.console import Console, Group
@@ -33,10 +34,68 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
         ("Añadir Armas de Prueba", "add_weapons"),
         ("Añadir Oro y EXP (Max)", "max_resources"),
         ("Añadir +20 niveles a todo Mastery", "boost_mastery"),
+        ("Dar +20 SP de Guild (Todas)", "guild_sp"),
         ("Ver Variables (Avanzado)", "look_variables"),
         ("Añadir Compañero de Prueba", "add_companion"),
+        ("Provocar Desastre Aleatorio", "trigger_disaster"),
+        ("Añadir Buff Aleatorio", "add_buff"),
+        ("Añadir Debuff Aleatorio", "add_debuff"),
         ("Volver", "exit")
     ]
+
+    def _trigger_disaster():
+        try:
+            from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
+            from Modules.ModulesFunctions.GuildSystem import get_guild_manager
+            wm = get_weather_manager()
+            disaster_weathers = [w for w in wm.weathers.values() if w.disaster_effect]
+            if disaster_weathers:
+                chosen = random.choice(disaster_weathers)
+                wm.current_weather = chosen
+                gm = get_guild_manager()
+                gm.tick()
+                state["message"] = f"✓ Desastre provocado: {chosen.name}"
+                state["msg_style"] = "bold red"
+            else:
+                state["message"] = "✗ No se encontraron desastres."
+                state["msg_style"] = "bold yellow"
+        except Exception as e:
+            state["message"] = f"✗ Error: {e}"
+            state["msg_style"] = "bold red"
+
+    def _add_buff():
+        try:
+            from Modules.ModulesManager.BuffManager import get_buff_manager, apply_buff_to_player
+            bm = get_buff_manager()
+            buff_ids = list(bm.buffs_data.keys())
+            if buff_ids:
+                bid = random.choice(buff_ids)
+                apply_buff_to_player(player, bid)
+                state["message"] = f"✓ Buff aplicado: {bid}"
+                state["msg_style"] = "bold green"
+            else:
+                state["message"] = "✗ No hay buffs disponibles."
+                state["msg_style"] = "bold yellow"
+        except Exception as e:
+            state["message"] = f"✗ Error: {e}"
+            state["msg_style"] = "bold red"
+
+    def _add_debuff():
+        try:
+            from Modules.ModulesManager.BuffManager import get_buff_manager, apply_buff_to_player
+            bm = get_buff_manager()
+            debuff_ids = list(bm.debuffs_data.keys())
+            if debuff_ids:
+                did = random.choice(debuff_ids)
+                apply_buff_to_player(player, did)
+                state["message"] = f"✓ Debuff aplicado: {did}"
+                state["msg_style"] = "bold red"
+            else:
+                state["message"] = "✗ No hay debuffs disponibles."
+                state["msg_style"] = "bold yellow"
+        except Exception as e:
+            state["message"] = f"✗ Error: {e}"
+            state["msg_style"] = "bold red"
 
     def _boost_mastery():
         for skill in gathering_init.gathering.values():
@@ -78,6 +137,20 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
         state["message"] = f"✓ Compañero '{test_comp.name}' añadido"
         state["msg_style"] = "bold green"
 
+    def _add_guild_sp():
+        try:
+            from Modules.ModulesFunctions.GuildSystem import get_guild_manager
+            gm = get_guild_manager()
+            if not gm.guilds:
+                gm.generate_random_guilds()
+            for gid, g in gm.guilds.items():
+                g.skill_points += 20
+            state["message"] = "✓ +20 SP de Guild añadidos a todas las guilds"
+            state["msg_style"] = "bold green"
+        except Exception as e:
+            state["message"] = f"✗ Error: {e}"
+            state["msg_style"] = "bold red"
+
     def _on_press(key):
         if key == "up":
             state["idx"] = (state["idx"] - 1) % len(options)
@@ -94,8 +167,12 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
                 _max_resources()
             elif action == "boost_mastery":
                 _boost_mastery()
+            elif action == "guild_sp":
+                _add_guild_sp()
             elif action == "add_companion":
                 _add_companion()
+            elif action == "trigger_disaster":
+                _trigger_disaster()
             elif action == "look_variables":
                 state["exit_for_variables"] = True
                 stop_listening()

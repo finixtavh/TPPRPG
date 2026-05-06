@@ -10,6 +10,7 @@ from typing import List, Dict, Optional, Tuple, Any, Union
 from rich import box
 import sys
 import time
+import traceback
 from rich.live import Live
 from sshkeyboard import listen_keyboard, stop_listening
 
@@ -98,6 +99,107 @@ console = Console(theme=custom_theme)
 app_logger = setup_logging(CONFIG["DEBUG"]["ENABLED"])
 attach_console_logging(console, app_logger)
 install_exception_hooks(app_logger)
+
+def _display_combat_details(attacker_name, defender_name, res, is_counter=False):
+    """Muestra una tabla detallada del resultado del ataque."""
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.text import Text
+    from rich.columns import Columns
+    
+    title = f"[bold yellow]⚔️ CONTRAATAQUE[/]" if is_counter else f"[bold cyan]⚔️ ATAQUE: {attacker_name} → {defender_name}[/]"
+    
+    if res.get("is_evaded"):
+        console.print(Panel(Text(f"¡{defender_name} ha ESQUIVADO el ataque! 💨", style="bold cyan"), border_style="cyan"))
+        return
+
+    # --- NUEVA INTERFAZ V4 (BLOQUES MODERNOS) ---
+    from rich.console import Group
+    icons = ["⚔️", "🔥", "🪨", "⚡", "🔮"]
+    colors = ["white", "orange3", "yellow4", "bright_blue", "purple"]
+    types_display = ["Físico", "Térmico", "Tierra", "Eléctrico", "Profundo"]
+    
+    content = Text()
+    dmg_per_type = res.get("damage_per_type", [0]*5)
+    
+    for i in range(5):
+        val = dmg_per_type[i]
+        if val > 0 or (i == 0 and sum(dmg_per_type) == 0):
+            # Barra visual proporcional
+            bar_size = int(min(10, val / 5 + 1)) if val > 0 else 1
+            bar = "▉" * bar_size
+            content.append(f"{bar}", style=colors[i])
+            content.append(f" {icons[i]} {val:.1f} {types_display[i]}", style="bold " + colors[i])
+            
+            # Construir explicación detallada (Parentesis)
+            parts = []
+            
+            # Defensa Fija
+            def_fixed = res.get("blocked_by_def", [0]*5)[i]
+            if def_fixed > 0:
+                parts.append(f"-{def_fixed:.1f} Def")
+            
+            # Porcentaje
+            def_pct_amt = res.get("blocked_by_pct", [0]*5)[i]
+            if def_pct_amt > 0:
+                pct_val = res.get("def_pct_val", [0]*5)[i]
+                parts.append(f"-{def_pct_amt:.1f} %Def ({pct_val}%)")
+            
+            # Encantamientos
+            enc_def = res.get("enchant_def", [0]*5)[i]
+            if enc_def > 0:
+                enc_names = ", ".join(res.get("enchant_names", ["Mágico"]))
+                parts.append(f"-{enc_def:.1f} Encant: {enc_names}")
+                
+            # Clima
+            w_def = res.get("weather_def", [0]*5)[i]
+            if w_def != 0:
+                w_name = res.get("weather_name", "Clima")
+                sign = "-" if w_def > 0 else "+"
+                parts.append(f"{sign}{abs(w_def):.1f} Clima: {w_name}")
+                
+            if parts:
+                expl = " (" + " | ".join(parts) + ")"
+                # Envolver detalle si es muy largo
+                expl_wrapped = expl.replace(" | ", "\n      | ")
+                content.append(f"\n     {expl_wrapped}\n", style="dim italic")
+            else:
+                content.append("\n")
+
+    # Footer
+    footer = Text()
+    if res.get("barrier_absorbed", 0) > 0:
+        footer.append(f"🛡️ Barrera: -{res['barrier_absorbed']:.1f} ", style="bold blue")
+    
+    footer.append(f"💥 TOTAL: {res['total_damage']:.1f}", style="bold yellow")
+    if res.get("is_counter"):
+        footer.append(f"\n⚡ ¡{defender_name} se prepara para CONTRAATACAR!", style="bold magenta")
+    
+    panel = Panel(
+        content,
+        title=title,
+        subtitle=footer,
+        subtitle_align="right",
+        border_style="yellow" if is_counter else "cyan",
+        box=box.ROUNDED,
+        expand=False
+    )
+    console.print(panel)
+
+def _perform_attack(attacker, defender, console):
+    """Ejecuta un ataque y maneja el posible contraataque en cadena."""
+    res = attacker.attack(defender)
+    _display_combat_details(getattr(attacker, "name", getattr(attacker, "NAME", "???")), 
+                           getattr(defender, "name", getattr(defender, "NAME", "???")), res)
+    
+    total_dmg = res.get("total_damage", 0)
+    
+    if res.get("is_counter") and getattr(defender, "Health", getattr(defender, "HP", 0)) > 0:
+        sp.sleep(0.5)
+        counter_res = defender.attack(attacker)
+        _display_combat_details(getattr(defender, "name", getattr(defender, "NAME", "???")), 
+                               getattr(attacker, "name", getattr(attacker, "NAME", "???")), counter_res, is_counter=True)
+    return total_dmg
 if CONFIG["DEBUG"]["ENABLED"]:
     log_imported_modules(app_logger)
 
@@ -400,7 +502,17 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
     try:
         from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
         w = get_weather_manager().get_current_weather()
-        weather_text = f"  |  Clima: {w.icon} {w.name}"
+        
+        # Mostrar modificadores del clima de forma compacta
+        mods = []
+        for k, v in w.combat_mods.items():
+            if v != 1.0:
+                sign = "+" if v > 1.0 else ""
+                pct = int((v - 1.0) * 100)
+                mods.append(f"{k.upper()}: {sign}{pct}%")
+        
+        mod_str = f" ({', '.join(mods)})" if mods else ""
+        weather_text = f"  |  Clima: {w.icon} {w.name}{mod_str}"
     except ImportError:
         weather_text = ""
         
@@ -1183,74 +1295,75 @@ def main():
 
     elif main_input == 6: # Zones
         if chosen_area is None:
-            console.print(
-                "[danger]No has escogido ningún lugar. Debes ir a una zona primero.[/danger]"
-            )
-            console.print(
-                "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
-            )
+            console.print("[danger]No has escogido ningún lugar. Debes ir a una zona primero.[/danger]")
+            console.print("\n[info]Presiona Enter para volver al menú principal... ↵ [/info]")
             wait_for_enter()
         else:
-            zone_input = interactive_menu_select(
-                title=f"Zona actual: {chosen_area}",
-                subtitle="¿Qué quieres hacer?",
-                options=[
-                    (1, "Luchar"),
-                    (2, "Tienda actual de la zona"),
-                    (3, "Recolectar"),
-                    (4, "Devolverse al menú principal"),
-                ],
-                prompt="Acción: ",
-                default_value=1,
-                border_style="yellow",
-            )
+            while True:
+                zone_input = interactive_menu_select(
+                    title=f"Zona actual: {chosen_area}",
+                    subtitle="¿Qué quieres hacer?",
+                    options=[
+                        (1, "Luchar"),
+                        (2, "Tienda actual de la zona"),
+                        (3, "Recolectar"),
+                        (4, "Devolverse al menú principal"),
+                    ],
+                    prompt="Acción: ",
+                    default_value=1,
+                    border_style="yellow",
+                )
 
-            if zone_input == 1:
-                if enemy is None:
-                    enemy = zone_loader(chosen_area)
+                if zone_input == 1:
                     if enemy is None:
-                        console.print("[danger]No hay enemigo disponible en esta zona.[/danger]")
-                        wait_for_enter()
-                        return
+                        enemy = zone_loader(chosen_area)
+                        if enemy is None:
+                            console.print("[danger]No hay enemigo disponible en esta zona.[/danger]")
+                            wait_for_enter()
+                            continue
 
-                combat_round = 1
-                combat_active = True
+                    combat_round = 1
+                    combat_active = True
 
-                # ── Regenerar barrera al inicio del combate ──
-                # Los buffs/habilidades definen player.Barrier; aquí se
-                # restaura al valor que tengan otorgado.
-                # La barrera la setean los buffs/skills antes del combate.
+                    while combat_active:
+                        render_combat_menu(player, enemy, combat_round)
+                        player_debuffs = apply_debuffs(player)
+                        
+                        # Apply Tax debuffs if player in guild
+                        gm = get_guild_manager()
+                        pg = gm.get_player_guild()
+                        if pg:
+                            tax_debuffs = pg.get_tax_debuffs()
+                            if tax_debuffs:
+                                for attr, val in tax_debuffs.items():
+                                    if attr not in player_debuffs:
+                                        player_debuffs[attr] = val
+                                    else:
+                                        player_debuffs[attr] *= val # Cumulative
+                        
+                        if player_debuffs:
+                            debuff_text = ", ".join([f"{attr}: {val}" for attr, val in player_debuffs.items()])
+                            console.print(f"[warning]Debuffs activos (incl. Taxes): {debuff_text}[/warning]")
 
-                while combat_active:
-                    render_combat_menu(player, enemy, combat_round)
-                    player_debuffs = apply_debuffs(player)
-                    if player_debuffs:
-                        debuff_text = ", ".join(
-                            [f"{attr}: {val}" for attr, val in player_debuffs.items()]
+                        combat_action = interactive_menu_select(
+                            title="Acciones de Combate",
+                            subtitle="Selecciona tu acción",
+                            options=[
+                                (1, "Atacar"),
+                                (2, "Abrir Inventario"),
+                                (3, "Intentar huir"),
+                            ],
+                            prompt="Acción: ",
+                            default_value=1,
+                            border_style="danger",
                         )
-                        console.print(f"[warning]Debuffs activos: {debuff_text}[/warning]")
+                        os.system("cls" if os.name == "nt" else "clear")
 
-                    combat_action = interactive_menu_select(
-                        title="Acciones de Combate",
-                        subtitle="Selecciona tu acción",
-                        options=[
-                            (1, "Atacar"),
-                            (2, "Abrir Inventario"),
-                            (3, "Intentar huir"),
-                        ],
-                        prompt="Acción: ",
-                        default_value=1,
-                        border_style="danger",
-                    )
-                    os.system("cls" if os.name == "nt" else "clear")
-                    if combat_action == 1:
-                        console.print("\n[bold]¡Tu turno![/bold]")
-                        sp.sleep(2.5)
-                        damage_dealt = player.attack(enemy)
-                        if damage_dealt is not None:
-                            console.print(
-                                f"[success]¡Has atacado a {enemy.NAME} por {damage_dealt} puntos de daño![/success]"
-                            )
+                        if combat_action == 1:
+                            console.print("\n[bold]¡Tu turno![/bold]")
+                            sp.sleep(1.0)
+                            damage_dealt = _perform_attack(player, enemy, console)
+                            
                             # Registrar daño en mastery de arma
                             try:
                                 mm = ensure_mastery(player)
@@ -1260,256 +1373,157 @@ def main():
                             except Exception:
                                 pass
 
-                        # ── Acción de los Compañeros ────────────────────────────
-                        for comp in player.companion:
-                            if comp.is_alive and enemy.HP > 0:
-                                console.print(f"\n[cyan]>> Turno de {comp.name} (Clase: {getattr(comp, 'c_class', 'Daño')}) <<[/cyan]")
-                                sp.sleep(0.5)
-                                c_opts = [(1, "Atacar")]
-                                c_class = getattr(comp, 'c_class', 'Daño')
-                                
-                                if c_class == "Curandero":
-                                    c_opts.extend([(2, "Curar al jugador (+20% MAX HP)"), (3, "Curar a todo el equipo (+15% MAX HP)")])
-                                elif c_class == "Soporte":
-                                    c_opts.append((2, f"Debilitar a {enemy.NAME} (Debuff/Defesa -10%)"))
-                                
-                                c_action = interactive_menu_select(
-                                    title=f"Acción de {comp.name}",
-                                    subtitle="Selecciona habilidad:",
-                                    options=c_opts,
-                                    prompt="Acción: ",
-                                    default_value=1,
-                                    border_style="cyan"
-                                )
-                                
-                                if c_action == 1:
-                                    comp.attack(enemy)
+                            # ── Acción de los Compañeros ────────────────────────────
+                            for comp in player.companion:
+                                if comp.is_alive and enemy.HP > 0:
+                                    console.print(f"\n[cyan]>> Turno de {comp.name} <<[/cyan]")
+                                    sp.sleep(0.5)
+                                    c_opts = [(1, "Atacar")]
+                                    c_class = getattr(comp, 'c_class', 'Daño')
                                     
-                                elif c_action == 2 and c_class == "Curandero":
-                                    cura = player.Health_max * 0.20
-                                    player.Health = min(player.Health_max, player.Health + cura)
-                                    console.print(f"[success]{comp.name} usó magia sagrada curando a {player.name} por {cura:.1f} HP![/success]")
+                                    if c_class == "Curandero":
+                                        c_opts.extend([(2, "Curar al jugador"), (3, "Curar a todo el equipo")])
+                                    elif c_class == "Soporte":
+                                        c_opts.append((2, f"Debilitar a {enemy.NAME}"))
                                     
-                                elif c_action == 3 and c_class == "Curandero":
-                                    cura_p = player.Health_max * 0.15
-                                    player.Health = min(player.Health_max, player.Health + cura_p)
-                                    for c in player.companion:
-                                        if c.is_alive:
-                                            c.Health = min(c.Health_max, c.Health + c.Health_max * 0.15)
-                                    console.print(f"[success]{comp.name} emanó un aura sanadora, curando a todo el equipo.[/success]")
-                                    
-                                elif c_action == 2 and c_class == "Soporte":
-                                    
-                                    bm = get_buff_manager()
-                                    # Intentar aplicar debuff 5_debuff u otro
-                                    debuff = bm.create_buff("5_debuff", "companion_skill")
-                                    if not debuff:
-                                        # Generic fallback
-                                        enemy.DEF = [max(0, d * 0.9) for d in enemy.DEF]
-                                        console.print(f"[warning]{comp.name} lanzó una maldición, bajando un 10% las defensas de {enemy.NAME}.[/warning]")
-                                    else:
-                                        if not hasattr(enemy, 'active_buffs'): enemy.active_buffs = []
-                                        enemy.active_buffs.append(debuff)
-                                        console.print(f"[warning]{comp.name} aplicó {debuff.name} a {enemy.NAME}![/warning]")
-
-                        # ── ¿Murió el enemigo? ────────────────────────────────
-                        if enemy.HP <= 0:
-                            console.print(f"[success]¡Has derrotado a {enemy.NAME}![/success]")
-                            exp_gain = enemy.EXP_TO_PLAYER
-                            gold_gain = enemy.GOLD
-                            player.EXP += exp_gain
-                            player.Gold += gold_gain
-                            console.print(
-                                f"[success]Ganaste {exp_gain} puntos de experiencia y {gold_gain} de oro.[/success]"
-                            )
-                            if random.random() < 0.3:
-                                loot_table = {
-                                    1: [1, 10, 20, 30, 40, 50],
-                                    2: [2, 11, 21, 31, 41, 51],
-                                    3: [3, 12, 22, 32, 42, 52],
-                                }
-                                enemy_level = min(3, max(1, player.Level // 3))
-                                possible_loot = loot_table.get(enemy_level, [1])
-                                loot_id = random.choice(possible_loot)
-                                loot_item = load_item_by_id(
-                                    loot_id, cWeapon, cEquippableItems, cObject, cTool
-                                )
-                                if loot_item:
-                                    console.print(
-                                        f"[success]¡El enemigo dejó caer: {getattr(loot_item, 'Name', getattr(loot_item, 'name', 'Objeto'))}![/success]"
+                                    c_action = interactive_menu_select(
+                                        title=f"Acción de {comp.name}",
+                                        subtitle="Selecciona habilidad:",
+                                        options=c_opts,
+                                        prompt="Acción: ",
+                                        default_value=1,
+                                        border_style="cyan"
                                     )
-                                    vInventory.addObject(loot_item)
-                            quest_manager.update_kill_quest(enemy.NAME, player)
-                            # ── Guild simulation trigger ──────────────────────
-                            player.combat_counter = getattr(player, "combat_counter", 0) + 1
-                            if player.combat_counter % SIMULATION_INTERVAL == 0:
-                                try:
-                                    gm = get_guild_manager()
-                                    tick_events = gm.tick()
-                                    pg = gm.get_player_guild()
-                                    if pg:
-                                        exp_gain = len(pg.territories) * 5 + pg.get_total_soldiers() // 10
-                                        if exp_gain > 0:
-                                            player.AddExp(exp_gain, console)
-                                            console.print(f"[bold green]✨ Tu Guild ha generado {exp_gain} EXP pasiva.[/bold green]")
-                                            
-                                    if tick_events:
-                                        console.print("\n[bold dim]📜 Noticias del mundo:[/bold dim]")
-                                        for ev in tick_events[:3]:
-                                            console.print(f"  [dim]{ev}[/dim]")
-                                except Exception:
-                                    pass
-                            # ─────────────────────────────────────────────────
-                            player.level_up()
-                            input_done = input("Seguir?:: ")
-                            if input_done:
-                                enemy = zone_loader(chosen_area)
-                            combat_active = False
-                            break
+                                    
+                                    if c_action == 1:
+                                        _perform_attack(comp, enemy, console)
+                                    elif c_action == 2 and c_class == "Curandero":
+                                        cura = player.Health_max * 0.20
+                                        player.Health = min(player.Health_max, player.Health + cura)
+                                        console.print(f"[success]{comp.name} curó a {player.name} por {cura:.1f} HP![/success]")
+                                    elif c_action == 3 and c_class == "Curandero":
+                                        cura_p = player.Health_max * 0.15
+                                        player.Health = min(player.Health_max, player.Health + cura_p)
+                                        for c in player.companion:
+                                            if c.is_alive: c.Health = min(c.Health_max, c.Health + c.Health_max * 0.15)
+                                        console.print(f"[success]{comp.name} curó a todo el equipo.[/success]")
+                                    elif c_action == 2 and c_class == "Soporte":
+                                        bm = get_buff_manager()
+                                        debuff = bm.create_buff("5_debuff", "companion_skill")
+                                        if debuff:
+                                            if not hasattr(enemy, 'active_buffs'): enemy.active_buffs = []
+                                            enemy.active_buffs.append(debuff)
+                                            console.print(f"[warning]{comp.name} aplicó {debuff.name} a {enemy.NAME}![/warning]")
 
-                        # ── Turno del enemigo: elige objetivo aleatorio ────────
-                        console.print("\n[bold]¡Turno del enemigo![/bold]")
-                        sp.sleep(2.5)
+                            # ── ¿Murió el enemigo? ────────────────────────────────
+                            if enemy.HP <= 0:
+                                console.print(f"[success]¡Has derrotado a {enemy.NAME}![/success]")
+                                exp_gain = enemy.EXP_TO_PLAYER
+                                gold_gain = enemy.GOLD
+                                player.EXP += exp_gain
+                                player.Gold += gold_gain
+                                console.print(f"[success]Ganaste {exp_gain} EXP y {gold_gain} oro.[/success]")
+                                
+                                if random.random() < 0.3:
+                                    loot_id = random.choice([1, 10, 21, 32, 43, 54])
+                                    loot_item = load_item_by_id(loot_id, cWeapon, cEquippableItems, cObject, cTool)
+                                    if loot_item:
+                                        console.print(f"[success]¡Soltó: {getattr(loot_item, 'Name', 'Objeto')}![/success]")
+                                        vInventory.addObject(loot_item)
+                                
+                                quest_manager.update_kill_quest(enemy.NAME, player)
+                                player.level_up()
 
-                        alive_companions = [c for c in player.companion if c.is_alive]
-                        possible_targets = [player] + alive_companions
-                        attack_target = random.choice(possible_targets)
+                                # ── V4: Guild Taxes Trigger ──────────────────────────
+                                gm = get_guild_manager()
+                                pg = gm.get_player_guild()
+                                if pg:
+                                    pg.fight_count += 1
+                                    if pg.fight_count >= 5:
+                                        tax_msg = pg.apply_taxes()
+                                        console.print(f"\n[bold yellow]💰 {tax_msg}[/bold yellow]")
+                                        pg.fight_count = 0
+                                
+                                if input("¿Seguir en esta zona? (s/n): ").lower() == 's':
+                                    enemy = zone_loader(chosen_area)
+                                else:
+                                    enemy = None
+                                combat_active = False
+                                break
 
-                        damage_taken = enemy.attack(attack_target)
+                            # ── Turno del enemigo ──
+                            console.print("\n[bold]¡Turno del enemigo![/bold]")
+                            sp.sleep(1.0)
+                            alive_companions = [c for c in player.companion if c.is_alive]
+                            possible_targets = [player] + alive_companions
+                            attack_target = random.choice(possible_targets)
 
-                        if attack_target is player:
-                            if damage_taken is not None:
-                                console.print(
-                                    f"[danger]{enemy.NAME} te ataca a ti por {damage_taken:.1f} puntos de daño![/danger]"
-                                )
-                                # Registrar daño recibido en mastery de armadura
+                            damage_taken = _perform_attack(enemy, attack_target, console)
+
+                            if attack_target is player:
                                 try:
                                     mm = ensure_mastery(player)
                                     lvlup_msg = mm.register_damage_received(player, float(damage_taken))
-                                    if lvlup_msg:
-                                        console.print(f"[bold cyan]{lvlup_msg}[/bold cyan]")
-                                except Exception:
-                                    pass
-                            if player.Health <= 0:
-                                console.print(
-                                    f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
-                                )
-                                console.print("[danger]Game Over[/danger]")
-                                player.Health = max(1, int(player.Health_max * 0.1))
-                                player.Gold = max(1, (player.Gold - (player.Health * 0.6)))
+                                    if lvlup_msg: console.print(f"[bold cyan]{lvlup_msg}[/bold cyan]")
+                                except Exception: pass
+                                
+                                if player.Health <= 0:
+                                    console.print("[danger]¡Has sido derrotado![/danger]")
+                                    player.Health = max(1, int(player.Health_max * 0.1))
+                                    player.Gold = max(0, player.Gold * 0.5)
+                                    combat_active = False
+                                    enemy = None
+                                    break
+                            else:
+                                if not attack_target.is_alive:
+                                    console.print(f"[bold red]💀 {attack_target.name} ha caído![/bold red]")
+
+                        elif combat_action == 2:
+                            open_inventory_menu(vInventory, player)
+                            continue
+
+                        elif combat_action == 3:
+                            if random.random() < 0.5:
+                                console.print("[success]¡Escapaste![/success]")
                                 combat_active = False
+                                enemy = None
                                 break
-                        else:
-                            # El enemigo atacó a un compañero
-                            console.print(
-                                f"[danger]{enemy.NAME} ataca a {attack_target.name} por {damage_taken:.1f} puntos de daño![/danger]"
-                            )
-                            if not attack_target.is_alive:
-                                console.print(
-                                    f"[bold red]💀 {attack_target.name} ha caído en combate! "
-                                    f"Puedes revivirlo con {COMPANION_REVIVAL_GOLD_COST} oro o un ítem de resurrección.[/bold red]"
-                                )
+                            else:
+                                console.print("[danger]¡No pudiste escapar![/danger]")
+                                _perform_attack(enemy, player, console)
+                                if player.Health <= 0:
+                                    combat_active = False
+                                    enemy = None
+                                    break
 
-                    elif combat_action == 2:
-                        open_inventory_menu(vInventory, player)
-                        console.print("[info]Has revisado tu inventario.[/info]")
-                        # In this rewrite we don't automatically make the enemy attack after viewing inventory so the player can actually equip or check items safely.
+                        # Mostrar estados al final de ronda
+                        status_table = Table(show_header=False, box=None)
+                        p_hp_bar, p_hp_pct = create_status_bar(player.Health, player.Health_max, "green", True)
+                        e_hp_bar, e_hp_pct = create_status_bar(enemy.HP, enemy.HP_M, "red", True)
+                        status_table.add_row(f"[bold]{player.name}[/bold]", f"{p_hp_bar} {p_hp_pct}%")
+                        status_table.add_row(f"[bold red]{enemy.NAME}[/bold red]", f"{e_hp_bar} {e_hp_pct}%")
+                        console.print(status_table)
+                        combat_round += 1
+                        sp.sleep(0.5)
 
-                    elif combat_action == 3:
-                        flee_chance = CONFIG["COMBAT"]["CHANCE_TO_FLEE"]
-                        player_agi = getattr(player, "AGI", 0) or 0
-                        enemy_agi = getattr(enemy, "AGI", 0) or 0
-                        flee_chance = flee_chance + (player_agi - enemy_agi) / 100
-                        flee_chance = max(0.05, min(0.95, flee_chance))
-                        if random.random() < flee_chance:
-                            console.print("[success]¡Has logrado escapar del combate![/success]")
-                            combat_active = False
-                            break
-                        console.print("[danger]¡No pudiste escapar![/danger]")
-                        console.print(
-                            "\n[bold]¡El enemigo te ataca mientras intentas huir![/bold]"
-                        )
-                        sp.sleep(1)
-                        damage_taken = enemy.attack(player)
-                        bonus_damage = damage_taken * 0.2
-                        player.Health = max(0, player.Health - bonus_damage)
-                        damage_taken = damage_taken + bonus_damage
-                        console.print(
-                            f"[danger]{enemy.NAME} te ha atacado por {damage_taken:.1f} puntos de daño![/danger]"
-                        )
-                        if player.Health <= 0:
-                            console.print(
-                                f"[danger]¡Has sido derrotado por {enemy.NAME}![/danger]"
-                            )
-                            console.print("[danger]Game Over[/danger]")
-                            player.Health = max(1, int(player.Health_max * 0.1))
-                            combat_active = False
-                            break
+                elif zone_input == 2:
+                    try:
+                        sm = get_shop_manager()
+                        z_shop = get_zone_shop_name(chosen_area)
+                        display_shop(z_shop, player, get_item_manager())
+                    except Exception as e:
+                        console.print(f"[warning]Tienda no disponible: {e}[/warning]")
+                    wait_for_enter()
 
-                    print("\n")
-                    if player.Barrier > 0:
-                        player_hp_bar, player_hp_percent = create_hp_barrier_bar(
-                            player.Health, player.Health_max, player.Barrier
-                        )
-                        barrier_tag = f" [bright_cyan]+{int(player.Barrier)}🛡️[/bright_cyan]"
-                    else:
-                        player_hp_bar, player_hp_percent = create_status_bar(
-                            player.Health, player.Health_max, "green", True
-                        )
-                        barrier_tag = ""
-                    player_mp_bar, player_mp_percent = create_status_bar(
-                        player.Mana, player.Mana_max, "blue", True
-                    )
-                    enemy_hp_bar, enemy_hp_percent = create_status_bar(
-                        enemy.HP, enemy.HP_M, "red", True
-                    )
-                    enemy_mp_bar, enemy_mp_percent = create_status_bar(
-                        enemy.MP, enemy.MP_M, "blue", True
-                    )
-                    status_table = Table(show_header=False, box=None)
-                    status_table.add_column("Entity", style="bright_white")
-                    status_table.add_column("HP", style="bright_white")
-                    status_table.add_column("MP", style="bright_white")
-                    status_table.add_row(
-                        f"[bold]{player.name}[/bold]",
-                        f"{player_hp_bar} {player_hp_percent}%{barrier_tag}",
-                        f"{player_mp_bar} {player_mp_percent}%",
-                    )
-                    status_table.add_row(
-                        f"[bold red]{enemy.NAME}[/bold red]",
-                        f"{enemy_hp_bar} {enemy_hp_percent}%",
-                        f"{enemy_mp_bar} {enemy_mp_percent}%",
-                    )
-                    console.print(status_table)
-                    combat_round += 1
-                    sp.sleep(CONFIG["COMBAT"]["DELAY_BETWEEN_ROUNDS"])
+                elif zone_input == 3:
+                    try:
+                        run_zone_gathering(chosen_area)
+                    except Exception as e:
+                        console.print(f"[danger]Error en recolección: {e}[/danger]")
+                    wait_for_enter()
 
-                console.print(
-                    "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
-                )
-                wait_for_enter()
-
-            elif zone_input == 2:
-                if not shop_manager:
-                    console.print("[warning]El sistema de tiendas no esta inicializado.[/warning]")
-                else:
-                    zone_shop = get_zone_shop_name(chosen_area)
-                    shop_items = shop_manager.get_shop_items(zone_shop)
-                    if shop_items:
-                        display_shop(zone_shop, player, item_manager)
-                    else:
-                        console.print("[warning]Esta zona no tiene tienda disponible.[/warning]")
-                wait_for_enter()
-
-            elif zone_input == 3:
-                run_zone_gathering(chosen_area)
-                console.print(
-                    "\n[info]Presiona Enter para volver al menú principal... ↵ [/info]"
-                )
-                wait_for_enter()
-
-            elif zone_input == 4:
-                console.print("[info]Regresando al menu principal...[/info]")
+                elif zone_input == 4:
+                    break
          
 
     elif main_input == 7:

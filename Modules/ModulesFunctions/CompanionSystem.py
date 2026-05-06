@@ -194,83 +194,113 @@ class cCompanion:
 
     # ── Combate ───────────────────────────────────────────────────────────────
 
-    def attack(self, enemy) -> float:
-        """
-        Ataque automático contra un enemigo.
-        Returns:
-            Daño total infligido (0.0 si KO).
-        """
-        if not self.is_alive:
-            return 0.0
+    def attack(self, enemy):
+        """Ataque automático contra un enemigo con detalle."""
+        if not self.is_alive: return {"total_damage": 0}
 
-        DMGTYPE = ["Físico", "Térmico", "Tierra", "Eléctrico", "Profundo"]
+        attack_info = {
+            "is_evaded": False,
+            "is_counter": False,
+            "damage_per_type": [0.0] * 5,
+            "total_damage": 0.0,
+            "blocked_by_def": [0.0] * 5,
+            "blocked_by_pct": [0.0] * 5,
+            "barrier_absorbed": 0.0
+        }
 
+        # 1. Evasión del enemigo
+        enemy_evasion = getattr(enemy, "Evasion", 0)
+        from Modules.ModulesUtils.setup import apply_weather_combat_mods
+        enemy_evasion = apply_weather_combat_mods(enemy_evasion, "evasion")
+        if random.random() < (enemy_evasion / 100.0):
+            attack_info["is_evaded"] = True
+            return attack_info
+
+        # 2. Contraataque del enemigo
+        enemy_counter = getattr(enemy, "CounterAttack", 0)
+        enemy_counter = apply_weather_combat_mods(enemy_counter, "counter")
+        if random.random() < (enemy_counter / 100.0):
+            attack_info["is_counter"] = True
+
+        # 3. Calcular daño
+        attack_info["enchant_dmg"] = [0.0]*5
         if self.weapon is None:
-            dmg = float(random.randint(1, 4))
-            enemy.TakeDamage([dmg, 0, 0, 0, 0])
-            print(f"  {self.name} golpea a {enemy.NAME} con sus puños → {dmg:.0f} daño físico.")
-            return dmg
+            raw = [float(random.randint(2, 5)), 0.0, 0.0, 0.0, 0.0]
+        elif hasattr(self.weapon, "use_weapon"):
+            w_res = self.weapon.use_weapon(self)
+            raw = w_res["damage"]
+            attack_info["enchant_dmg"] = w_res.get("enchant_dmg", [0.0]*5)
+        else:
+            raw = [0.0] * 5
+            for i in range(5):
+                if self.weapon.DMG[i] > 0:
+                    if i == 4:
+                        raw[i] = float(self.weapon.DMG[4])
+                    else:
+                        hi = int(self.weapon.DMG[i])
+                        lo = int(getattr(self.weapon, "DMG_min", [0]*4)[i]) if i < 4 else 0
+                        raw[i] = float(random.randint(max(0, lo), max(lo, hi)))
+        
+        # Aplicar clima al ataque del compañero
+        weather_raw = list(raw)
+        raw = [apply_weather_combat_mods(d, "attack") for d in raw]
+        attack_info["weather_dmg"] = [raw[i] - weather_raw[i] for i in range(5)]
+        
+        # 4. El enemigo recibe daño
+        res = enemy.TakeDamage(raw, attacker=self)
+        attack_info.update(res)
+        return attack_info
 
-        raw = [0.0] * 5
-        for i in range(5):
-            if self.weapon.DMG[i] > 0:
-                if i == 4:
-                    raw[i] = float(self.weapon.DMG[4])
-                else:
-                    lo = int(self.weapon.DMG_min[i]) if i < len(self.weapon.DMG_min) else 0
-                    hi = int(self.weapon.DMG[i])
-                    raw[i] = float(random.randint(max(0, lo), max(lo, hi)))
-
-        if self.armor and hasattr(self.armor, "DmgBoost") and self.armor.DmgBoost:
-            raw[0] += self.armor.DmgBoost
-
-        final = [max(0.0, raw[i] - enemy.DEF[i] / 2) for i in range(5)]
-        total = sum(final)
-        if total < 1:
-            total = 1.0
-            final[0] = 1.0
-
-        enemy.TakeDamage(final)
-
-        breakdown = ", ".join(
-            f"{DMGTYPE[i]}: {final[i]:.1f}" for i in range(5) if final[i] > 0
-        )
-        print(f"  {self.icon} {self.name} ataca a {enemy.NAME} con {self.weapon.name} → {total:.1f} daño ({breakdown}).")
-        return total
-
-    def TakeDamage(self, damage) -> None:
-        if not self.is_alive:
-            return
+    def TakeDamage(self, damage, attacker=None):
+        """Reduces companion HP and returns details."""
+        details = {
+            "total_damage": 0.0,
+            "blocked_by_def": [0.0] * 5,
+            "blocked_by_pct": [0.0] * 5,
+            "barrier_absorbed": 0.0,
+            "damage_per_type": [0.0] * 5
+        }
+        if not self.is_alive: return details
         if not isinstance(damage, (list, tuple)):
             damage = [float(damage), 0, 0, 0, 0]
-
+        
         raw_total = sum(damage)
+        current_damage = list(damage)
 
-        # ── Barrera absorbe daño bruto (sin resistencias) ──
+        # 1. Barrera
         if self.Barrier > 0:
             if raw_total <= self.Barrier:
+                details["barrier_absorbed"] = raw_total
                 self.Barrier -= raw_total
-                return  # Barrera absorbió todo
+                return details
             else:
                 absorbed = self.Barrier
+                details["barrier_absorbed"] = absorbed
                 self.Barrier = 0
                 if raw_total > 0:
                     ratio = (raw_total - absorbed) / raw_total
-                    damage = [d * ratio for d in damage]
+                    current_damage = [d * ratio for d in current_damage]
 
-        # ── Aplicar defensas al daño restante ──
-        final_damage = 0.0
-        for i in range(min(len(damage), 5)):
-            if damage[i] > 0:
-                comp_def = self.DEF[i] if i < len(self.DEF) else 0
-                remaining = max(0, damage[i] - (comp_def / 2))
-                block_ratio = 0.0
-                if i < len(self.DefensePercentage):
-                    block_ratio = min(1.0, self.DefensePercentage[i] / 100.0)
-                final_damage += remaining * (1.0 - block_ratio)
+        # 2. Defensas
+        for i in range(5):
+            if current_damage[i] > 0:
+                comp_def = self.DEF[i]
+                blocked_fijo = min(current_damage[i], comp_def / 2)
+                details["blocked_by_def"][i] = blocked_fijo
+                remaining = current_damage[i] - blocked_fijo
+                
+                # Porcentaje de defensa
+                block_ratio = min(1.0, self.DefensePercentage[i] / 100.0)
+                blocked_pct = remaining * block_ratio
+                details["blocked_by_pct"][i] = blocked_pct
+                
+                final_type_damage = remaining - blocked_pct
+                details["damage_per_type"][i] = final_type_damage
+                details["total_damage"] += final_type_damage
 
-        self.Health = max(0.0, self.Health - final_damage)
+        self.Health -= details["total_damage"]
         if self.Health <= 0:
+            self.Health = 0
             self.is_alive = False
 
     # ── Resurrección ──────────────────────────────────────────────────────────

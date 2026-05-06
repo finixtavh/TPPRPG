@@ -12,88 +12,7 @@ NO se anidan screens. open_guild_menu es solo un loop de navegación.
 """
 
 # ── Edificios de Guild ────────────────────────────────────────────────────────
-GUILD_BUILDINGS = {
-    "cuartel": {
-        "name":        "Cuartel",
-        "icon":        "⚔",
-        "description": "+20 Poder Militar permanente.",
-        "cost":        {"madera": 25, "piedra": 20},
-        "effect":      {"military_power": 20},
-        "unique":      True,
-    },
-    "granero": {
-        "name":        "Granero",
-        "icon":        "🏚",
-        "description": "Reduce el consumo de Comida a la mitad.",
-        "cost":        {"madera": 30},
-        "effect":      {"food_efficiency": True},
-        "unique":      True,
-    },
-    "torre_guardia": {
-        "name":        "Torre de Guardia",
-        "icon":        "🗼",
-        "description": "+30 defensa de territorios ante ataques enemigos.",
-        "cost":        {"piedra": 35, "lingote_xar": 10},
-        "effect":      {"territory_defense": 30},
-        "unique":      True,
-    },
-    "mercado": {
-        "name":        "Mercado",
-        "icon":        "🪙",
-        "description": "+15% producción de recursos por tick.",
-        "cost":        {"madera": 20, "piedra": 20, "ganado": 15},
-        "effect":      {"resource_bonus": 0.15},
-        "unique":      True,
-    },
-    "herreria": {
-        "name":        "Herrería",
-        "icon":        "🔨",
-        "description": "+15 Poder Militar y acceso a equipamiento avanzado.",
-        "cost":        {"madera": 15, "lingote_xar": 20},
-        "effect":      {"military_power": 15},
-        "unique":      True,
-    },
-    "almacen": {
-        "name":        "Gran Almacén",
-        "icon":        "🗃",
-        "description": "+150 capacidad Común, +75 Poco Común.",
-        "cost":        {"madera": 40, "piedra": 30},
-        "effect":      {},
-        "unique":      True,
-    },
-    "templo": {
-        "name":        "Templo",
-        "icon":        "⛪",
-        "description": "Aumenta pasivamente la moral.",
-        "cost":        {"piedra": 20, "lingote_xar": 10},
-        "effect":      {},
-        "unique":      True,
-    },
-    "academia": {
-        "name":        "Academia",
-        "icon":        "🎓",
-        "description": "Genera 1 Skill Point de vez en cuando.",
-        "cost":        {"madera": 25, "lingote_xar": 15},
-        "effect":      {},
-        "unique":      True,
-    },
-    "granja": {
-        "name":        "Granja Comunal",
-        "icon":        "🚜",
-        "description": "+50% al crecimiento base poblacional por tick.",
-        "cost":        {"madera": 15, "ganado": 10},
-        "effect":      {},
-        "unique":      True,
-    },
-    "muralla": {
-        "name":        "Muralla",
-        "icon":        "🧱",
-        "description": "+50 defensa territorial.",
-        "cost":        {"piedra": 50, "lingote_zir": 5},
-        "effect":      {"territory_defense": 50},
-        "unique":      True,
-    },
-}
+from Modules.ModulesFunctions.GuildSystem import GUILD_BUILDINGS
 
 
 import os
@@ -248,8 +167,10 @@ def _render_world(gm: GuildManager, player, page: int = 0):
     t.add_column("Tipo",    width=12)
     t.add_column("Poder",   width=8)
     t.add_column("Moral",   width=8)
-    t.add_column("Terr.",   width=6)
+    t.add_column("Población", width=10)
     t.add_column("Tu Rep.", width=12)
+
+    has_espionage = gm.get_player_guild() and "dip_espionage" in gm.get_player_guild().unlocked_skills
 
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
@@ -257,11 +178,19 @@ def _render_world(gm: GuildManager, player, page: int = 0):
         rep       = gm.get_player_reputation(player, guild.guild_id)
         rank, col = gm.get_reputation_rank(rep)
         is_player = guild.guild_id == gm.player_guild_id
+        
+        # Ocultar stats si no hay espionaje y no es la propia
+        power_str = str(guild.military_power) if (is_player or has_espionage) else "???"
+        moral_str = str(guild.moral) if (is_player or has_espionage) else "???"
+        pop_str   = str(guild.population) if (is_player or has_espionage) else "???"
+
         prefix    = "★ " if is_player else f"{i}. "
         row_style = "bold bright_cyan" if is_player else "white"
         t.add_row(prefix, f"{guild.icon} {guild.name}", guild.guild_type,
-                  str(guild.military_power), str(guild.moral),
-                  str(len(guild.territories)), f"[{col}]{rank}[/]", style=row_style)
+                  power_str, moral_str, pop_str, f"[{col}]{rank}[/]", style=row_style)
+
+    tension_bar = "█" * int(gm.world_tension // 4) + "░" * (25 - int(gm.world_tension // 4))
+    tension_text = Text(f"\n  Tensión Mundial: [[ {tension_bar} ]] {gm.world_tension:.1f}%\n", style="bold red")
 
     ev_text = Text("\n")
     if total_pages > 1:
@@ -270,7 +199,7 @@ def _render_world(gm: GuildManager, player, page: int = 0):
     for ev in gm.world_events[-6:]:
         ev_text.append(f"  • {ev}\n", style="dim")
 
-    return Panel(Group(t, Rule(style="dim"), ev_text),
+    return Panel(Group(tension_text, t, Rule(style="dim"), ev_text),
                  title="[bold]🌍 ESTADO DEL MUNDO[/]", border_style="blue"), total_pages
 
 
@@ -311,7 +240,7 @@ def _diplomacy_action_menu(player_guild: Guild, player, gm: GuildManager, con):
         "idx": 0,
         "exit": False,
         "dirty": True,
-        "message": "↑↓: Navegar | [F]: Formar Alianza | [W]: Declarar Guerra Formal | [ESC]: Volver",
+        "message": "↑↓: Navegar | [F]: Alianza | [W]: Guerra | [S]: Sabotear | [T]: Comercio | [ESC]: Volver",
         "msg_style": "dim"
     }
 
@@ -357,7 +286,9 @@ def _diplomacy_action_menu(player_guild: Guild, player, gm: GuildManager, con):
             t.add_row(prefix, nm, f"[{rel_color}]{relation:+d}[/]", f"[{col}]{rank}[/]", status)
 
         footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
-        return Panel(Group(t, footer), title="[bold magenta]🕊 GESTIÓN DIPLOMÁTICA[/]", border_style="magenta")
+        return Panel(Group(t, footer), 
+                     title=f"[bold magenta]🕊 DIPLOMACIA — {player_guild.icon} {player_guild.name}[/]", 
+                     border_style="magenta")
 
     def _on_press(key):
         state["dirty"] = True
@@ -395,26 +326,53 @@ def _diplomacy_action_menu(player_guild: Guild, player, gm: GuildManager, con):
                 state["message"] = "Ya estás en guerra."
                 state["msg_style"] = "bold yellow"
             else:
-                rep = gm.get_player_reputation(player, g.guild_id)
-                if rep <= -5:
-                    cfg = _get_guild_config()
-                    formal_penalty = cfg.get("FORMAL_WAR_PENALTY", 0)
-                    
-                    player_guild.at_war_with.append(g.guild_id)
-                    g.at_war_with.append(player_guild.guild_id)
-                    
-                    if formal_penalty > 0:
-                        if g.guild_id in player_guild.relations:
-                            player_guild.relations[g.guild_id] = max(-100, player_guild.relations[g.guild_id] - formal_penalty)
-                        else:
-                            player_guild.relations[g.guild_id] = -formal_penalty
-                            
-                    state["message"] = f"Has declarado Guerra Formal a {g.name}."
-                    state["msg_style"] = "bold red"
-                    gm.world_events.append(f"⚔ ¡GUERRA FORMAL! {player_guild.name} le ha declarado la guerra a {g.name}.")
+                cfg = _get_guild_config()
+                formal_penalty = cfg.get("FORMAL_WAR_PENALTY", 0)
+                
+                player_guild.at_war_with.append(g.guild_id)
+                g.at_war_with.append(player_guild.guild_id)
+                
+                if formal_penalty > 0:
+                    if g.guild_id in player_guild.relations:
+                        player_guild.relations[g.guild_id] = max(-100, player_guild.relations[g.guild_id] - formal_penalty)
+                    else:
+                        player_guild.relations[g.guild_id] = -formal_penalty
+                        
+                state["message"] = f"Has declarado Guerra Formal a {g.name}."
+                state["msg_style"] = "bold red"
+                gm.world_events.append(f"⚔ ¡GUERRA FORMAL! {player_guild.name} le ha declarado la guerra a {g.name}.")
+                gm.world_tension = min(100.0, gm.world_tension + 5.0)
+        elif key == "s":
+            # Sabotaje
+            g = all_guilds[state["idx"]]
+            if "dip_espionage" not in player_guild.unlocked_skills:
+                state["message"] = "Requiere la habilidad 'Espionaje'."
+                state["msg_style"] = "bold red"
+            elif g.guild_id in player_guild.alliances:
+                state["message"] = "No puedes sabotear a un aliado."
+                state["msg_style"] = "bold yellow"
+            else:
+                # Éxito basado en moral y habilidad shadows
+                chance = 0.4 + (0.2 if "dip_shadows" in player_guild.unlocked_skills else 0.0)
+                if random.random() < chance:
+                    damage = random.randint(5, 15)
+                    g.change_moral(-damage)
+                    # Robar algo de recursos
+                    stolen = random.randint(10, 30)
+                    g.consume_resource("oro", stolen)
+                    player_guild.add_resource("oro", stolen, gm.resource_defs)
+                    state["message"] = f"¡Éxito! Sabotaje a {g.name}: -{damage} Moral y robar {stolen} Oro."
+                    state["msg_style"] = "bold green"
+                    gm.change_player_reputation(player, g.guild_id, -10)
                 else:
-                    state["message"] = "Solo puedes declarar guerra formal a guild enemigas (Reputación <= -5)."
+                    state["message"] = f"Fracaso. Tu espía en {g.name} fue capturado."
                     state["msg_style"] = "bold red"
+                    gm.change_player_reputation(player, g.guild_id, -25)
+                    player_guild.change_moral(-5)
+        elif key == "t":
+            g = all_guilds[state["idx"]]
+            _custom_trade_menu(player_guild, g, player, gm, con)
+            state["dirty"] = True
 
     with con.screen():
         with keyboard_listener_scope():
@@ -1010,7 +968,7 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
     Menú con pestañas para la guild del jugador.
     Retorna acción seleccionada.
     """
-    tabs  = ["Resumen", "Territorios", "Recursos", "Mundo", "Misiones", "Militar", "Habilidades", "Diplomacia", "Construcciones"]
+    tabs  = ["Resumen", "Territorios", "Recursos", "Mundo", "Mercado y Trueques", "Comercio", "Misiones", "Militar", "Habilidades", "Diplomacia", "Construcciones"]
     state = {
         "tab_idx":        0,
         "exit":           False,
@@ -1049,6 +1007,11 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
                 Text("\n  Pulsa [ENTER] para abrir el árbol de habilidades.\n", style="dim"),
                 border_style="cyan",
             )
+        elif tab == "Comercio":
+            content = Panel(
+                Text("\n  Pulsa [ENTER] para vender excedentes a otras Guilds.\n", style="dim"),
+                border_style="yellow",
+            )
         elif tab == "Militar":
             content = Panel(
                 Text("\n  Pulsa [ENTER] para gestionar tu ejército.\n", style="dim"),
@@ -1061,14 +1024,16 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
             )
         elif tab == "Diplomacia":
             content = Panel(
-                Text("\n  Pulsa [ENTER] para gestionar Diplomacia.\n", style="dim"),
+                Text("\n  Pulsa [ENTER] para gestionar Diplomacia y Tradeos personalizados.\n", style="dim"),
                 border_style="magenta",
             )
+        elif tab == "Mercado":
+            content = _render_market_preview(player_guild, gm)
         else:
             content = Panel(Text("Próximamente.", style="dim"))
 
         footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
-        hint   = Text("← →: Pestañas | [ENTER]: Acción | [O]: Tributos | [M]: Eventos | [ESC]: Salir", style="dim")
+        hint   = Text("← →: Pestañas | [ENTER]: Acción | [O]: Config. Taxes | [M]: Eventos | [ESC]: Salir", style="dim")
         return Panel(
             Group(h, Rule(style="cyan"), content, hint, footer),
             title=f"[bold cyan]⚔ GUILDS — {player_guild.icon} {player_guild.name}[/]",
@@ -1092,6 +1057,9 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
             elif tab == "Territorios":
                 state["open_sub"] = "territories"
                 state["exit"]     = True
+            elif tab == "Comercio":
+                state["open_sub"] = "commerce"
+                state["exit"]     = True
             elif tab == "Construcciones":
                 state["open_sub"] = "buildings"
                 state["exit"]     = True
@@ -1101,19 +1069,15 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
             elif tab == "Diplomacia":
                 state["open_sub"] = "diplomacy"
                 state["exit"]     = True
+            elif tab == "Mercado y Trueques":
+                state["open_sub"] = "market"
+                state["exit"]     = True
         elif key == "m":
             state["open_sub"] = "events"
             state["exit"]     = True
         elif key == "o":
-            oro = player_guild.get_resource("oro")
-            if oro > 0:
-                player_guild.consume_resource("oro", oro)
-                player.Gold += oro
-                state["message"] = f"💰 ¡Has recaudado {oro} Oro de Caravana! (Total: {player.Gold})"
-                state["msg_style"] = "bold yellow"
-            else:
-                state["message"] = "No hay Oro de Caravana disponible."
-                state["msg_style"] = "dim"
+            state["open_sub"] = "taxes"
+            state["exit"]     = True
         elif key == "esc":
             state["open_sub"] = None
             state["exit"]     = True
@@ -1140,6 +1104,82 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
             con.clear()
 
     return state["open_sub"] or "exit"
+
+
+def _commerce_menu(player_guild: Guild, player, gm: GuildManager, con):
+    """Menú para vender excedentes de recursos a otras Guilds."""
+    resources = list(player_guild.resources.values())
+    # Filtrar recursos con cantidad > 0 y que no sean Oro
+    resources = [r for r in resources if r.amount > 0 and r.resource_id != "oro"]
+    
+    state = {
+        "idx":       0,
+        "exit":      False,
+        "message":   "↑↓: Elegir Recurso | [Z]: Vender 10 | [X]: Vender 50 | [C]: Vender 200 | [ESC]: Volver",
+        "msg_style": "dim"
+    }
+
+    def _render():
+        t = Table(show_header=True, box=box.SIMPLE, expand=True)
+        t.add_column("", width=3)
+        t.add_column("Recurso", ratio=2)
+        t.add_column("Cantidad", ratio=1)
+        t.add_column("Precio/u", ratio=1)
+        t.add_column("Total Potencial", ratio=2)
+
+        prices = {"Common": 2, "Uncommon": 5, "Rare": 15, "Legendary": 50}
+
+        for i, res in enumerate(resources):
+            sel = (i == state["idx"])
+            rarity = res.rarity
+            price = prices.get(rarity, 2)
+            
+            nm = Text(f"{res.icon} {res.name}")
+            if sel: nm.stylize("bold reverse")
+            
+            t.add_row(
+                "▶" if sel else " ",
+                nm,
+                str(res.amount),
+                f"💰{price}",
+                f"💰{res.amount * price}",
+                style="bold yellow" if sel else "white"
+            )
+
+        footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
+        return Panel(Group(t, footer), title="[bold yellow]⚖ COMERCIO EXTERNO[/]", border_style="yellow")
+
+    def _on_press(key):
+        state["dirty"] = True
+        if key == "esc":
+            state["exit"] = True
+        elif key == "up":
+            state["idx"] = max(0, state["idx"] - 1)
+        elif key == "down":
+            state["idx"] = min(len(resources) - 1, state["idx"] + 1)
+        elif key in ["z", "x", "c"] and resources:
+            res = resources[state["idx"]]
+            amt = 10 if key == "z" else (50 if key == "x" else 200)
+            
+            ok, msg = gm.sell_surplus_resources(player_guild, res.resource_id, amt, player)
+            state["message"] = msg
+            state["msg_style"] = "bold green" if ok else "bold red"
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
+            kb_thread.start()
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
+                try:
+                    while not state["exit"]:
+                        if state.get("dirty", True):
+                            live.update(_render(), refresh=True)
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
+            con.clear()
 
 
 # ── Pestaña Eventos ──────────────────────────────────────────────────────────
@@ -1542,5 +1582,427 @@ def open_guild_menu(player, console=None):
             _military_management_menu(player_guild, player, gm, console)
         elif sub_action == "diplomacy":
             _diplomacy_action_menu(player_guild, player, gm, console)
+        elif sub_action == "market":
+            _market_and_barter_menu(player_guild, player, gm, console)
+        elif sub_action == "commerce":
+            _commerce_menu(player_guild, player, gm, console)
         elif sub_action == "events":
             _events_menu(player_guild, player, gm, console)
+        elif sub_action == "taxes":
+            _tax_settings_menu(player_guild, player, gm, console)
+
+def _render_market_preview(guild: Guild, gm: GuildManager):
+    pending = guild.pending_events
+    if not pending:
+        return Panel(Text("\n  No hay propuestas comerciales pendientes.\n", style="dim"), border_style="yellow")
+    
+    t = Table(show_header=True, box=box.SIMPLE, expand=True)
+    t.add_column("Propuesta", ratio=1)
+    t.add_column("De", ratio=1)
+    
+    for ev in pending[:5]:
+        src = gm.guilds.get(ev.get("source_guild_id", ""))
+        src_name = f"{src.icon} {src.name}" if src else "Desconocido"
+        t.add_row(ev["title"], src_name)
+        
+    return Panel(Group(Text("  [ENTER] para abrir el Mercado de Trueques\n", style="bold yellow"), t), title="[bold yellow]🤝 Mercado y Trueques[/]", border_style="yellow")
+
+def _tax_settings_menu(player_guild: Guild, player, gm: GuildManager, con):
+    state = {"exit": False, "dirty": True}
+    def _render():
+        rate = player_guild.tax_rate * 100
+        msg = ""
+        color = "green"
+        if rate > 40:
+            msg = "💀 TIRANÍA ABSOLUTA: Gran pérdida de Moral y severos debuffs."
+            color = "red"
+        elif rate > 25:
+            msg = "⚠️ PRESIÓN FISCAL EXTREMA: Descontento masivo."
+            color = "bright_red"
+        elif rate > 10:
+            msg = "⚠️ ALTA PRESIÓN FISCAL: -Moral y Debuffs en combate."
+            color = "yellow"
+        elif rate > 5:
+            msg = "⚡ Impuestos moderados."
+            color = "bright_green"
+        else:
+            msg = "🕊️ Impuestos bajos. Población feliz."
+            color = "cyan"
+        
+        # Slider visual
+        slider_len = 25
+        pos = int((player_guild.tax_rate - 0.01) / (0.50 - 0.01) * (slider_len - 1))
+        slider = "[" + "─" * pos + "●" + "─" * (slider_len - 1 - pos) + "]"
+        
+        t = Table(show_header=False, box=None, expand=True)
+        # Escapamos los corchetes para evitar errores de Rich ANSI
+        t.add_row(f"[bold]Tasa de Impuestos Actual: [[ [bold {color}]{rate:.0f}%[/] ]][/]")
+        t.add_row(f"[bold {color}]{slider}[/]")
+        t.add_row(f"[{color}]{msg}[/]")
+        t.add_row("")
+        t.add_row("↑/↓: Cambiar Tasa (1% - 50%)")
+        t.add_row("💰 Oro acumulado por recaudar: " + str(player_guild.tax_gold_pool))
+        t.add_row("")
+        t.add_row("[R]: Recaudar oro acumulado")
+        t.add_row("[ESC]: Guardar y Salir")
+        
+        return Panel(t, title=f"[bold yellow]⚖ TAXES — {player_guild.icon} {player_guild.name}[/]", border_style="yellow")
+
+    def _on_press(key):
+        if key == "up":
+            player_guild.tax_rate = min(0.50, player_guild.tax_rate + 0.01)
+        elif key == "down":
+            player_guild.tax_rate = max(0.01, player_guild.tax_rate - 0.01)
+        elif key == "r":
+            if player_guild.tax_gold_pool > 0:
+                player.Gold += player_guild.tax_gold_pool
+                player_guild.tax_gold_pool = 0
+        elif key == "esc":
+            state["exit"] = True
+        state["dirty"] = True
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
+            kb_thread.start()
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
+                try:
+                    while not state["exit"]:
+                        if state.get("dirty", True):
+                            live.update(_render(), refresh=True)
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
+            con.clear()
+
+def _market_and_barter_menu(player_guild: Guild, player, gm: GuildManager, con):
+    state = {"idx": 0, "opt_idx": 0, "exit": False, "dirty": True, "msg": "", "mode": "list"}
+    
+    def _render():
+        pending = player_guild.pending_events
+        if not pending:
+            return Panel(Text("\n  No hay propuestas comerciales en este momento.\n  Vuelve más tarde o mejora tu reputación.\n", style="dim"), 
+                         title="[bold yellow]🤝 Mercado de Trueques[/]", border_style="yellow")
+        
+        if state["mode"] == "list":
+            t = Table(show_header=True, box=box.SIMPLE, expand=True)
+            t.add_column("", width=3)
+            t.add_column("Propuesta", ratio=1)
+            t.add_column("Origen", ratio=1)
+            
+            for i, ev in enumerate(pending):
+                sel = (i == state["idx"])
+                src = gm.guilds.get(ev.get("source_guild_id", ""))
+                src_name = f"{src.icon} {src.name}" if src else "Desconocido"
+                t.add_row("▶" if sel else " ", ev["title"], src_name, style="bold yellow" if sel else "white")
+            
+            hint = Text("\n ↑↓: Seleccionar | [ENTER]: Ver Detalle | [ESC]: Volver", style="dim")
+            return Panel(Group(t, hint), title="[bold yellow]🤝 Mercado de Trueques[/]", border_style="yellow")
+        
+        else: # mode == "detail"
+            ev = pending[state["idx"]]
+            src = gm.guilds.get(ev.get("source_guild_id", ""))
+            src_name = f"{src.icon} {src.name}" if src else "Desconocido"
+            
+            detail = Table(show_header=False, box=None, expand=True)
+            detail.add_row(f"[bold cyan]De:[/] {src_name}")
+            detail.add_row(f"[bold cyan]Asunto:[/] {ev['title']}")
+            detail.add_row("")
+            detail.add_row(ev["desc_tmpl"])
+            detail.add_row("")
+            
+            opts = Table(show_header=False, box=None, expand=True)
+            for j, opt in enumerate(ev["options"]):
+                sel_opt = (j == state["opt_idx"])
+                opts.add_row(f"{'▶' if sel_opt else ' '} {opt['text']}", style="bold yellow" if sel_opt else "dim")
+            
+            hint = Text("\n ↑↓: Elegir opción | [ENTER]: Confirmar | [ESC]: Atrás", style="dim")
+            return Panel(Group(detail, Rule(), opts, hint), title=f"[bold yellow]🤝 Detalle de Propuesta[/]", border_style="yellow")
+
+    def _on_press(key):
+        pending = player_guild.pending_events
+        state["dirty"] = True
+        
+        if state["mode"] == "list":
+            if key == "up":
+                state["idx"] = max(0, state["idx"] - 1)
+            elif key == "down":
+                state["idx"] = min(len(pending) - 1, state["idx"] + 1)
+            elif key == "enter" and pending:
+                state["mode"] = "detail"
+                state["opt_idx"] = 0
+            elif key == "esc":
+                state["exit"] = True
+        else: # detail
+            ev = pending[state["idx"]]
+            if key == "up":
+                state["opt_idx"] = max(0, state["opt_idx"] - 1)
+            elif key == "down":
+                state["opt_idx"] = min(len(ev["options"]) - 1, state["opt_idx"] + 1)
+            elif key == "esc":
+                state["mode"] = "list"
+            elif key == "enter":
+                opt = ev["options"][state["opt_idx"]]
+                effects = opt.get("effects", {})
+                
+                # Procesar efectos del trade
+                if effects.get("trade_accept"):
+                    rid_offer = effects["offer_rid"]
+                    amt_offer = effects["offer_amt"]
+                    rid_req   = effects["req_rid"]
+                    amt_req   = effects["req_amt"]
+                    src_id    = effects["src_id"]
+                    
+                    if player_guild.get_resource(rid_req) >= amt_req:
+                        player_guild.consume_resource(rid_req, amt_req)
+                        player_guild.add_resource(rid_offer, amt_offer, gm.resource_defs)
+                        gm.change_player_reputation(player, src_id, 5)
+                        player_guild.log_event(f"🤝 Trade aceptado con {src_id}.")
+                        pending.pop(state["idx"])
+                        state["mode"] = "list"
+                        state["idx"] = 0
+                    else:
+                        state["msg"] = "✗ No tienes suficientes recursos."
+                else:
+                    # Otros efectos (rechazar, etc)
+                    if "rel_src" in effects:
+                        gm.change_player_reputation(player, effects["src_id"], effects["rel_src"])
+                    pending.pop(state["idx"])
+                    state["mode"] = "list"
+                    state["idx"] = 0
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
+            kb_thread.start()
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
+                try:
+                    while not state["exit"]:
+                        if state.get("dirty", True):
+                            live.update(_render(), refresh=True)
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
+            con.clear()
+
+def _custom_trade_menu(player_guild: Guild, target_guild: Guild, player, gm: GuildManager, con):
+    """Menú para proponer un trade personalizado a un NPC."""
+    resources = list(gm.resource_defs.keys())
+    state = {
+        "offer":    {rid: 0 for rid in resources},
+        "request":  {rid: 0 for rid in resources},
+        "idx":      0,
+        "mode":     "offer", # "offer" or "request"
+        "exit":     False,
+        "dirty":    True,
+        "message":  "↑↓: Elegir Recurso | ←→: + / - Cantidad | [TAB]: Cambiar Oferta/Pedido | [ENTER]: Proponer | [ESC]: Cancelar",
+        "msg_style": "dim"
+    }
+
+    def _render():
+        t_off = Table(title="Tu Oferta", show_header=True, box=box.SIMPLE, expand=True)
+        t_off.add_column("Recurso", ratio=1)
+        t_off.add_column("Cantidad", ratio=1)
+        
+        t_req = Table(title=f"Pedido a {target_guild.name}", show_header=True, box=box.SIMPLE, expand=True)
+        t_req.add_column("Recurso", ratio=1)
+        t_req.add_column("Cantidad", ratio=1)
+
+        for i, rid in enumerate(resources):
+            r_def = gm.resource_defs[rid]
+            name = f"{r_def.get('icon','')} {r_def.get('name', rid)}"
+            
+            # Render Offer
+            sel_off = (state["mode"] == "offer" and i == state["idx"])
+            off_qty = state["offer"][rid]
+            t_off.add_row(name, str(off_qty), style="bold yellow" if sel_off else ("white" if off_qty > 0 else "dim"))
+            
+            # Render Request
+            sel_req = (state["mode"] == "request" and i == state["idx"])
+            req_qty = state["request"][rid]
+            t_req.add_row(name, str(req_qty), style="bold cyan" if sel_req else ("white" if req_qty > 0 else "dim"))
+
+        footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
+        return Panel(Group(Group(t_off, t_req), Rule(), footer), 
+                     title=f"[bold yellow]⚖ Propuesta Comercial con {target_guild.name}[/]", border_style="yellow")
+
+    def _on_press(key):
+        state["dirty"] = True
+        rid = resources[state["idx"]]
+        
+        if key == "up":
+            state["idx"] = (state["idx"] - 1) % len(resources)
+        elif key == "down":
+            state["idx"] = (state["idx"] + 1) % len(resources)
+        elif key == "right":
+            if state["mode"] == "offer":
+                if player_guild.get_resource(rid) > state["offer"][rid]:
+                    state["offer"][rid] += 5
+            else:
+                if target_guild.get_resource(rid) > state["request"][rid]:
+                    state["request"][rid] += 5
+        elif key == "left":
+            if state["mode"] == "offer":
+                state["offer"][rid] = max(0, state["offer"][rid] - 5)
+            else:
+                state["request"][rid] = max(0, state["request"][rid] - 5)
+        elif key == "tab":
+            state["mode"] = "request" if state["mode"] == "offer" else "offer"
+        elif key == "enter":
+            # Evaluar trade
+            player_offer = {rid: qty for rid, qty in state["offer"].items() if qty > 0}
+            player_req   = {rid: qty for rid, qty in state["request"].items() if qty > 0}
+            
+            if not player_offer and not player_req:
+                state["message"] = "No puedes proponer un trato vacío."
+                state["msg_style"] = "bold red"
+                return
+
+            rep = gm.get_player_reputation(player, target_guild.guild_id)
+            accepted, msg = gm.evaluate_trade_proposal(target_guild, player_offer, player_req, rep)
+            
+            if accepted:
+                # Ejecutar trade
+                for r, q in player_offer.items():
+                    player_guild.consume_resource(r, q)
+                    target_guild.add_resource(r, q, gm.resource_defs)
+                for r, q in player_req.items():
+                    target_guild.consume_resource(r, q)
+                    player_guild.add_resource(r, q, gm.resource_defs)
+                
+                gm.change_player_reputation(player, target_guild.guild_id, 2)
+                state["message"] = f"✅ {target_guild.name}: {msg}"
+                state["msg_style"] = "bold green"
+                # Limpiar oferta
+                state["offer"] = {rid: 0 for rid in resources}
+                state["request"] = {rid: 0 for rid in resources}
+            else:
+                state["message"] = f"❌ {target_guild.name}: {msg}"
+                state["msg_style"] = "bold red"
+                gm.change_player_reputation(player, target_guild.guild_id, -1)
+                
+        elif key == "esc":
+            state["exit"] = True
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
+            kb_thread.start()
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
+                try:
+                    while not state["exit"]:
+                        if state.get("dirty", True):
+                            live.update(_render(), refresh=True)
+                            state["dirty"] = False
+                        time.sleep(0.01)
+                finally:
+                    stop_listening()
+                    if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
+            con.clear()
+        else:
+            if key == "up": state["idx"] = max(0, state["idx"] - 1)
+            elif key == "down": state["idx"] = min(len(pending)-1, state["idx"] + 1)
+            elif key == "enter": 
+                state["mode"] = "detail"
+                state["opt_idx"] = 0
+            elif key == "esc": state["exit"] = True
+        state["dirty"] = True
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
+            kb_thread.start()
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
+                while not state["exit"]:
+                    if state["dirty"]:
+                        live.update(_render())
+                        state["dirty"] = False
+                    time.sleep(0.01)
+            stop_listening()
+
+def _custom_trade_menu(player_guild: Guild, target_guild: Guild, player, gm: GuildManager, con):
+    state = {
+        "exit": False, "dirty": True, "msg": "",
+        "offer": {}, "request": {},
+        "res_idx": 0, "col": 0 # 0: Offer, 1: Request
+    }
+    all_res = list(gm.resource_defs.keys())
+
+    def _render():
+        t = Table(show_header=True, box=box.SIMPLE, expand=True)
+        t.add_column("Recurso", ratio=2)
+        t.add_column("Tú Ofreces", ratio=1)
+        t.add_column("Tú Pides", ratio=1)
+        t.add_column("Stock NPC", ratio=1)
+
+        for i, rid in enumerate(all_res):
+            sel = (i == state["res_idx"])
+            r_def = gm.resource_defs[rid]
+            name = f"{r_def.get('icon','')} {r_def.get('name',rid)}"
+            
+            off = state["offer"].get(rid, 0)
+            req = state["request"].get(rid, 0)
+            stock = target_guild.get_resource(rid)
+            
+            style_off = "bold green" if sel and state["col"] == 0 else "white"
+            style_req = "bold yellow" if sel and state["col"] == 1 else "white"
+            
+            t.add_row(name, 
+                      Text(str(off), style=style_off), 
+                      Text(str(req), style=style_req), 
+                      str(stock))
+
+        hint = Text("\n← →: Cambiar columna | ↑ ↓: Seleccionar recurso | +/- : Ofrecer | [/] : Pedir\n[ENTER]: Enviar propuesta | [ESC]: Cancelar", style="dim")
+        return Panel(Group(t, Rule(), hint), title=f"[bold cyan]🤝 Tradeando con {target_guild.name}[/]", subtitle=state["msg"])
+
+    def _on_press(key):
+        rid = all_res[state["res_idx"]]
+        if key == "up": state["res_idx"] = (state["res_idx"] - 1) % len(all_res)
+        elif key == "down": state["res_idx"] = (state["res_idx"] + 1) % len(all_res)
+        elif key == "left": state["col"] = 0
+        elif key == "right": state["col"] = 1
+        elif key == "+":
+            if player_guild.get_resource(rid) > state["offer"].get(rid, 0):
+                state["offer"][rid] = state["offer"].get(rid, 0) + 1
+        elif key == "-":
+            state["offer"][rid] = max(0, state["offer"].get(rid, 0) - 1)
+        elif key == "[": # Usar [ para menos pedido y ] para más pedido
+            state["request"][rid] = max(0, state["request"].get(rid, 0) - 1)
+        elif key == "]":
+            state["request"][rid] = state["request"].get(rid, 0) + 1
+        elif key == "enter":
+            # Evaluar trade
+            rep = gm.get_player_reputation(player, target_guild.guild_id)
+            ok, msg = gm.evaluate_trade_proposal(target_guild, state["offer"], state["request"], rep)
+            if ok:
+                # Ejecutar
+                for r, a in state["offer"].items():
+                    player_guild.consume_resource(r, a)
+                    target_guild.add_resource(r, a, gm.resource_defs)
+                for r, a in state["request"].items():
+                    target_guild.consume_resource(r, a)
+                    player_guild.add_resource(r, a, gm.resource_defs)
+                state["msg"] = "[bold green]¡Aceptado![/] " + msg
+                time.sleep(1.5)
+                state["exit"] = True
+            else:
+                state["msg"] = "[bold red]Rechazado:[/] " + msg
+        elif key == "esc":
+            state["exit"] = True
+        state["dirty"] = True
+
+    with con.screen():
+        with keyboard_listener_scope():
+            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
+            kb_thread.start()
+            with Live(console=con, screen=True, refresh_per_second=20) as live:
+                while not state["exit"]:
+                    if state["dirty"]:
+                        live.update(_render())
+                        state["dirty"] = False
+                    time.sleep(0.01)
+            stop_listening()

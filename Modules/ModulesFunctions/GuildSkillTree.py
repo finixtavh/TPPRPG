@@ -364,6 +364,9 @@ def open_guild_skill_tree(guild, console=None):
         branch_name = branches[state["branch_idx"]]
         branch_icon = BRANCH_ICONS[branch_name]
         skills      = _current_skills()
+        
+        # Clamp state["skill_idx"] to ensure it is always within bounds
+        state["skill_idx"] = max(0, min(len(skills) - 1, state["skill_idx"]))
 
         # Pestañas
         tabs = Text()
@@ -377,12 +380,12 @@ def open_guild_skill_tree(guild, console=None):
                 tabs.append("  ")
 
         # Tabla de habilidades
-        t = Table(show_header=False, box=box.SIMPLE, expand=True)
-        t.add_column("Status", width=3)
-        t.add_column("Icon",   width=3)
-        t.add_column("Nombre", ratio=2)
-        t.add_column("Costo",  width=8)
-        t.add_column("Estado", ratio=1)
+        t = Table(show_header=False, box=None, expand=True)
+        t.add_column("Status", justify="center", width=3)
+        t.add_column("Icon", justify="center", width=3)
+        t.add_column("Nombre")
+        t.add_column("Costo", justify="right", width=6)
+        t.add_column("Estado")
 
         for i, sid in enumerate(skills):
             skill    = GUILD_SKILL_TREE[sid]
@@ -395,16 +398,16 @@ def open_guild_skill_tree(guild, console=None):
 
             if unlocked:
                 row_style = "bold green"
-                state_str = "[green]ACTIVA[/green]"
+                state_str = Text.from_markup("[green]ACTIVA[/green]")
             elif selected:
                 row_style = "bold bright_cyan"
-                state_str = "[bold bright_cyan]← SELECCIONADA[/]"
+                state_str = Text.from_markup("[bold bright_cyan]← SELECCIONADA[/]")
             elif ok:
                 row_style = "white"
-                state_str = "[dim]Disponible[/]"
+                state_str = Text.from_markup("[dim]Disponible[/]")
             else:
                 row_style = "dim"
-                state_str = f"[dim red]{reason}[/]"
+                state_str = Text(reason, style="dim red")
 
             name_text = Text(skill["name"])
             if selected:
@@ -413,20 +416,21 @@ def open_guild_skill_tree(guild, console=None):
             t.add_row(status_icon, skill["icon"], name_text, cost_str, state_str, style=row_style)
 
         # Detalle de la habilidad seleccionada
-        skills_list = _current_skills()
-        if skills_list:
-            sel_skill = GUILD_SKILL_TREE[skills_list[state["skill_idx"]]]
-            unlocked  = skills_list[state["skill_idx"]] in guild.unlocked_skills
-            ok, reason = can_unlock(skills_list[state["skill_idx"]], guild)
-            detail = Text()
-            detail.append(f"\n {sel_skill['icon']}  {sel_skill['name']}\n", style="bold cyan")
-            detail.append(f" {sel_skill['description']}\n", style="italic")
+        if skills:
+            sel_skill = GUILD_SKILL_TREE[skills[state["skill_idx"]]]
+            unlocked  = skills[state["skill_idx"]] in guild.unlocked_skills
+            ok, reason = can_unlock(skills[state["skill_idx"]], guild)
+            
+            d_lines = []
+            d_lines.append(Text(f"\n{sel_skill['icon']}  {sel_skill['name']}", style="bold cyan"))
+            d_lines.append(Text(sel_skill["description"], style="italic"))
             if unlocked:
-                detail.append(" Estado: ACTIVA\n", style="bold green")
+                d_lines.append(Text("Estado: ACTIVA", style="bold green"))
             elif ok:
-                detail.append(f" [ENTER] para desbloquear por {sel_skill['cost']} puntos\n", style="bold yellow")
+                d_lines.append(Text(f"[ENTER] para desbloquear por {sel_skill['cost']} puntos", style="bold yellow"))
             else:
-                detail.append(f" {reason}\n", style="red")
+                d_lines.append(Text(reason, style="bold red"))
+            detail = Group(*d_lines)
         else:
             detail = Text("Sin habilidades en esta rama.", style="dim")
 
@@ -442,7 +446,7 @@ def open_guild_skill_tree(guild, console=None):
         return Panel(
             Group(tabs, Rule(style="cyan"), t, Rule(style="dim"), detail, footer_hint, footer),
             title=f"[bold cyan]🌳 ÁRBOL DE HABILIDADES — {guild.name}[/]",
-            subtitle=f"Puntos: {guild.skill_points}",
+            subtitle=f"[bold yellow]Puntos: {guild.skill_points}[/]",
             border_style="cyan",
         )
 
@@ -468,7 +472,6 @@ def open_guild_skill_tree(guild, console=None):
             state["exit"] = True
 
     with console.screen():
-        from Modules.ModulesUtils.input_utils import keyboard_listener_scope
         with keyboard_listener_scope():
             kb_thread = threading.Thread(
                 target=listen_keyboard,
@@ -476,7 +479,7 @@ def open_guild_skill_tree(guild, console=None):
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=console, screen=True, refresh_per_second=20) as live:
+            with Live(console=console, screen=False, refresh_per_second=20) as live: # Changed screen=False here
                 try:
                     while not state["exit"]:
                         live.update(_render(), refresh=True)

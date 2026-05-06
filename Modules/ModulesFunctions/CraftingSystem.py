@@ -30,7 +30,7 @@ class CraftingSystem:
         self._load_recipes()
 
     def _load_recipes(self):
-        data_path = os.path.join(os.path.dirname(__file__), "..", "Data", "DataRecipes.json")
+        data_path = os.path.join(os.path.dirname(__file__), "..", "..", "Data", "DataRecipes.json")
         try:
             import json
             with open(data_path, "r", encoding="utf-8") as f:
@@ -116,7 +116,7 @@ def open_crafting_menu(player, inventory):
             res_id = recipe.get("result_id"); res_qty = recipe.get("result_qty", 1) * qty
             obj = item_manager.create_item_object(res_id, cWeapon, cEquippableItems, cObject, cTool, cMaterial)
             if obj:
-                inventory.addItem(obj, res_qty); state["message"] = f"✓ ¡Has creado {res_qty}x {recipe['result_name']}!"; state["msg_style"] = "bold green"
+                inventory.addObject(obj, res_qty); state["message"] = f"✓ ¡Has creado {res_qty}x {recipe['result_name']}!"; state["msg_style"] = "bold green"
                 if not hasattr(player, "discovered_items"): player.discovered_items = set()
                 player.discovered_items.add(res_id)
         else: state["message"] = "✗ No tienes materiales suficientes"; state["msg_style"] = "bold red"

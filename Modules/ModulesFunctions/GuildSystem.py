@@ -29,6 +29,98 @@ _ZONE_GUILDS_JSON     = os.path.join("Data", "ZoneGuilds.json")
 SIMULATION_INTERVAL = 5
 RARITY_BASE_CAPS = {"Common": 250, "Uncommon": 100, "Rare": 50, "Legendary": 25}
 
+# ── Edificios de Guild ────────────────────────────────────────────────────────
+GUILD_BUILDINGS = {
+    "cuartel": {
+        "name":        "Cuartel",
+        "icon":        "⚔",
+        "description": "+20 Poder Militar permanente.",
+        "cost":        {"madera": 25, "piedra": 20},
+        "effect":      {"military_power": 20},
+        "unique":      True,
+    },
+    "granero": {
+        "name":        "Granero",
+        "icon":        "🏚",
+        "description": "Reduce el consumo de Comida a la mitad.",
+        "cost":        {"madera": 30},
+        "effect":      {"food_efficiency": True},
+        "unique":      True,
+    },
+    "torre_guardia": {
+        "name":        "Torre de Guardia",
+        "icon":        "🗼",
+        "description": "+30 defensa de territorios ante ataques enemigos.",
+        "cost":        {"piedra": 35, "lingote_xar": 10},
+        "effect":      {"territory_defense": 30},
+        "unique":      True,
+    },
+    "mercado": {
+        "name":        "Mercado",
+        "icon":        "🪙",
+        "description": "+15% producción de recursos por tick.",
+        "cost":        {"madera": 20, "piedra": 20, "ganado": 15},
+        "effect":      {"resource_bonus": 0.15},
+        "unique":      True,
+    },
+    "herreria": {
+        "name":        "Herrería",
+        "icon":        "🔨",
+        "description": "+15 Poder Militar y acceso a equipamiento avanzado.",
+        "cost":        {"madera": 15, "lingote_xar": 20},
+        "effect":      {"military_power": 15},
+        "unique":      True,
+    },
+    "almacen": {
+        "name":        "Gran Almacén",
+        "icon":        "🗃",
+        "description": "+150 capacidad Común, +75 Poco Común.",
+        "cost":        {"madera": 40, "piedra": 30},
+        "effect":      {},
+        "unique":      True,
+    },
+    "templo": {
+        "name":        "Templo",
+        "icon":        "⛪",
+        "description": "Aumenta pasivamente la moral.",
+        "cost":        {"piedra": 20, "lingote_xar": 10},
+        "effect":      {},
+        "unique":      True,
+    },
+    "academia": {
+        "name":        "Academia",
+        "icon":        "🎓",
+        "description": "Genera 1 Skill Point de vez en cuando.",
+        "cost":        {"madera": 25, "lingote_xar": 15},
+        "effect":      {},
+        "unique":      True,
+    },
+    "granja": {
+        "name":        "Granja Comunal",
+        "icon":        "🚜",
+        "description": "+50% al crecimiento base poblacional por tick.",
+        "cost":        {"madera": 15, "ganado": 10},
+        "effect":      {},
+        "unique":      True,
+    },
+    "muralla": {
+        "name":        "Muralla",
+        "icon":        "🧱",
+        "description": "+50 defensa territorial.",
+        "cost":        {"piedra": 50, "lingote_zir": 5},
+        "effect":      {"territory_defense": 50},
+        "unique":      True,
+    },
+    "mantenimiento": {
+        "name":        "Puesto de Mantenimiento",
+        "icon":        "🛠️",
+        "description": "-75% probabilidad de daños por desastres naturales.",
+        "cost":        {"madera": 30, "lingote_xar": 10},
+        "effect":      {"disaster_protection": 0.75},
+        "unique":      True,
+    }
+}
+
 # ── Pool de eventos para el jugador ──────────────────────────────────────────
 
 GUILD_EVENTS_POOL = [
@@ -177,6 +269,12 @@ class Guild:
         self.moral           = moral
         self.aggressiveness  = aggressiveness
         self.is_player_guild = is_player_guild
+
+        # ── V4: Taxes and Fights ────────────────────────────────────────────────
+        self.tax_rate:       float = 0.05  # Default 5%
+        self.fight_count:    int   = 0     # Fights since last tax
+        self.tax_gold_pool:  int   = 0     # Accumulated gold from taxes
+        self.ai_priority:    str   = "Balanced" # "Balanced", "Survival", "Expansion", "Economic"
 
         # Recursos
         self.resources: Dict[str, GuildResource] = {}
@@ -344,6 +442,40 @@ class Guild:
             self.log_event(f"🍞 Hambruna: -{pop_loss} población.")
             return f"Hambruna: -{pop_loss} pop."
 
+    # ── V4: Taxes ─────────────────────────────────────────────────────────────
+
+    def apply_taxes(self) -> str:
+        """Calculates taxes based on population. Triggered every 5 fights."""
+        # Gold generated: pop * tax_rate * multiplier (economy)
+        mult = 2.5
+        if "eco_caravans" in self.unlocked_skills:
+            # Caravanas ahora dan un bonus a la recaudación por territorio
+            mult += len(self.territories) * 0.5
+            
+        gold_generated = int(self.population * self.tax_rate * mult) 
+        self.tax_gold_pool += gold_generated
+        
+        # Moral penalty for high taxes
+        if self.tax_rate > 0.10:
+            # -1 morale for every 5% above 10%, plus a base penalty
+            moral_loss = 2 + int((self.tax_rate - 0.10) * 20)
+            self.change_moral(-moral_loss)
+            self.log_event(f"📉 Impuestos altos ({int(self.tax_rate*100)}%): -{moral_loss} Moral.")
+        
+        self.log_event(f"💰 Recaudación de impuestos: +{gold_generated} Oro.")
+        return f"¡Día de Impuestos! Se recaudaron {gold_generated} Oro de la población."
+
+    def get_tax_debuffs(self) -> Dict[str, float]:
+        """Returns debuffs based on tax rate for player/guild."""
+        debuffs = {}
+        if self.tax_rate > 0.10:
+            # Max penalty at 50% tax: (0.50 - 0.10) * 1.0 = 0.40 (40% reduction)
+            penalty = (self.tax_rate - 0.10) * 1.0
+            debuffs["damage_mult"] = max(0.5, 1.0 - penalty)
+            debuffs["defense_mult"] = max(0.5, 1.0 - penalty)
+            debuffs["morale_loss"] = (self.tax_rate - 0.10) * 5 # Passive morale loss per tick
+        return debuffs
+
     # ── Moral / Utilidad ──────────────────────────────────────────────────────
 
     def change_moral(self, delta: int) -> None:
@@ -400,6 +532,10 @@ class Guild:
             "armor_rating":         self.armor_rating,
             "population_growth_pct": self.population_growth_pct,
             "trade_cooldown":       self.trade_cooldown,
+            "tax_rate":             self.tax_rate,
+            "fight_count":          self.fight_count,
+            "tax_gold_pool":        self.tax_gold_pool,
+            "ai_priority":          self.ai_priority,
         }
 
     @staticmethod
@@ -445,6 +581,10 @@ class Guild:
         g.armor_rating           = data.get("armor_rating", 1)
         g.population_growth_pct  = data.get("population_growth_pct", 0.03)
         g.trade_cooldown         = data.get("trade_cooldown", 0)
+        g.tax_rate               = data.get("tax_rate", 0.05)
+        g.fight_count            = data.get("fight_count", 0)
+        g.tax_gold_pool          = data.get("tax_gold_pool", 0)
+        g.ai_priority            = data.get("ai_priority", "Balanced")
         return g
 
 
@@ -459,6 +599,7 @@ class GuildManager:
         self.guild_name_data: dict                 = {}
         self.world_events:    List[str]            = []
         self.player_guild_id: Optional[str]        = None
+        self.world_tension:   float                = 0.0
         self._load_definitions()
 
     def _load_definitions(self):
@@ -520,44 +661,183 @@ class GuildManager:
 
     # ── Tick de simulación ────────────────────────────────────────────────────
 
-    def tick(self) -> List[str]:
-        events = []
-        for guild in self.guilds.values():
+    def _ai_build_structures(self, guild: Guild):
+        """Intento de la IA de construir algo estratégicamente."""
+        if guild.is_player_guild: return
+        
+        # Prioridades según estado
+        priority = []
+        if guild.moral < 40: priority.append("templo")
+        if guild.population < 100: priority.append("granja")
+        if guild.military_power < 40: priority.extend(["cuartel", "herreria"])
+        if guild.get_resource("comida") < guild.population // 4: priority.append("granero")
+        
+        # Añadir resto de edificios al final del pool
+        all_ids = list(GUILD_BUILDINGS.keys())
+        random.shuffle(all_ids)
+        priority.extend(all_ids)
+        
+        for b_id in priority:
+            if b_id not in GUILD_BUILDINGS: continue
+            b_data = GUILD_BUILDINGS[b_id]
+            if b_id in guild.buildings and b_data.get("unique"): continue
+            
+            # Check cost
+            can_afford = True
+            for r_id, amt in b_data.get("cost", {}).items():
+                if guild.get_resource(r_id) < amt:
+                    can_afford = False
+                    break
+            
+            if can_afford:
+                for r_id, amt in b_data.get("cost", {}).items():
+                    guild.consume_resource(r_id, amt)
+                guild.buildings.append(b_id)
+                guild.log_event(f"🏗 Estratégico: {b_data['name']}")
+                # Apply instant effects
+                eff = b_data.get("effect", {})
+                if "military_power" in eff:
+                    guild.military_power += eff["military_power"]
+                break
+
+    def _ai_trade_surplus(self, guild: Guild):
+        """IA intenta vender excedentes si tiene mercado."""
+        if guild.is_player_guild or "mercado" not in guild.buildings: return
+        if guild.trade_cooldown > 0: return
+        
+        for rid, res in guild.resources.items():
+            cap = guild.get_resource_cap(rid, self.resource_defs, self.guild_type_defs)
+            if res.amount > cap * 0.9:
+                # Intentar vender a otra guild
+                other = random.choice(list(self.guilds.values()))
+                if other.guild_id != guild.guild_id:
+                    trade_amt = min(20, res.amount // 4)
+                    guild.consume_resource(rid, trade_amt)
+                    other.add_resource(rid, trade_amt, self.resource_defs)
+                    guild.add_resource("oro", trade_amt * 2, self.resource_defs)
+                    guild.trade_cooldown = 4
+                    break
+
+    def tick(self, resource_defs: dict, type_defs: dict) -> List[str]:
+        self.world_events = []
+        for guild in list(self.guilds.values()):
             self._produce_resources(guild)
-            self._process_territories(guild, events)
-            guild.clamp_resources(self.resource_defs, self.guild_type_defs)
-            guild.grow_population(self.resource_defs)
+            self._process_territories(guild, self.world_events)
+            guild.clamp_resources(resource_defs, type_defs)
+            # guild.grow_population(resource_defs) # Asumimos que existe
+            
+            if not guild.is_player_guild:
+                # guild.consume_food() # Asumimos que existe
+                self._ai_build_structures(guild)
+                self._ai_trade_surplus(guild)
+                
+                msg = self._ai_decide(guild)
+                if msg: self.world_events.append(msg)
+            
             if guild.trade_cooldown > 0:
                 guild.trade_cooldown -= 1
-            # Academia: ganar 1 skill_point cada 3 ticks (simplified: random 1/3)
-            if "academia" in guild.buildings and random.random() < 0.33:
-                guild.skill_points += 1
-
-        for guild in self.guilds.values():
-            ev = self._ai_decide(guild)
-            if ev:
-                events.append(ev)
-                guild.log_event(ev)
-
-        # Eventos aleatorios para el jugador (1% de chance por tick)
-        pg = self.get_player_guild()
-        if pg and random.random() < 0.35 and len(pg.pending_events) < 3:
-            ev = self._generate_random_event(pg)
-            if ev:
-                pg.pending_events.append(ev)
-
-        self.world_events.extend(events)
-        if len(self.world_events) > 60:
-            self.world_events = self.world_events[-60:]
         
-        # Ejecutar tick handlers de mods
+        self._process_disasters(self.world_events)
+        
+        return self.world_events
+
+
+    def _process_disasters(self, events: List[str], force: bool = False):
+        """Procesa desastres naturales basados en el clima actual."""
         try:
-            from Modules.ModulesUtils.ModLoader import get_mod_api
-            get_mod_api().fire_guild_tick_handlers(self)
-        except Exception:
+            from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
+            wm = get_weather_manager()
+            w = wm.get_current_weather()
+            
+            # Si forzamos, elegimos un clima de desastre al azar para el efecto
+            if force:
+                w = random.choice([v for v in wm.weathers.values() if v.disaster_effect])
+                
+            if not w.disaster_effect:
+                return
+                
+            effect = w.disaster_effect
+            chance = effect.get("chance", 0.0) if not force else 1.0
+            
+            # El desastre tiene una probabilidad global de intentar golpear a alguien
+            if force or random.random() < chance:
+                all_guilds = list(self.guilds.values())
+                if not all_guilds: return
+                
+                target_guild = random.choice(all_guilds)
+                
+                # Protección por edificio de mantenimiento
+                actual_chance = 1.0 # Una vez seleccionado el target, ¿le afecta?
+                if not force and "mantenimiento" in target_guild.buildings:
+                    actual_chance = 0.25 # 75% de esquivarlo
+                
+                if force or random.random() < actual_chance:
+                    if effect.get("type") == "building_destruction":
+                        if target_guild.buildings:
+                            destroyed = random.choice(target_guild.buildings)
+                            target_guild.buildings.remove(destroyed)
+                            
+                            # Obtener nombre legible del edificio
+                            from Modules.ModulesMenu.GuildMenu import GUILD_BUILDINGS
+                            b_data = GUILD_BUILDINGS.get(destroyed, {"name": destroyed, "icon": "🏗"})
+                            b_name = f"{b_data['icon']} {b_data['name']}"
+                            
+                            msg = effect.get("message", "¡Desastre! {building} destruido.").format(
+                                building=b_name, guild=target_guild.name
+                            )
+                            events.append(msg)
+                            target_guild.log_event(msg)
+                            target_guild.change_moral(-15)
+                        elif force:
+                            events.append(f"💨 El desastre golpeó a {target_guild.name} pero no tenía edificios que destruir.")
+                else:
+                    events.append(f"🛠️ El Puesto de Mantenimiento de {target_guild.name} evitó daños mayores durante el {w.name}.")
+
+        except Exception as e:
             pass
-        
+
+    def trigger_debug_disaster(self) -> List[str]:
+        """Fuerza un desastre aleatorio para debugging."""
+        events = []
+        self._process_disasters(events, force=True)
         return events
+
+    def sell_surplus_resources(self, guild: Guild, resource_id: str, amount: int, player) -> Tuple[bool, str]:
+        """Vende recursos de la guild a otras guilds NPC a cambio de Oro y Reputación."""
+        if guild.get_resource(resource_id) < amount:
+            return False, "No tienes suficientes recursos."
+            
+        # Buscar compradores interesados (Guilds aliadas o neutrales con buena relación)
+        potential_buyers = [
+            g for gid, g in self.guilds.items() 
+            if gid != guild.guild_id and guild.relations.get(gid, 0) > -10
+        ]
+        
+        if not potential_buyers:
+            return False, "No hay guilds interesadas en comerciar contigo ahora mismo."
+            
+        buyer = random.choice(potential_buyers)
+        
+        # Precio basado en rareza
+        res_def = self.resource_defs.get(resource_id, {})
+        rarity = res_def.get("rarity", "Common")
+        prices = {"Common": 2, "Uncommon": 5, "Rare": 15, "Legendary": 50}
+        base_price = prices.get(rarity, 2)
+        
+        total_gold = amount * base_price
+        
+        # Aplicar transacción
+        guild.consume_resource(resource_id, amount)
+        guild.add_resource("oro", total_gold, self.resource_defs)
+        
+        # Mejora de relación con el comprador
+        rep_gain = max(1, amount // 20)
+        self.change_player_reputation(player, buyer.guild_id, rep_gain) 
+        buyer.relations[guild.guild_id] = min(100, buyer.relations.get(guild.guild_id, 0) + rep_gain)
+        
+        msg = f"✓ Has vendido {amount} {res_def.get('name', resource_id)} a {buyer.name} por {total_gold} Oro."
+        guild.log_event(msg)
+        return True, msg
 
     def _process_territories(self, guild: Guild, events: List[str]):
         rebel_territories = []
@@ -609,8 +889,9 @@ class GuildManager:
                 global_bonus = bonus_pct_dict.get(rid, 0) / 100.0
                 guild.add_resource(rid, max(1, int(amt * (1 + bonus + global_bonus))), self.resource_defs)
                 
-            # V3: Rutas Comerciales (Caravanas)
-            gold_income += terr.difficulty * 2
+            # V3: Rutas Comerciales - Eliminado el ingreso pasivo por petición del usuario
+            # Ahora el bonus se aplica en apply_taxes (cada 5 peleas)
+            pass
             
         if gold_income > 0:
             if "mercado" in guild.buildings:
@@ -625,75 +906,169 @@ class GuildManager:
     # ── Mini-IA ───────────────────────────────────────────────────────────────
 
     def _ai_decide(self, guild: Guild) -> Optional[str]:
-        # 1. SOBREVIVIR: comida crítica
-        food_needed = max(1, guild.population // 8)
-        if guild.get_resource("comida") < food_needed * 0.3:
-            food_terrs = [t for t in self.territories.values()
-                          if ("comida" in t.resource_output or "ganado" in t.resource_output)
-                          and t.owner != guild.guild_id and t.difficulty <= 3]
-            if food_terrs and guild.get_total_soldiers() > 3:
-                target = min(food_terrs, key=lambda t: t.difficulty)
-                return self._attack_territory(guild,
-                    self.guilds.get(target.owner) if target.owner not in ("neutral","") else None,
-                    target)
+        # --- NUEVA LÓGICA ESTRATÉGICA ---
+        # Determinar prioridad actual
+        food_ratio = guild.get_resource("comida") / max(1, guild.population // 4)
+        soldiers_ratio = guild.get_total_soldiers() / max(1, guild.get_max_soldiers(self.guild_type_defs))
+        
+        if food_ratio < 0.2 or guild.moral < 30:
+            guild.ai_priority = "Survival"
+        elif soldiers_ratio < 0.3 or guild.military_power < 30:
+            guild.ai_priority = "Balanced" # Recuperar fuerzas
+        elif guild.get_resource("oro") > 500 and len(guild.buildings) < 4:
+            guild.ai_priority = "Economic"
+        elif soldiers_ratio > 0.7 and guild.moral > 60:
+            guild.ai_priority = "Expansion"
+        else:
+            guild.ai_priority = "Balanced"
 
-        # 2. EXPANDIR: buen poder y moral
-        if guild.moral >= 55 and guild.military_power >= 35 and guild.get_total_soldiers() > 0:
-            if random.randint(0, 100) < guild.aggressiveness:
-                return self._resolve_ai_attack(guild)
+        # Ejecutar acciones según prioridad
+        if guild.ai_priority == "Survival":
+            # Priorizar comida y templos
+            if food_ratio < 0.5:
+                # Intentar comprar comida o atacar territorio fértil
+                food_terrs = [t for t in self.territories.values()
+                              if ("comida" in t.resource_output or "ganado" in t.resource_output)
+                              and t.owner != guild.guild_id and t.difficulty <= 4]
+                if food_terrs and guild.get_total_soldiers() > 5:
+                    target = min(food_terrs, key=lambda t: t.difficulty)
+                    return self._attack_territory(guild, self.guilds.get(target.owner), target)
+            
+            if guild.moral < 40 and "templo" not in guild.buildings:
+                self._ai_build_structure(guild) # Construirá según prioridad interna
+                return None
 
-        # 3. FORTALECER: moral baja o pocos soldados
-        if guild.moral < 35 or guild.get_total_soldiers() < guild.get_max_soldiers(self.guild_type_defs) // 4:
-            guild.recruit_soldiers("infantry", min(5, 20), self.resource_defs, self.guild_type_defs)
+        elif guild.ai_priority == "Expansion":
+            # Buscar el territorio más débil de un enemigo o neutral
+            return self._resolve_ai_attack(guild)
+
+        elif guild.ai_priority == "Economic":
+            # Construir mercado o mejorar rutas
+            if "mercado" not in guild.buildings:
+                self._ai_build_structure(guild)
+            self._ai_npc_trade(guild)
             return None
 
+        # Acciones genéricas de tick
         # 4. COALICIONES: IA forma alianzas contra imperios dominantes
         total_terrs = max(1, len(self.territories))
         for other_id, other_guild in self.guilds.items():
             if other_id == guild.guild_id: continue
-            if len(other_guild.territories) / total_terrs > 0.20 or other_guild.military_power > guild.military_power * 2.5:
+            if len(other_guild.territories) / total_terrs > 0.25: # Imperios
                 if guild.military_power < other_guild.military_power:
                     for third_id, third_guild in self.guilds.items():
                         if third_id in [guild.guild_id, other_id]: continue
-                        if third_id not in guild.alliances and third_guild.military_power < other_guild.military_power:
+                        if third_id not in guild.alliances and third_guild.relations.get(guild.guild_id, 0) > -10:
                             guild.alliances.append(third_id)
                             third_guild.alliances.append(guild.guild_id)
-                            msg = f"🛡️ [COALICIÓN] [{guild.icon} {guild.name}] y [{third_guild.icon} {third_guild.name}] se han aliado para defenderse de la expansión de [{other_guild.icon} {other_guild.name}]."
+                            msg = f"🛡️ [COALICIÓN] [{guild.icon} {guild.name}] y [{third_guild.icon} {third_guild.name}] se han aliado contra la amenaza de [{other_guild.icon} {other_guild.name}]."
                             self.world_events.append(msg)
                             return msg
 
-        # 5. GUERRA FORMAL: IA declara guerra si la relación es <= -5
+        # 5. GUERRA FORMAL
         for gid, rel in list(guild.relations.items()):
-            if rel <= -5 and gid != guild.guild_id and gid in self.guilds:
+            if rel <= -15 and gid != guild.guild_id and gid in self.guilds:
                 if gid not in getattr(guild, "at_war_with", []):
                     guild.at_war_with.append(gid)
-                    other = self.guilds[gid]
-                    if guild.guild_id not in getattr(other, "at_war_with", []):
-                        other.at_war_with.append(guild.guild_id)
-                    msg = f"⚔ [GUERRA FORMAL] [{guild.icon} {guild.name}] le ha declarado la guerra a [{other.icon} {other.name}]."
+                    msg = f"⚔ [GUERRA] [{guild.icon} {guild.name}] ha declarado la guerra a [{self.guilds[gid].name}]."
                     self.world_events.append(msg)
                     return msg
 
-        # 6. DIPLOMACIA NORMAL: proponer alianza si relación alta
-        if "dip_alliances" in guild.unlocked_skills:
-            for gid, rel in guild.relations.items():
-                if rel > 45 and gid not in guild.alliances and gid in self.guilds:
-                    other = self.guilds[gid]
-                    guild.alliances.append(gid)
-                    if guild.guild_id not in other.alliances:
-                        other.alliances.append(guild.guild_id)
-                    msg = f"🤝 [{guild.icon} {guild.name}] y [{other.icon} {other.name}] formaron alianza."
-                    self.world_events.append(msg)
-                    return msg
-
-        # 5. TRADE entre NPCs: proponer intercambio si exceso
-        self._ai_npc_trade(guild)
-
-        # 6. MEJORAR: gastar skill_points según preferencias del tipo
+        # 9. MEJORAR SKILLS
         if guild.skill_points > 0:
             self._ai_spend_skill_point(guild)
 
         return None
+
+    def evaluate_trade_proposal(self, npc_guild: Guild, player_offer: Dict[str, int], 
+                                player_request: Dict[str, int], reputation: int) -> Tuple[bool, str]:
+        """
+        AI strategically evaluates a trade.
+        Factors:
+        1. Fairness (Value of items)
+        2. Need (Does the NPC need the items or have too many of the requested ones?)
+        3. Reputation
+        """
+        # Value definitions (approximate)
+        prices = {"Common": 2, "Uncommon": 5, "Rare": 15, "Legendary": 50, "Currency": 1}
+        
+        def calculate_value(items):
+            val = 0
+            for rid, amt in items.items():
+                r_def = self.resource_defs.get(rid, {})
+                rarity = r_def.get("rarity", "Common")
+                val += prices.get(rarity, 2) * amt
+            return val
+
+        offer_val = calculate_value(player_offer)
+        request_val = calculate_value(player_request)
+        
+        if request_val <= 0: return True, "¡Claro! No pides nada a cambio."
+        
+        # Base fairness ratio
+        ratio = offer_val / request_val
+        
+        # Reputation bonus (up to +0.3 to ratio)
+        rep_bonus = max(0, reputation / 200) 
+        effective_ratio = ratio + rep_bonus
+        
+        # Strategic check: Does NPC have enough?
+        for rid, amt in player_request.items():
+            if npc_guild.get_resource(rid) < amt:
+                return False, f"Lo siento, no tenemos suficiente {rid}."
+        
+        # Thresholds
+        threshold = 1.0
+        if npc_guild.ai_priority == "Survival":
+            # Si necesitan algo desesperadamente, aceptan tratos menos favorables
+            for rid in player_offer:
+                if rid in ["comida", "ganado"]: threshold -= 0.2
+        elif npc_guild.ai_priority == "Economic":
+            threshold += 0.1 # Son más exigentes con el valor
+            
+        if effective_ratio < threshold * 0.8:
+            return False, "Ese trato es un insulto a nuestro gremio."
+        elif effective_ratio < threshold:
+            if random.random() > (reputation / 100): # Si tienes buena rep, aceptan más fácil
+                return False, "Necesitarás ofrecer algo más valioso para convencernos."
+        
+        return True, "Trato hecho. Un placer hacer negocios con usted."
+
+
+    def _ai_build_structure(self, guild: Guild):
+        """NPC Guild decide qué construir basado en sus recursos y necesidades."""
+        from Modules.ModulesMenu.GuildMenu import GUILD_BUILDINGS
+        
+        # Prioridades según el tipo de guild
+        td = self.guild_type_defs.get(guild.guild_type, {})
+        priorities = ["mantenimiento", "cuartel", "mercado", "academia", "granja", "muralla"]
+        
+        if guild.guild_type == "Militar":
+            priorities = ["cuartel", "muralla", "mantenimiento"]
+        elif guild.guild_type == "Comercial":
+            priorities = ["mercado", "granja", "mantenimiento"]
+            
+        for b_id in priorities:
+            if b_id in guild.buildings: continue
+            
+            b_data = GUILD_BUILDINGS.get(b_id)
+            if not b_data: continue
+            
+            # Verificar recursos
+            can_build = True
+            for rid, cost in b_data["cost"].items():
+                if guild.get_resource(rid) < cost:
+                    can_build = False
+                    break
+            
+            if can_build:
+                for rid, cost in b_data["cost"].items():
+                    guild.consume_resource(rid, cost)
+                guild.buildings.append(b_id)
+                msg = f"🏗️ [{guild.icon} {guild.name}] ha construido un {b_data['name']}."
+                self.world_events.append(msg)
+                guild.log_event(msg)
+                return
 
     def _ai_npc_trade(self, guild: Guild):
         """Intercambio de recursos entre guilds NPC."""
@@ -1020,6 +1395,7 @@ class GuildManager:
             "territories":     {tid: t.to_dict() for tid, t in self.territories.items()},
             "world_events":    list(self.world_events),
             "player_guild_id": self.player_guild_id,
+            "world_tension":   self.world_tension,
         }
 
     def load_from_dict(self, data: dict) -> None:
@@ -1030,6 +1406,7 @@ class GuildManager:
                 self.territories[tid].owner = tdata.get("owner", "neutral")
         self.world_events    = data.get("world_events", [])
         self.player_guild_id = data.get("player_guild_id")
+        self.world_tension   = data.get("world_tension", 0.0)
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

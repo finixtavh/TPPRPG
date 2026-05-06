@@ -341,7 +341,6 @@ class EquipmentManager:
             'Mana': player.Mana,
             'Mana_max': player.Mana_max,
             'DEF': player.DEF,  # Ahora es array
-            'MDEF': player.MDEF,
             'AGI': player.AGI,
             'Level': player.Level,
             'EXP': player.EXP,

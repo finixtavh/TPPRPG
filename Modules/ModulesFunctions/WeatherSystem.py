@@ -4,11 +4,13 @@ from typing import Dict, Any
 
 class WeatherType:
     def __init__(self, id_name: str, name: str, icon: str, description: str, 
-                 player_enemy_mods: Dict[str, float], guild_mods: Dict[str, float], probability: int):
+                 player_enemy_mods: Dict[str, float], guild_mods: Dict[str, float], probability: int,
+                 disaster_effect: Dict[str, Any] = None):
         self.id = id_name
         self.name = name
         self.icon = icon
         self.description = description
+        self.disaster_effect = disaster_effect or {} # {"chance": 0.05, "type": "building_destruction", "target": "random"}
         
         # Multiplicadores para combate de Jugador/Enemigo/Compañeros
         # Ej: {"attack": 0.9, "defense": 0.95, "magic_def": 0.8, "agi": 1.0, "counter": 1.0, "evasion": 1.0}
@@ -78,6 +80,20 @@ class WeatherManager:
                 player_enemy_mods={"agi": 0.80, "defense": 0.90},
                 guild_mods={"attack": 0.80, "defense": 1.05},
                 probability=5
+            ),
+            "terremoto": WeatherType(
+                "terremoto", "Terremoto", "🌋", "¡La tierra tiembla violentamente! Los edificios corren peligro.",
+                player_enemy_mods={"agi": 0.30, "evasion": 0.50},
+                guild_mods={"attack": 0.50, "defense": 0.50},
+                probability=3,
+                disaster_effect={"chance": 0.15, "type": "building_destruction", "message": "¡Un terremoto ha destruido el edificio {building} en {guild}!"}
+            ),
+            "incendio": WeatherType(
+                "incendio", "Incendio Forestal", "🔥", "Las llamas consumen todo a su paso. El calor es insoportable.",
+                player_enemy_mods={"attack": 1.20, "defense": 0.60, "magic_def": 0.50},
+                guild_mods={"attack": 1.10, "defense": 0.70},
+                probability=4,
+                disaster_effect={"chance": 0.10, "type": "building_destruction", "message": "¡Un incendio forestal ha reducido a cenizas el edificio {building} en {guild}!"}
             )
         }
         self.current_weather = self.weathers["viento_suave"]
@@ -114,7 +130,8 @@ class WeatherManager:
             description=weather_data.get("description", ""),
             player_enemy_mods=weather_data.get("player_enemy_mods", {}),
             guild_mods=weather_data.get("guild_mods", {}),
-            probability=weather_data.get("probability", 10)
+            probability=weather_data.get("probability", 10),
+            disaster_effect=weather_data.get("disaster_effect", {})
         )
 
 def get_weather_manager() -> WeatherManager:

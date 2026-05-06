@@ -134,7 +134,7 @@ class cPlayer:
         self.items_in_PlayerClass = [self.weapon, self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3]
 
         self.applieddebuffs = []
-        self.appliedbuffs = []
+        self.active_buffs = []
         self.companion = []
         self.lobjectscheck = [
             (self.helmet, "Helmet"),
@@ -147,101 +147,175 @@ class cPlayer:
 
     def attack(self, enemy):
         """Attack an enemy with multi-type damage system"""
-        if self.weapon is None:
-            # Base attack without weapon
-            damage = random.randint(1, 3)
-            enemy.TakeDamage([damage, 0, 0, 0, 0])
-            print(f"{self.name} ataca a {enemy.NAME} con sus puños causando {damage} de daño!")
-            return damage
-        
-        # Get damage from weapon - returns [physical, thermal, earth, electric, deep]
-        damage_array = self.weapon.use_weapon(self)
-        
-        # Apply weather modifiers to attack
-        attack_mod = apply_weather_combat_mods(1.0, "attack")
-        damage_array = [d * attack_mod for d in damage_array]
-        
-        # Apply defense calcs
-        final_damage = [0, 0, 0, 0, 0]
-        damage_type_names = ["Físico", "Térmico", "Tierra", "Eléctrico", "Profundo"]
-        
-        for i in range(5):
-            if damage_array[i] > 0:
-                enemy_def = enemy.DEF[i]
-                final_damage[i] = max(0, damage_array[i] - (enemy_def / 2))
-        
-        # Calculate total damage
-        total_damage = sum(final_damage)
-        
-        if total_damage < 1:
-            total_damage = 2
-            final_damage[0] = 2
-        
-        # Apply damage to enemy
-        enemy.TakeDamage(final_damage)
-        
-        # Display attack message with damage breakdown
-        print(f"{self.name} ataca a {enemy.NAME} con {self.weapon.name} causando {total_damage:.1f} de daño total!", end=" ")
-        
-        # Show breakdown of non-zero damage types
-        damage_breakdown = []
-        for i, dmg in enumerate(final_damage):
-            if dmg > 0:
-                damage_breakdown.append(f"{damage_type_names[i]}: {dmg:.1f}")
-        
-        if damage_breakdown:
-            print(f"({', '.join(damage_breakdown)})")
-        else:
-            print()
-        
-        return total_damage
+        # --- NUEVA LÓGICA DE DETALLE ---
+        attack_info = {
+            "is_evaded": False,
+            "is_counter": False,
+            "damage_per_type": [0.0] * 5,
+            "total_damage": 0.0,
+            "blocked_by_def": [0.0] * 5,
+            "blocked_by_pct": [0.0] * 5,
+            "enchant_dmg": [0.0] * 5,
+            "buff_dmg": [0.0] * 5,
+            "weather_dmg": [0.0] * 5,
+            "barrier_absorbed": 0.0
+        }
 
-    def TakeDamage(self, damage):
-        """
-        Reduces player's HP based on the {damage} variable.
-        Damage must be a list/tuple of 5 values
-        [physical, thermal, electric, earth, deep].
+        # 1. Comprobar Evasión del enemigo
+        enemy_evasion = getattr(enemy, "Evasion", 0)
+        enemy_evasion = apply_weather_combat_mods(enemy_evasion, "evasion")
+        
+        if random.random() < (enemy_evasion / 100.0):
+            attack_info["is_evaded"] = True
+            return attack_info
 
-        Flujo de daño:
-        1. Se calcula el daño bruto total.
-        2. La BARRERA absorbe daño BRUTO (sin resistencias).
-        3. Si queda exceso, se aplican las defensas/resistencias del jugador
-           al daño restante, y el resultado impacta HP.
-        """
-        if not isinstance(damage, (list, tuple)):
-            raise ValueError("TakeDamage requiere una lista/tupla de dano")
+        # 2. Comprobar Contraataque del enemigo
+        enemy_counter = getattr(enemy, "CounterAttack", 0)
+        enemy_counter = apply_weather_combat_mods(enemy_counter, "counter")
+        if random.random() < (enemy_counter / 100.0):
+            attack_info["is_counter"] = True
 
-        raw_total = sum(damage)
-
-        # ── Paso 1: Barrera absorbe daño bruto ──
-        if self.Barrier > 0:
-            if raw_total <= self.Barrier:
-                self.Barrier -= raw_total
-                return  # Barrera absorbió todo, 0 daño a HP
+        # 3. Calcular Daño
+        if self.weapon:
+            weapon_res = self.weapon.use_weapon(self)
+            # Aseguramos que sea dict, si no (fallback)
+            if isinstance(weapon_res, dict):
+                damage_array = weapon_res["damage"]
+                attack_info["enchant_dmg"] = weapon_res.get("enchant_dmg", [0.0]*5)
             else:
-                # Barrera destruida, calcular porcentaje restante
+                damage_array = weapon_res
+        else:
+            damage_array = [float(random.randint(2, 5)), 0.0, 0.0, 0.0, 0.0]
+
+        # Aplicar clima al ataque
+        weather_raw = list(damage_array)
+        damage_array = [apply_weather_combat_mods(d, "attack") for d in damage_array]
+        
+        # Aplicar debuffs de impuestos (Guild)
+        try:
+            from Modules.ModulesFunctions.GuildSystem import get_guild_manager
+            gm = get_guild_manager()
+            pg = gm.get_player_guild()
+            if pg:
+                tax_mods = pg.get_tax_debuffs()
+                if "damage_mult" in tax_mods:
+                    damage_array = [d * tax_mods["damage_mult"] for d in damage_array]
+        except: pass
+
+        attack_info["weather_dmg"] = [damage_array[i] - weather_raw[i] for i in range(5)]
+        
+        # 4. Aplicar daño al enemigo y obtener detalles
+        res = enemy.TakeDamage(damage_array, attacker=self)
+        attack_info.update(res)
+
+        return attack_info
+
+    def TakeDamage(self, damage, attacker=None):
+        """Reduces player HP based on damage array and returns details."""
+        details = {
+            "total_damage": 0.0,
+            "blocked_by_def": [0.0] * 5,
+            "blocked_by_pct": [0.0] * 5,
+            "def_pct_val": list(self.DefensePercentage),
+            "barrier_absorbed": 0.0,
+            "damage_per_type": [0.0] * 5,
+            "enchant_def": [0.0] * 5,
+            "enchant_names": [],
+            "buff_def": [0.0] * 5,
+            "buff_names": [],
+            "weather_def": [0.0] * 5,
+            "weather_name": "Clima"
+        }
+
+        if not isinstance(damage, (list, tuple)):
+            damage = [float(damage), 0.0, 0.0, 0.0, 0.0]
+        
+        current_damage = list(damage)
+
+        # 0. Clima a la defensa
+        for i in range(5):
+            orig = current_damage[i]
+            current_damage[i] = apply_weather_combat_mods(current_damage[i], "defense")
+            
+            # Aplicar debuffs de impuestos (Guild) - aumenta el daño recibido
+            try:
+                from Modules.ModulesFunctions.GuildSystem import get_guild_manager
+                gm = get_guild_manager()
+                pg = gm.get_player_guild()
+                if pg:
+                    tax_mods = pg.get_tax_debuffs()
+                    if "defense_mult" in tax_mods:
+                        # Si defense_mult es 0.8 (20% menos defensa), multiplicamos el daño por 1.25 aprox?
+                        # O simplemente reducimos la defensa efectiva más adelante. 
+                        # Según el plan, debuff de defensa = más daño.
+                        current_damage[i] *= (2.0 - tax_mods["defense_mult"])
+            except: pass
+
+            details["weather_def"][i] = orig - current_damage[i]
+        
+        try:
+            from Modules.ModulesFunctions.WeatherSystem import current_weather
+            if current_weather: details["weather_name"] = current_weather.name
+        except: pass
+
+        # 1. Barrera
+        if self.Barrier > 0:
+            total_now = sum(current_damage)
+            if total_now <= self.Barrier:
+                details["barrier_absorbed"] = total_now
+                self.Barrier -= total_now
+                return details
+            else:
                 absorbed = self.Barrier
+                details["barrier_absorbed"] = absorbed
                 self.Barrier = 0
-                # Reducir proporcionalmente cada tipo de daño
-                if raw_total > 0:
-                    ratio = (raw_total - absorbed) / raw_total
-                    damage = [d * ratio for d in damage]
+                if total_now > 0:
+                    ratio = (total_now - absorbed) / total_now
+                    current_damage = [d * ratio for d in current_damage]
 
-        # ── Paso 2: Aplicar defensas al daño restante ──
-        final_damage = 0.0
-        def_mod = apply_weather_combat_mods(1.0, "defense")
-        for i in range(min(len(damage), 5)):
-            if damage[i] > 0:
-                player_def = (self.DEF[i] if i < len(self.DEF) else 0) * def_mod
-                remaining = max(0, damage[i] - (player_def / 2))
-                block_ratio = 0.0
-                if isinstance(self.DefensePercentage, list) and i < len(self.DefensePercentage):
-                    block_ratio = min(1.0, self.DefensePercentage[i] / 100.0)
-                final_damage += remaining * (1.0 - block_ratio)
+        # 2. Encantamientos de Armadura (Reducción plana)
+        try:
+            from Modules.ModulesFunctions.EnchantmentSystem import ENCHANTMENTS_CATALOG, get_item_enchants
+            armor_items = [self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3]
+            for item in armor_items:
+                if item:
+                    enchants = get_item_enchants(item)
+                    for entry in enchants:
+                        for cat_ench in ENCHANTMENTS_CATALOG.values():
+                            if cat_ench.family_id == entry["family_id"]:
+                                mods = cat_ench.apply_to_equipment(item)
+                                if "defense_flat_bonus" in mods:
+                                    bonus = mods["defense_flat_bonus"]
+                                    for i in range(min(5, len(bonus))):
+                                        reduction = bonus[i] * entry.get("level", 1)
+                                        actual = min(current_damage[i], reduction)
+                                        current_damage[i] -= actual
+                                        details["enchant_def"][i] += actual
+                                        if cat_ench.name not in details["enchant_names"]:
+                                            details["enchant_names"].append(cat_ench.name)
+        except: pass
 
-        self.Health -= final_damage
+        # 3. Defensas base
+        for i in range(5):
+            if current_damage[i] > 0:
+                player_def = self.DEF[i]
+                blocked_fijo = min(current_damage[i], player_def / 2)
+                details["blocked_by_def"][i] = blocked_fijo
+                remaining = current_damage[i] - blocked_fijo
+                
+                # Porcentaje de defensa
+                block_ratio = min(1.0, self.DefensePercentage[i] / 100.0)
+                blocked_pct = remaining * block_ratio
+                details["blocked_by_pct"][i] = blocked_pct
+                
+                final_type_damage = remaining - blocked_pct
+                details["damage_per_type"][i] = final_type_damage
+                details["total_damage"] += final_type_damage
+
+        self.Health -= details["total_damage"]
         if self.Health < 0:
             self.Health = 0
+        return details
 
     def level_up(self):
         """Maneja la subida de nivel, incrementando la exp requerida en x1.07"""
@@ -304,6 +378,17 @@ class cPlayer:
             self.Health = self.Health_max
         if self.Mana > self.Mana_max:
             self.Mana = self.Mana_max
+
+        # Reducción pasiva de moral por impuestos
+        try:
+            from Modules.ModulesFunctions.GuildSystem import get_guild_manager
+            gm = get_guild_manager()
+            pg = gm.get_player_guild()
+            if pg:
+                tax_mods = pg.get_tax_debuffs()
+                if "morale_loss" in tax_mods:
+                    pg.change_moral(-int(tax_mods["morale_loss"]))
+        except: pass
 
         for i, obj in enumerate(self.items_in_PlayerClass):
             if isinstance(obj, cObject):
@@ -368,54 +453,98 @@ class cEnemy:
         self.DBUFF_TO_PLAYER = DBUFF_TO_PLAYER
         self.BUFF_RECEIVED = BUFF_RECEIVED
         self.GOLD = GOLD
+        self.applieddebuffs = []
+        self.active_buffs = []
+        self.Evasion = 0.0
+        self.CounterAttack = 0.0
 
     def attack(self, target):
-        """Attack target with multi-type RAW damage.
-        La defensa la aplica el target en su propio TakeDamage."""
-        raw_damage = [0, 0, 0, 0, 0]
-        damage_type_names = ["Físico", "Térmico", "Tierra", "Eléctrico", "Profundo"]
-
-        # Calculate raw damage for each type
-        attack_mod = apply_weather_combat_mods(1.0, "attack")
+        """Attack target with multi-type damage system."""
+        attack_info = {
+            "is_evaded": False,
+            "is_counter": False,
+            "damage_per_type": [0.0] * 5,
+            "total_damage": 0.0,
+            "blocked_by_def": [0.0] * 5,
+            "blocked_by_pct": [0.0] * 5,
+            "barrier_absorbed": 0.0,
+            "enchant_dmg": [0.0] * 5,
+            "buff_dmg": [0.0] * 5,
+            "weather_dmg": [0.0] * 5
+        }
+        
+        # 1. Evasión del target
+        target_evasion = getattr(target, "Evasion", 0)
+        target_evasion = apply_weather_combat_mods(target_evasion, "evasion")
+        if random.random() < (target_evasion / 100.0):
+            attack_info["is_evaded"] = True
+            return attack_info
+            
+        # 2. Contraataque del target
+        target_counter = getattr(target, "CounterAttack", 0)
+        target_counter = apply_weather_combat_mods(target_counter, "counter")
+        if random.random() < (target_counter / 100.0):
+            attack_info["is_counter"] = True
+            
+        # 3. Calcular Daño
+        raw_damage = [0.0] * 5
         for i in range(5):
             if self.DMG[i] > 0:
-                if i == 4:  # Deep damage is always maximum
-                    raw_damage[i] = self.DMG[4] * attack_mod
+                if i == 4:
+                    raw_damage[i] = float(self.DMG[4])
                 else:
-                    raw_damage[i] = random.randint(self.DMG_min[i], self.DMG[i]) * attack_mod
+                    lo = int(self.DMG_min[i]) if i < len(self.DMG_min) else 0
+                    hi = int(self.DMG[i])
+                    raw_damage[i] = float(random.randint(max(0, lo), max(lo, hi)))
+        
+        # Aplicar clima al ataque enemigo
+        weather_raw = list(raw_damage)
+        raw_damage = [apply_weather_combat_mods(d, "attack") for d in raw_damage]
+        attack_info["weather_dmg"] = [raw_damage[i] - weather_raw[i] for i in range(5)]
 
-        total_raw = sum(raw_damage)
+        # 4. Target recibe daño
+        res = target.TakeDamage(raw_damage, attacker=self)
+        attack_info.update(res)
+        return attack_info
 
-        # Apply damage to target (target handles its own barrier + defense)
-        target.TakeDamage(raw_damage)
-
-        # Display damage breakdown
-        print(f"\n{self.NAME} ataca a {target.name} causando {total_raw:.1f} puntos de daño!", end=" ")
-
-        damage_breakdown = []
-        for i, dmg in enumerate(raw_damage):
-            if dmg > 0:
-                damage_breakdown.append(f"{damage_type_names[i]}: {dmg:.1f}")
-
-        if damage_breakdown:
-            print(f"({', '.join(damage_breakdown)})")
-        else:
-            print()
-
-        return total_raw
-
-    def TakeDamage(self, damage):
-        """
-        Reduces enemy HP.
-        - A list/tuple of 5 damage values
-        """
+    def TakeDamage(self, damage, attacker=None):
+        """Reduces enemy HP and returns details."""
+        details = {
+            "total_damage": 0.0,
+            "blocked_by_def": [0.0] * 5,
+            "blocked_by_pct": [0.0] * 5,
+            "def_pct_val": [0.0] * 5,
+            "damage_per_type": [0.0] * 5,
+            "weather_def": [0.0] * 5,
+            "weather_name": "Clima"
+        }
         if not isinstance(damage, (list, tuple)):
-            raise ValueError("TakeDamage requiere una lista/tupla de dano")
-        total_damage = sum(damage)
-            
-        self.HP -= total_damage
-        if self.HP < 0:
-            self.HP = 0
+            damage = [float(damage), 0.0, 0.0, 0.0, 0.0]
+        
+        current_damage = list(damage)
+
+        # Clima a la defensa enemiga
+        for i in range(5):
+            orig = current_damage[i]
+            current_damage[i] = apply_weather_combat_mods(current_damage[i], "defense")
+            details["weather_def"][i] = orig - current_damage[i]
+        
+        try:
+            from Modules.ModulesFunctions.WeatherSystem import current_weather
+            if current_weather: details["weather_name"] = current_weather.name
+        except: pass
+
+        for i in range(5):
+            if current_damage[i] > 0:
+                enemy_def = self.DEF[i]
+                blocked_fijo = min(current_damage[i], enemy_def / 2)
+                details["blocked_by_def"][i] = blocked_fijo
+                remaining = current_damage[i] - blocked_fijo
+                details["damage_per_type"][i] = remaining
+                details["total_damage"] += remaining
+        self.HP -= details["total_damage"]
+        if self.HP < 0: self.HP = 0
+        return details
     
 
 
@@ -450,27 +579,44 @@ class cWeapon:
         Calculate weapon damage for all 5 types.
         
         Returns:
-            Array of 5 damage values [Physical, Thermal, Earth, Electric, Deep]
+            Dict containing damage array and enchantment details.
         """
         if player is None or player.weapon is None:
-            return [random.randint(2, 5), 0, 0, 0, 0]  # Base physical damage
+            return {"damage": [float(random.randint(2, 5)), 0, 0, 0, 0], "enchant_dmg": [0]*5}
         
-        damage_array = [0, 0, 0, 0, 0]
+        damage_array = [0.0, 0.0, 0.0, 0.0, 0.0]
+        enchant_dmg = [0.0, 0.0, 0.0, 0.0, 0.0]
         
         # Calculate damage for each type
         for i in range(5):
             if self.DMG[i] > 0:
                 if i == 4:  # Deep damage is always maximum
-                    damage_array[i] = self.DMG[4]
+                    damage_array[i] = float(self.DMG[4])
                 else:
-                    damage_array[i] = random.randint(self.DMG_min[i], self.DMG[i])
+                    damage_array[i] = float(random.randint(max(0, int(self.DMG_min[i])), self.DMG[i]))
         
         # Apply boosts from equipment (only to physical damage for now)
         for item in [player.ring, player.ring2, player.ring3, player.armor]:
             if item and hasattr(item, 'DmgBoost'):
                 damage_array[0] += item.DmgBoost
         
-        return damage_array
+        # Apply Enchantments
+        try:
+            from Modules.ModulesFunctions.EnchantmentSystem import ENCHANTMENTS_CATALOG, get_item_enchants
+            enchants = get_item_enchants(self)
+            for entry in enchants:
+                for cat_ench in ENCHANTMENTS_CATALOG.values():
+                    if cat_ench.family_id == entry["family_id"]:
+                        mods = cat_ench.apply_to_weapon(self)
+                        if "dmg_flat_bonus" in mods:
+                            bonus = mods["dmg_flat_bonus"]
+                            for i in range(min(5, len(bonus))):
+                                extra = bonus[i] * entry.get("level", 1)
+                                damage_array[i] += extra
+                                enchant_dmg[i] += extra
+        except: pass
+
+        return {"damage": damage_array, "enchant_dmg": enchant_dmg}
     
 class cEquippableItems:
     def __init__(self, ID, name, Defense, HealthBoost, HealthSteal, DmgBoost, Gold_Cost, Description, objectcheck):
