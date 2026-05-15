@@ -721,7 +721,7 @@ def display_main_menu() -> int:
         (13, "Yunque de Crafteo"),
         (14, "Base"),
         (15, "Tablón de Misiones"),
-        (16, "⚔ Guilds"),
+        (16, "Guilds"),
     ]
     if CONFIG["DEBUG"]["ENABLED"]:
         options.append((17, "DEBUG"))
@@ -1300,7 +1300,7 @@ def main():
 
             # ── Debuffs activos ─────────────────────────────────────────────
             buff_lines.append("")
-            buff_lines.append("[bold red]💀 Debuffs activos:[/]")
+            buff_lines.append("[bold red]Debuffs activos:[/]")
             raw_debuffs = getattr(player, "applieddebuffs", [])
             if raw_debuffs:
                 for d in raw_debuffs:
@@ -1314,7 +1314,7 @@ def main():
             gm = get_guild_manager()
             pg = gm.get_player_guild()
             buff_lines.append("")
-            buff_lines.append("[bold yellow]💰 Impuestos de Guild:[/]")
+            buff_lines.append("[bold yellow]Impuestos de Guild:[/]")
             if pg:
                 tax = getattr(pg, "tax_rate", 5)
                 buff_lines.append(f"  Tasa actual: [bold]{tax}%[/bold]")
