@@ -905,7 +905,6 @@ def run_zone_gathering(zone_key: str) -> bool:
             console.print("[danger]Error instanciando el material.[/danger]")
             return False
             
-        material_obj.MATERIAL_ID
         material_obj.name = material_obj.Name
 
         console.print(f"[info]Iniciando recolección de [bold]{material_obj.Name}[/bold]...[/info]")
