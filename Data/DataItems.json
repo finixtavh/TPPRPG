@@ -606,6 +606,66 @@
             "SkillName": "Skinning",
             "Gold_Cost": 7,
             "MaxStack": 99
+        },
+        "fire_flower": {
+            "MATERIAL_ID": 21,
+            "Name": "Flor de Fuego",
+            "Material_Type": "Herbs",
+            "Desc": "Flor que arde eternamente, encontrada cerca de lava.",
+            "Hardness": 15,
+            "SkillName": "Herbalism",
+            "Gold_Cost": 20,
+            "MaxStack": 99
+        },
+        "void_essence": {
+            "MATERIAL_ID": 22,
+            "Name": "Esencia del Vacío",
+            "Material_Type": "Essence",
+            "Desc": "Cristalización de pura energía oscura y pura.",
+            "Hardness": 90,
+            "SkillName": "Mining",
+            "Gold_Cost": 150,
+            "MaxStack": 99
+        },
+        "ancient_relic": {
+            "MATERIAL_ID": 23,
+            "Name": "Reliquia Antigua",
+            "Material_Type": "Rock",
+            "Desc": "Un artefacto rocoso olvidado de una era pasada.",
+            "Hardness": 60,
+            "SkillName": "Mining",
+            "Gold_Cost": 80,
+            "MaxStack": 99
+        },
+        "ice_crystal": {
+            "MATERIAL_ID": 24,
+            "Name": "Cristal de Hielo",
+            "Material_Type": "Gem",
+            "Desc": "Un cristal que enfría todo a su alrededor permanentemente.",
+            "Hardness": 50,
+            "SkillName": "Mining",
+            "Gold_Cost": 60,
+            "MaxStack": 99
+        },
+        "desert_glass": {
+            "MATERIAL_ID": 25,
+            "Name": "Cristal del Desierto",
+            "Material_Type": "Rock",
+            "Desc": "Arena del desierto fundida por un calor extremo y mágico.",
+            "Hardness": 25,
+            "SkillName": "Mining",
+            "Gold_Cost": 30,
+            "MaxStack": 99
+        },
+        "toxic_spore": {
+            "MATERIAL_ID": 26,
+            "Name": "Espora Tóxica",
+            "Material_Type": "Herbs",
+            "Desc": "Una espora fúngica gigante que emana gases nocivos.",
+            "Hardness": 20,
+            "SkillName": "Herbalism",
+            "Gold_Cost": 25,
+            "MaxStack": 99
         }
     },
     "TYPE:Tools": {

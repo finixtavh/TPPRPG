@@ -1507,33 +1507,49 @@ def main():
                                 console.print(f"[success]Ganaste {exp_gain} EXP y {gold_gain} oro.[/success]")
 
                                 # ── Drop de loot ─────────────────────────────────
-                                _base_loot_chance = 0.30
+                                _base_loot_chance = 0.40
                                 _loot_chance = min(1.0, _base_loot_chance * _loot_mod)
+                                
                                 if random.random() < _loot_chance:
-                                    # Intentar usar loot table del enemigo o zona
-                                    _loot_pool = getattr(enemy, "LOOT_TABLE", None)
-                                    if not _loot_pool:
-                                        _loot_pool = getattr(enemy, "loot_ids", None)
-                                    # Fallback a lista de IDs genérica
-                                    _fallback_ids = [1, 10, 21, 32, 43, 54]
-                                    if _loot_pool and isinstance(_loot_pool, (list, tuple)) and len(_loot_pool) > 0:
-                                        loot_id = random.choice(_loot_pool)
-                                    else:
-                                        loot_id = random.choice(_fallback_ids)
+                                    # Determinar la cantidad de items a soltar según las probabilidades pedidas
+                                    # Usamos pesos relativos para que sea aleatorio pero respete la curva
+                                    items_to_drop = random.choices([1, 2, 3, 4, 5], weights=[0.4, 0.5, 0.3, 0.2, 0.08], k=1)[0]
+                                    
+                                    # Intentar usar loot table del enemigo
+                                    _loot_pool = getattr(enemy, "loot_tables", None)
+                                    
+                                    dropped_items_summary = []
+                                    
+                                    for _ in range(items_to_drop):
+                                        if _loot_pool and isinstance(_loot_pool, dict) and len(_loot_pool) > 0:
+                                            # Extraer claves y pesos
+                                            ids = list(_loot_pool.keys())
+                                            weights = list(_loot_pool.values())
+                                            loot_id = int(random.choices(ids, weights=weights, k=1)[0])
+                                        else:
+                                            # Fallback a lista de IDs genérica
+                                            _fallback_ids = [1, 10, 21, 32, 43, 54]
+                                            loot_id = random.choice(_fallback_ids)
 
-                                    loot_item = load_item_by_id(loot_id, cWeapon, cEquippableItems, cObject, cTool)
-                                    if loot_item:
-                                        # Aplicar modificador de objeto al loot
-                                        try:
-                                            from Modules.ModulesManager.ItemModifierSystem import roll_and_apply_modifier, get_item_display_name
-                                            mod = roll_and_apply_modifier(loot_item, _lq_pos, _lq_neg)
-                                            display_name = get_item_display_name(loot_item)
-                                            mod_txt = f" [{('red' if mod.is_negative else 'green')}]{mod.icon} {mod.name}[/]" if mod else ""
-                                        except Exception:
-                                            display_name = getattr(loot_item, 'name', getattr(loot_item, 'Name', 'Objeto'))
-                                            mod_txt = ""
-                                        console.print(f"[success]¡Soltó: {display_name}{mod_txt}![/success]")
-                                        vInventory.addObject(loot_item)
+                                        loot_item = load_item_by_id(loot_id, cWeapon, cEquippableItems, cObject, cTool, cMaterial)
+                                        if loot_item:
+                                            # Aplicar modificador de objeto al loot (si aplica)
+                                            try:
+                                                from Modules.ModulesManager.ItemModifierSystem import roll_and_apply_modifier, get_item_display_name
+                                                mod = roll_and_apply_modifier(loot_item, _lq_pos, _lq_neg)
+                                                display_name = get_item_display_name(loot_item)
+                                                mod_txt = f" [{('red' if mod.is_negative else 'green')}]{mod.icon} {mod.name}[/]" if mod else ""
+                                            except Exception:
+                                                display_name = getattr(loot_item, 'name', getattr(loot_item, 'Name', 'Objeto'))
+                                                mod_txt = ""
+                                            
+                                            dropped_items_summary.append(f"{display_name}{mod_txt}")
+                                            vInventory.addObject(loot_item)
+                                            
+                                    if dropped_items_summary:
+                                        console.print(f"\n[success]¡{enemy.NAME} soltó los siguientes objetos![/success]")
+                                        for item_desc in dropped_items_summary:
+                                            console.print(f"  [yellow]- {item_desc}[/yellow]")
 
                                 quest_manager.update_kill_quest(enemy.NAME, player)
                                 player.level_up()

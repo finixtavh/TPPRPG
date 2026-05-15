@@ -102,8 +102,6 @@ class cPlayer:
         self.CounterAttack = 0
         self.Evasion = 0
         self.ManaRegen = 2.5
-        self.RAC = 0
-        self.Control = 0
         self.Barrier = 50
         # Gold and Experience
         self.Gold = 50
