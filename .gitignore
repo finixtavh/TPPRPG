@@ -7,7 +7,7 @@ __pycache__/
 # Game related files
 settings.json
 mods/*
-Docs/ 
+docs/ 
 test*.py
 Saves/
 *.log
