@@ -327,76 +327,64 @@ def get_buff_manager(buffs_path: str = "./Data/DataBuffs.json") -> BuffManager:
 def apply_buff_to_player(player, buff_id: str, source: str = "skill",
                          permanent: bool = False, buff_after_unequip: int = 0):
     """
-    Función helper para aplicar un buff a un jugador
-    
-    Args:
-        player: Objeto del jugador
-        buff_id: ID del buff
-        source: Origen del buff
-        permanent: Si es permanente
-        buff_after_unequip: Turnos después de desequipar
+    Función helper para aplicar un buff o debuff a un jugador.
+    Añade al atributo correcto: appliedbuffs (buffs) o applieddebuffs (debuffs).
     """
     manager = get_buff_manager()
     buff = manager.create_buff(buff_id, source, permanent, buff_after_unequip)
-    
-    if buff:
-        # Inicializar lista de buffs si no existe
-        if not hasattr(player, 'active_buffs'):
-            player.active_buffs = []
-        
-        player.active_buffs.append(buff)
-        
-        from rich.console import Console
-        c = Console()
-        color = "green" if not buff.is_debuff else "red"
-        
-        effects_desc = []
-        for stat, val in buff.effects.items():
-            sign = "+" if float(str(val).replace('%', '').strip('[]').split(',')[0]) >= 0 else ""
-            effects_desc.append(f"{stat}: {sign}{val}")
-            
-        c.print(f"[{color}] {buff.get_display_name()} ha sido aplicado a {getattr(player, 'name', 'Entidad')} ({', '.join(effects_desc)})[/]")
-        
-        return True
-    return False
+
+    if not buff:
+        return False
+
+    # Inicializar listas si no existen
+    if not hasattr(player, 'appliedbuffs'):
+        player.appliedbuffs = []
+    if not hasattr(player, 'applieddebuffs'):
+        player.applieddebuffs = []
+    if not hasattr(player, 'active_buffs'):
+        player.active_buffs = []
+
+    if buff.is_debuff:
+        player.applieddebuffs.append(buff)
+    else:
+        player.appliedbuffs.append(buff)
+    player.active_buffs.append(buff)
+
+    return True
 
 
 def remove_buff_from_player(player, buff_id: str):
     """
-    Remueve un buff específico del jugador
-    
-    Args:
-        player: Objeto del jugador
-        buff_id: ID del buff a remover
+    Remueve un buff específico del jugador (de todas las listas relevantes).
     """
-    if not hasattr(player, 'active_buffs'):
-        return False
-    
-    for i, buff in enumerate(player.active_buffs):
-        if buff.buff_id == buff_id:
-            player.active_buffs.pop(i)
-            print(f"[INFO] {buff.name} removido de {player.name}")
-            return True
-    
-    return False
+    removed = False
+    for lst_name in ('appliedbuffs', 'applieddebuffs', 'active_buffs'):
+        lst = getattr(player, lst_name, [])
+        for i, buff in enumerate(lst):
+            if buff.buff_id == buff_id:
+                lst.pop(i)
+                removed = True
+                break
+    return removed
 
 
 def process_turn_buffs(player):
     """
-    Procesa buffs al final de cada turno (reduce duración y remueve expirados)
-    
-    Args:
-        player: Objeto del jugador
+    Procesa buffs al final de cada turno (reduce duración y remueve expirados).
+    Opera sobre active_buffs y sincroniza appliedbuffs/applieddebuffs.
     """
     if not hasattr(player, 'active_buffs') or not player.active_buffs:
         return
-    
+
     manager = get_buff_manager()
-    
-    # Tick todos los buffs
     expired = manager.tick_buffs(player.active_buffs)
-    
-    # Remover buffs expirados
+
     for buff in expired:
         player.active_buffs.remove(buff)
-        print(f"[INFO] {buff.name} ha expirado")
+        # Sincronizar listas separadas
+        if buff.is_debuff:
+            if hasattr(player, 'applieddebuffs') and buff in player.applieddebuffs:
+                player.applieddebuffs.remove(buff)
+        else:
+            if hasattr(player, 'appliedbuffs') and buff in player.appliedbuffs:
+                player.appliedbuffs.remove(buff)

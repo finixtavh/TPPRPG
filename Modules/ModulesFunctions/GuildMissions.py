@@ -419,19 +419,22 @@ def open_guild_missions_menu(guild: Guild, player, guild_manager: GuildManager, 
     def _on_press(key):
         if key == "up":
             state["idx"] = max(0, state["idx"] - 1)
+            state["dirty"] = True
         elif key == "down":
             state["idx"] = min(len(available_missions) - 1, state["idx"] + 1)
+            state["dirty"] = True
         elif key == "enter" and available_missions:
             mission = available_missions[state["idx"]]
             if len(guild.active_missions) >= max_slots:
                 state["message"]   = "✗ No hay slots de misión disponibles."
                 state["msg_style"] = "bold red"
+                state["dirty"] = True
                 return
             if not available_companions:
                 state["message"]   = "✗ No hay compañeros disponibles para enviar."
                 state["msg_style"] = "bold red"
+                state["dirty"] = True
                 return
-            # Asignar el primer compañero disponible
             comp = available_companions.pop(0)
             comp.mission_status = "on_mission"
             comp.mission_return_combat = getattr(player, "combat_counter", 0) + mission.duration_combats
@@ -443,9 +446,12 @@ def open_guild_missions_menu(guild: Guild, player, guild_manager: GuildManager, 
             state["idx"]     = max(0, state["idx"] - 1)
             state["message"] = f"✓ '{mission.name}' iniciada. {getattr(comp, 'generated_name', comp.name)} ha partido."
             state["msg_style"] = "bold green"
+            state["dirty"] = True
         elif key == "esc":
             state["exit"] = True
+            stop_listening()
 
+    state["dirty"] = True
     with console.screen():
         with keyboard_listener_scope():
             kb_thread = threading.Thread(
@@ -454,13 +460,14 @@ def open_guild_missions_menu(guild: Guild, player, guild_manager: GuildManager, 
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=console, refresh_per_second=20) as live:
+            with Live(console=console, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
-                        live.update(_render())
-                        time.sleep(0.05)
+                        if state.get("dirty", False):
+                            state["dirty"] = False
+                            live.update(_render(), refresh=True)
+                        time.sleep(0.005)
                 finally:
                     stop_listening()
                     if kb_thread.is_alive():
                         kb_thread.join(timeout=0.2)
-            console.clear()

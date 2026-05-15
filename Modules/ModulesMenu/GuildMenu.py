@@ -382,7 +382,7 @@ def _diplomacy_action_menu(player_guild: Guild, player, gm: GuildManager, con):
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=60) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -608,7 +608,7 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -734,7 +734,7 @@ def _buildings_menu(player_guild: Guild, gm: GuildManager, con):
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -798,7 +798,7 @@ def _no_guild_menu(player, gm: GuildManager, con) -> str:
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -874,7 +874,7 @@ def _create_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["done"]:
                         if state.get("dirty", True):
@@ -941,7 +941,7 @@ def _join_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["done"]:
                         if state.get("dirty", True):
@@ -1090,7 +1090,7 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -1169,7 +1169,7 @@ def _commerce_menu(player_guild: Guild, player, gm: GuildManager, con):
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -1246,7 +1246,7 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
                 opt = ev["options"][state["opt_idx"]]
                 eff = opt.get("effects", {})
                 for k, v in eff.items():
-                    if k == "soldiers":       player_guild.soldiers = max(0, player_guild.soldiers + v)
+                    if k == "soldiers" or k == "military_power": player_guild.military_power = max(0, player_guild.military_power + v)
                     elif k == "population":   player_guild.population = max(10, player_guild.population + v)
                     elif k == "moral":        player_guild.change_moral(v)
                     elif k == "rel_src":
@@ -1273,10 +1273,13 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
                                     g.add_resource(req_rid, req_amt, gm.resource_defs)
                             else:
                                 player_guild.log_event(f"✗ Trade fallido: no tienes suficientes recursos.")
+                    elif k in ("src_id", "offer_rid", "offer_amt", "req_rid", "req_amt"):
+                        pass  # Ignorar claves de metadatos usadas por otros efectos
                     else:
                         # Asumir que es un recurso
-                        if v > 0: player_guild.add_resource(k, v, gm.resource_defs)
-                        else:     player_guild.consume_resource(k, abs(v))
+                        if isinstance(v, (int, float)):
+                            if v > 0: player_guild.add_resource(k, v, gm.resource_defs)
+                            else:     player_guild.consume_resource(k, abs(v))
                 player_guild.pending_events.pop(state["idx"])
                 state["idx"] = max(0, state["idx"] - 1)
                 state["mode"] = "list"
@@ -1285,7 +1288,7 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -1400,7 +1403,7 @@ def _military_management_menu(player_guild: Guild, player, gm: GuildManager, con
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -1523,7 +1526,7 @@ def _garrison_management_menu(player_guild: Guild, player, gm: GuildManager, con
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -1545,6 +1548,13 @@ def open_guild_menu(player, console=None):
     gm = get_guild_manager()
     if not gm.guilds:
         gm.generate_random_guilds()
+        try:
+            from Modules.ModulesUtils.Loader import Read
+            _cfg = Read("config.json", None)
+            world_cfg = _cfg.get("WORLD", {}) if _cfg else {}
+        except Exception:
+            world_cfg = {}
+        gm.initialize_world_state(world_cfg)
 
     while True:
         player_guild = gm.get_player_guild()
@@ -1554,12 +1564,14 @@ def open_guild_menu(player, console=None):
             if action == "create":
                 guild = _create_guild_flow(player, gm, console)
                 if guild:
+                    gm.generate_initial_player_events()
                     console.print(f"\n[bold green]✨ Guild '{guild.name}' ({guild.guild_type}) creada con éxito![/bold green]")
                     time.sleep(1.5)
                 continue
             elif action == "join":
                 guild = _join_guild_flow(player, gm, console)
                 if guild:
+                    gm.generate_initial_player_events()
                     console.print(f"\n[bold green]✓ Te has unido a {guild.icon} {guild.name}![/bold green]")
                     time.sleep(1.5)
                 continue
@@ -1665,7 +1677,7 @@ def _tax_settings_menu(player_guild: Guild, player, gm: GuildManager, con):
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -1777,7 +1789,7 @@ def _market_and_barter_menu(player_guild: Guild, player, gm: GuildManager, con):
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -1892,7 +1904,7 @@ def _custom_trade_menu(player_guild: Guild, target_guild: Guild, player, gm: Gui
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
                         if state.get("dirty", True):
@@ -1903,26 +1915,6 @@ def _custom_trade_menu(player_guild: Guild, target_guild: Guild, player, gm: Gui
                     stop_listening()
                     if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
             con.clear()
-        else:
-            if key == "up": state["idx"] = max(0, state["idx"] - 1)
-            elif key == "down": state["idx"] = min(len(pending)-1, state["idx"] + 1)
-            elif key == "enter": 
-                state["mode"] = "detail"
-                state["opt_idx"] = 0
-            elif key == "esc": state["exit"] = True
-        state["dirty"] = True
-
-    with con.screen():
-        with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
-                while not state["exit"]:
-                    if state["dirty"]:
-                        live.update(_render())
-                        state["dirty"] = False
-                    time.sleep(0.01)
-            stop_listening()
 
 def _custom_trade_menu(player_guild: Guild, target_guild: Guild, player, gm: GuildManager, con):
     state = {
@@ -1999,10 +1991,10 @@ def _custom_trade_menu(player_guild: Guild, target_guild: Guild, player, gm: Gui
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
-            with Live(console=con, screen=True, refresh_per_second=20) as live:
+            with Live(console=con, screen=True, auto_refresh=False) as live:
                 while not state["exit"]:
                     if state["dirty"]:
-                        live.update(_render())
+                        live.update(_render(), refresh=True)
                         state["dirty"] = False
                     time.sleep(0.01)
             stop_listening()

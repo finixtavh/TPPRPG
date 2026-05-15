@@ -455,22 +455,29 @@ def open_guild_skill_tree(guild, console=None):
         if key == "left":
             state["branch_idx"] = (state["branch_idx"] - 1) % len(branches)
             state["skill_idx"]  = 0
+            state["dirty"] = True
         elif key == "right":
             state["branch_idx"] = (state["branch_idx"] + 1) % len(branches)
             state["skill_idx"]  = 0
+            state["dirty"] = True
         elif key == "up":
             state["skill_idx"] = max(0, state["skill_idx"] - 1)
+            state["dirty"] = True
         elif key == "down":
             state["skill_idx"] = min(len(skills) - 1, state["skill_idx"] + 1)
+            state["dirty"] = True
         elif key == "enter":
             if skills:
                 sid = skills[state["skill_idx"]]
                 success, msg = unlock_skill(sid, guild)
                 state["message"]   = msg
                 state["msg_style"] = "bold green" if success else "bold red"
+                state["dirty"] = True
         elif key == "esc":
             state["exit"] = True
+            stop_listening()
 
+    state["dirty"] = True
     with console.screen():
         with keyboard_listener_scope():
             kb_thread = threading.Thread(
@@ -479,11 +486,13 @@ def open_guild_skill_tree(guild, console=None):
                 daemon=True,
             )
             kb_thread.start()
-            with Live(console=console, screen=False, refresh_per_second=20) as live: # Changed screen=False here
+            with Live(console=console, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
-                        live.update(_render(), refresh=True)
-                        time.sleep(0.05)
+                        if state.get("dirty", False):
+                            state["dirty"] = False
+                            live.update(_render(), refresh=True)
+                        time.sleep(0.005)
                 finally:
                     stop_listening()
                     if kb_thread.is_alive():

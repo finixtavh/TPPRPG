@@ -451,6 +451,10 @@ class cMaterial:
             raise ValueError(f"Gold_Cost debe ser un entero >= 0, recibido: {Gold_Cost!r}")
         self.Gold_Cost: int = Gold_Cost
 
+    @property
+    def ID(self):
+        return self.MATERIAL_ID
+
         if not isinstance(MaxStack, int) or MaxStack < 1:
             raise ValueError(f"MaxStack debe ser un entero >= 1, recibido: {MaxStack!r}")
         self.MaxStack: int = MaxStack

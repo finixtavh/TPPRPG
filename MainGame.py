@@ -810,11 +810,11 @@ def display_main_menu() -> int:
         )
         kb.start()
         try:
-            with Live(_render(), console=console, refresh_per_second=30, transient=True) as live:
+            with Live(_render(), console=console, screen=True, auto_refresh=False) as live:
                 while not state["done"]:
                     if state["dirty"]:
                         state["dirty"] = False
-                        live.update(_render())
+                        live.update(_render(), refresh=True)
                     sp.sleep(0.01)
         finally:
             state["done"] = True
@@ -1163,8 +1163,8 @@ def main():
         
         os.system("cls" if os.name == "nt" else "clear")
 
-        _TAB_NAMES = ["Stats Principales", "Mastery Armas/Armadura", "Mastery Recoleccion"]
-        _st = {"tab": 0, "done": False}
+        _TAB_NAMES = ["Stats Principales", "Mastery Armas/Armadura", "Mastery Recoleccion", "Estado del Jugador"]
+        _st = {"tab": 0, "done": False, "dirty": True}
 
         def _tab_header(active):
             h = Text()
@@ -1260,10 +1260,83 @@ def main():
                           f"+{sk.efficiency_pct:.0f}% velocidad", f"+{sk.xp_pct:.0f}% XP")
             return t
 
+        def _tab_player_state():
+            from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
+            g = Table.grid(padding=(0, 0))
+            g.add_column()
+
+            # ── Clima ──────────────────────────────────────────────────────
+            wm = get_weather_manager()
+            w = wm.get_current_weather()
+            weather_lines = [f"[bold cyan]🌦 Clima actual:[/] {w.icon} [bold]{w.name}[/]"]
+            weather_lines.append(f"[dim]{w.description}[/dim]")
+            weather_lines.append("")
+            _mod_labels = {
+                "attack": "Ataque", "defense": "Defensa", "magic_def": "Def. Mágica",
+                "agi": "Agilidad", "counter": "Contraataque", "evasion": "Evasión"
+            }
+            for k, v in w.combat_mods.items():
+                if v == 1.0:
+                    continue
+                label = _mod_labels.get(k, k)
+                pct = (v - 1.0) * 100
+                color = "green" if pct > 0 else "red"
+                sign = "+" if pct > 0 else ""
+                weather_lines.append(f"  [{color}]{label}: {sign}{pct:.0f}%[/{color}]")
+            if all(v == 1.0 for v in w.combat_mods.values()):
+                weather_lines.append("  [dim]Sin modificadores de combate.[/dim]")
+
+            # ── Buffs activos ───────────────────────────────────────────────
+            buff_lines = [""]
+            buff_lines.append("[bold green]✨ Buffs activos:[/]")
+            raw_buffs = getattr(player, "appliedbuffs", [])
+            if raw_buffs:
+                for b in raw_buffs:
+                    name = getattr(b, "Name", getattr(b, "name", "Buff desconocido"))
+                    desc = getattr(b, "description", getattr(b, "Description", ""))
+                    buff_lines.append(f"  [green]+ {name}[/green]" + (f" [dim]— {desc}[/dim]" if desc else ""))
+            else:
+                buff_lines.append("  [dim]Ningún buff activo.[/dim]")
+
+            # ── Debuffs activos ─────────────────────────────────────────────
+            buff_lines.append("")
+            buff_lines.append("[bold red]💀 Debuffs activos:[/]")
+            raw_debuffs = getattr(player, "applieddebuffs", [])
+            if raw_debuffs:
+                for d in raw_debuffs:
+                    name = getattr(d, "Name", getattr(d, "name", "Debuff desconocido"))
+                    desc = getattr(d, "description", getattr(d, "Description", ""))
+                    buff_lines.append(f"  [red]- {name}[/red]" + (f" [dim]— {desc}[/dim]" if desc else ""))
+            else:
+                buff_lines.append("  [dim]Ningún debuff activo.[/dim]")
+
+            # ── Tax debuffs (Guild) ─────────────────────────────────────────
+            gm = get_guild_manager()
+            pg = gm.get_player_guild()
+            buff_lines.append("")
+            buff_lines.append("[bold yellow]💰 Impuestos de Guild:[/]")
+            if pg:
+                tax = getattr(pg, "tax_rate", 5)
+                buff_lines.append(f"  Tasa actual: [bold]{tax}%[/bold]")
+                tax_debuffs = pg.get_tax_debuffs() if hasattr(pg, "get_tax_debuffs") else {}
+                if tax_debuffs:
+                    for attr, val in tax_debuffs.items():
+                        pct = (val - 1.0) * 100
+                        sign = "+" if pct > 0 else ""
+                        color = "red" if pct < 0 else "green"
+                        buff_lines.append(f"  [{color}]{attr.capitalize()}: {sign}{pct:.0f}%[/{color}]")
+                elif tax <= 10:
+                    buff_lines.append("  [dim]Sin penalizaciones (tasa ≤ 10%).[/dim]")
+            else:
+                buff_lines.append("  [dim]No perteneces a ningún gremio.[/dim]")
+
+            g.add_row(Text.from_markup("\n".join(weather_lines + buff_lines)))
+            return g
+
         def _build_panel():
             tab = _st["tab"]
             hdr = _tab_header(tab)
-            content = [_tab_stats, _tab_mastery, _tab_gathering][tab]()
+            content = [_tab_stats, _tab_mastery, _tab_gathering, _tab_player_state][tab]()
             return Panel(Group(hdr, Text(""), content),
                          title=f"[bold yellow]{_TAB_NAMES[tab]}[/]", border_style="yellow", padding=(1, 2))
 
@@ -1271,8 +1344,10 @@ def main():
             if _st["done"]: return
             if key == "left":
                 _st["tab"] = (_st["tab"] - 1) % len(_TAB_NAMES)
+                _st["dirty"] = True
             elif key == "right":
                 _st["tab"] = (_st["tab"] + 1) % len(_TAB_NAMES)
+                _st["dirty"] = True
             elif key in ("enter", "q", "esc"):
                 _st["done"] = True
                 try: stop_listening()
@@ -1283,9 +1358,11 @@ def main():
             _kb = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_key, "sequential": False, "delay_second_char": 0.0, "until": None}, daemon=True)
             _kb.start()
             try:
-                with Live(_build_panel(), console=console, refresh_per_second=20, transient=True) as live:
+                with Live(_build_panel(), console=console, screen=True, auto_refresh=False) as live:
                     while not _st["done"]:
-                        live.update(_build_panel())
+                        if _st["dirty"]:
+                            _st["dirty"] = False
+                            live.update(_build_panel(), refresh=True)
                         sp.sleep(0.05)
             finally:
                 _st["done"] = True
@@ -1418,19 +1495,50 @@ def main():
                             # ── ¿Murió el enemigo? ────────────────────────────────
                             if enemy.HP <= 0:
                                 console.print(f"[success]¡Has derrotado a {enemy.NAME}![/success]")
-                                exp_gain = enemy.EXP_TO_PLAYER
-                                gold_gain = enemy.GOLD
-                                player.EXP += exp_gain
+
+                                # ── Modificadores globales de EXP y Oro ──────────
+                                _world_cfg   = CONFIG.get("WORLD", {})
+                                _exp_mod     = float(_world_cfg.get("GLOBAL_EXP_MODIFIER",  1))
+                                _gold_mod    = float(_world_cfg.get("GLOBAL_GOLD_MODIFIER", 1))
+                                _loot_mod    = float(_world_cfg.get("GLOBAL_LOOT_MODIFIER", 1))
+                                _lq_pos      = float(_world_cfg.get("GLOBAL_LOOT_QUALITY_MODIFIER_POSITIVE", 1))
+                                _lq_neg      = float(_world_cfg.get("GLOBAL_LOOT_QUALITY_MODIFIER_NEGATIVE", 1))
+
+                                exp_gain  = int(enemy.EXP_TO_PLAYER * _exp_mod)
+                                gold_gain = int(enemy.GOLD          * _gold_mod)
+                                player.EXP  += exp_gain
                                 player.Gold += gold_gain
                                 console.print(f"[success]Ganaste {exp_gain} EXP y {gold_gain} oro.[/success]")
-                                
-                                if random.random() < 0.3:
-                                    loot_id = random.choice([1, 10, 21, 32, 43, 54])
+
+                                # ── Drop de loot ─────────────────────────────────
+                                _base_loot_chance = 0.30
+                                _loot_chance = min(1.0, _base_loot_chance * _loot_mod)
+                                if random.random() < _loot_chance:
+                                    # Intentar usar loot table del enemigo o zona
+                                    _loot_pool = getattr(enemy, "LOOT_TABLE", None)
+                                    if not _loot_pool:
+                                        _loot_pool = getattr(enemy, "loot_ids", None)
+                                    # Fallback a lista de IDs genérica
+                                    _fallback_ids = [1, 10, 21, 32, 43, 54]
+                                    if _loot_pool and isinstance(_loot_pool, (list, tuple)) and len(_loot_pool) > 0:
+                                        loot_id = random.choice(_loot_pool)
+                                    else:
+                                        loot_id = random.choice(_fallback_ids)
+
                                     loot_item = load_item_by_id(loot_id, cWeapon, cEquippableItems, cObject, cTool)
                                     if loot_item:
-                                        console.print(f"[success]¡Soltó: {getattr(loot_item, 'Name', 'Objeto')}![/success]")
+                                        # Aplicar modificador de objeto al loot
+                                        try:
+                                            from Modules.ModulesManager.ItemModifierSystem import roll_and_apply_modifier, get_item_display_name
+                                            mod = roll_and_apply_modifier(loot_item, _lq_pos, _lq_neg)
+                                            display_name = get_item_display_name(loot_item)
+                                            mod_txt = f" [{('red' if mod.is_negative else 'green')}]{mod.icon} {mod.name}[/]" if mod else ""
+                                        except Exception:
+                                            display_name = getattr(loot_item, 'name', getattr(loot_item, 'Name', 'Objeto'))
+                                            mod_txt = ""
+                                        console.print(f"[success]¡Soltó: {display_name}{mod_txt}![/success]")
                                         vInventory.addObject(loot_item)
-                                
+
                                 quest_manager.update_kill_quest(enemy.NAME, player)
                                 player.level_up()
 

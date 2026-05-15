@@ -154,8 +154,10 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
     def _on_press(key):
         if key == "up":
             state["idx"] = (state["idx"] - 1) % len(options)
+            state["dirty"] = True
         elif key == "down":
             state["idx"] = (state["idx"] + 1) % len(options)
+            state["dirty"] = True
         elif key == "enter":
             action = options[state["idx"]][1]
             if action == "exit":
@@ -173,41 +175,55 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
                 _add_companion()
             elif action == "trigger_disaster":
                 _trigger_disaster()
+            elif action == "add_buff":
+                _add_buff()
+            elif action == "add_debuff":
+                _add_debuff()
             elif action == "look_variables":
                 state["exit_for_variables"] = True
                 stop_listening()
+            state["dirty"] = True
         elif key == "esc":
             state["exit"] = True
             stop_listening()
 
-    # Usamos console.screen() para evitar el bug de "títulos repetidos" y asegurar limpieza total
-    with console.screen() as screen:
-        while not state["exit"]:
-            state["exit_for_variables"] = False
-            with keyboard_listener_scope():
-                kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-                kb_thread.start()
+    # screen=True + auto_refresh=False: sin scroll, solo redibuja cuando algo cambia
+    with keyboard_listener_scope():
+        kb_thread = threading.Thread(
+            target=listen_keyboard,
+            kwargs={"on_press": _on_press, "sequential": False, "until": None},
+            daemon=True,
+        )
+        kb_thread.start()
 
-                try:
-                    with Live(console=console, refresh_per_second=15) as live:
-                        while not state["exit"] and not state.get("exit_for_variables", False):
-                            t = Table(show_header=False, box=None, expand=True)
-                            for i, (label, _) in enumerate(options):
-                                if i == state["idx"]:
-                                    t.add_row(f"[bold bright_magenta]▶ {label}[/]")
-                                else:
-                                    t.add_row(f"  {label}")
-                            
-                            footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
-                            live.update(Panel(Group(t, "", footer), title="[bold magenta]⚙ MENÚ DEBUG ⚙[/]", border_style="magenta", padding=(1, 2)))
-                            time.sleep(0.06)
-                finally:
-                    stop_listening()
-                    if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
-            
-            if state.get("exit_for_variables", False):
-                open_variable_viewer(player, inventory, gathering_init, mod_loader, mod_api, chosen_area)
-                # Al volver del visor, seguimos en el bucle principal del menú debug
+        state["dirty"] = True
+        try:
+            with Live(console=console, screen=True, auto_refresh=False) as live:
+                while not state["exit"] and not state.get("exit_for_variables", False):
+                    if state.get("dirty", False):
+                        state["dirty"] = False
+                        t = Table(show_header=False, box=None, expand=True)
+                        for i, (label, _) in enumerate(options):
+                            if i == state["idx"]:
+                                t.add_row(f"[bold bright_magenta]▶ {label}[/]")
+                            else:
+                                t.add_row(f"  {label}")
+                        footer = Panel(Text(state["message"], style=state["msg_style"]), border_style="dim")
+                        live.update(
+                            Panel(Group(t, "", footer),
+                                  title="[bold magenta]⚙ MENÚ DEBUG ⚙[/]",
+                                  border_style="magenta", padding=(1, 2)),
+                            refresh=True,
+                        )
+                    time.sleep(0.005)
+        finally:
+            stop_listening()
+            if kb_thread.is_alive():
+                kb_thread.join(timeout=0.5)
+
+    if state.get("exit_for_variables", False):
+        open_variable_viewer(player, inventory, gathering_init, mod_loader, mod_api, chosen_area)
+
 
 def open_variable_viewer(player, inventory, gathering_init, mod_loader, mod_api, chosen_area):
     tabs = ["Jugador", "Stats", "Mastery", "Mundo", "Sistema"]
@@ -298,23 +314,27 @@ def open_variable_viewer(player, inventory, gathering_init, mod_loader, mod_api,
         nonlocal cur_tab, exit_viewer
         if key == "left":
             cur_tab = (cur_tab - 1) % len(tabs)
+            _dirty[0] = True
         elif key == "right":
             cur_tab = (cur_tab + 1) % len(tabs)
+            _dirty[0] = True
         elif key == "esc" or key == "enter":
             exit_viewer = True
             stop_listening()
 
-    # No usamos console.screen() aquí porque ya estamos dentro de uno en open_enhanced_debug_menu
+    _dirty = [True]
     with keyboard_listener_scope():
         kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press_viewer, "sequential": False, "until": None}, daemon=True)
         kb_thread.start()
         try:
-            with Live(console=console, refresh_per_second=15) as live:
+            with Live(console=console, screen=True, auto_refresh=False) as live:
                 while not exit_viewer:
-                    live.update(_render_viewer(cur_tab))
-                    time.sleep(0.06)
+                    if _dirty[0]:
+                        _dirty[0] = False
+                        live.update(_render_viewer(cur_tab), refresh=True)
+                    time.sleep(0.005)
         finally:
             stop_listening()
             if kb_thread.is_alive(): kb_thread.join(timeout=0.2)
-    
+
     console.clear()

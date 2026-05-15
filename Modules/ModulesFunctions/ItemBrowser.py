@@ -140,6 +140,7 @@ def open_item_browser(player, item_manager):
             if key == "enter" or key == "esc": state["input_mode"] = "normal"
             elif key == "backspace": state["search_query"] = state["search_query"][:-1]; state["idx"] = 0; state["scroll"] = 0
             elif len(key) == 1: state["search_query"] += key; state["idx"] = 0; state["scroll"] = 0
+            state["dirty"] = True
             return
         if key == "up":
             state["idx"] = max(0, state["idx"] - 1)
@@ -147,7 +148,7 @@ def open_item_browser(player, item_manager):
         elif key == "down":
             state["idx"] = min(len(items) - 1, state["idx"] + 1)
             if state["idx"] >= state["scroll"] + MAX_VISIBLE: state["scroll"] = state["idx"] - MAX_VISIBLE + 1
-        elif key == "esc": state["exit"] = True
+        elif key == "esc": state["exit"] = True; stop_listening()
         elif key == "f" and items:
             item = items[state["idx"]]
             item_id = getattr(item, "ID", getattr(item, "STATIC_ID", getattr(item, "MATERIAL_ID", -1)))
@@ -155,22 +156,26 @@ def open_item_browser(player, item_manager):
             if item_id in player.favorite_items: player.favorite_items.remove(item_id)
             else: player.favorite_items.append(item_id)
         elif key == "s": state["input_mode"] = "search"; state["search_query"] = ""
+        state["dirty"] = True
 
+    state["dirty"] = True
     with console.screen():
         with keyboard_listener_scope():
             kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
             kb_thread.start()
             try:
-                with Live(console=console, refresh_per_second=20) as live:
+                with Live(console=console, screen=True, auto_refresh=False) as live:
                     while not state["exit"]:
-                        items = _get_filtered_items()
-                        if state["idx"] >= len(items) and len(items) > 0: state["idx"] = len(items) - 1
-                        selected_item = items[state["idx"]] if items else None
-                        search_info = f" [bold yellow]BUSCANDO:[/] {state['search_query']}_" if state["input_mode"] == "search" else ""
-                        footer = Panel(Text(state["message"], style=state["msg_style"]).append(search_info, style="white"), border_style="dim")
-                        grid = Table.grid(expand=True); grid.add_column(ratio=2); grid.add_column(ratio=3); grid.add_row(_render_list(items, state["idx"], state["scroll"]), _render_detail(selected_item))
-                        live.update(Panel(Group(grid, footer), title="[bold white]📖 ENCICLOPEDIA DE ÍTEMS 📖[/]", border_style="bright_black", padding=(0,1)))
-                        time.sleep(0.05)
+                        if state.get("dirty", True):
+                            state["dirty"] = False
+                            items = _get_filtered_items()
+                            if state["idx"] >= len(items) and len(items) > 0: state["idx"] = len(items) - 1
+                            selected_item = items[state["idx"]] if items else None
+                            search_info = f" [bold yellow]BUSCANDO:[/] {state['search_query']}_" if state["input_mode"] == "search" else ""
+                            footer = Panel(Text(state["message"], style=state["msg_style"]).append(search_info, style="white"), border_style="dim")
+                            grid = Table.grid(expand=True); grid.add_column(ratio=2); grid.add_column(ratio=3); grid.add_row(_render_list(items, state["idx"], state["scroll"]), _render_detail(selected_item))
+                            live.update(Panel(Group(grid, footer), title="[bold white]📖 ENCICLOPEDIA DE ÍTEMS 📖[/]", border_style="bright_black", padding=(0,1)), refresh=True)
+                        time.sleep(0.005)
             finally:
                 stop_listening()
                 if kb_thread.is_alive(): kb_thread.join(timeout=0.2)

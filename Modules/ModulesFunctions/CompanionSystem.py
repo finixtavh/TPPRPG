@@ -697,42 +697,147 @@ def companion_management_menu(
         )
 
 
-def _recruit_companion_menu(player, console, menu_fn, pause_fn) -> None:
+# ── Estado global del mercado de compañeros ───────────────────────────────────
+import time as _time
+
+_RECRUIT_POOL: list = []        # lista de cCompanion con identidad pre-asignada
+_RECRUIT_POOL_TIMESTAMP: float = 0.0
+_RECRUIT_POOL_INTERVAL: float  = 30 * 60  # 30 minutos en segundos
+_RECRUIT_REFRESH_COST: int     = 1000     # oro para refrescar manualmente
+_RECRUIT_POOL_SIZE: int        = 5
+
+# Rareza ponderada: Common 70%, Uncommon 19%, Rare 10%, Legendary 1%
+_RARITY_WEIGHTS = {
+    "Common":    70,
+    "Uncommon":  19,
+    "Rare":      10,
+    "Legendary": 1,
+}
+
+
+def _roll_recruit_pool() -> list:
+    """Genera 5 compañeros aleatorios con rareza ponderada y nombres pre-asignados."""
     catalog = get_companions_catalog()
     if not catalog:
-        console.print("[warning]No hay compañeros disponibles en el catálogo.[/warning]")
-        pause_fn()
-        return
+        return []
+
+    # Agrupar compañeros del catálogo por rareza
+    by_rarity: Dict[str, list] = {}
+    for cid, tmpl in catalog.items():
+        r = tmpl.rarity
+        by_rarity.setdefault(r, []).append(cid)
+
+    rarities = list(_RARITY_WEIGHTS.keys())
+    weights  = [_RARITY_WEIGHTS[r] for r in rarities]
+
+    pool = []
+    seen_ids = set()
+    attempts = 0
+    while len(pool) < _RECRUIT_POOL_SIZE and attempts < 200:
+        attempts += 1
+        chosen_rarity = random.choices(rarities, weights=weights, k=1)[0]
+        candidates = by_rarity.get(chosen_rarity, [])
+        if not candidates:
+            continue
+        cid = random.choice(candidates)
+        if cid in seen_ids:
+            continue
+        seen_ids.add(cid)
+        instance = create_companion_instance(cid)
+        if instance:
+            assign_random_identity(instance)
+            pool.append(instance)
+    return pool
+
+
+def _get_recruit_pool() -> list:
+    """Devuelve el pool actual, regenerándolo si ha expirado."""
+    global _RECRUIT_POOL, _RECRUIT_POOL_TIMESTAMP
+    now = _time.time()
+    if not _RECRUIT_POOL or (now - _RECRUIT_POOL_TIMESTAMP) >= _RECRUIT_POOL_INTERVAL:
+        _RECRUIT_POOL = _roll_recruit_pool()
+        _RECRUIT_POOL_TIMESTAMP = now
+    return _RECRUIT_POOL
+
+
+def _recruit_companion_menu(player, console, menu_fn, pause_fn) -> None:
+    global _RECRUIT_POOL, _RECRUIT_POOL_TIMESTAMP
 
     current_ids = {c.companion_id for c in player.companion}
 
+    pool = _get_recruit_pool()
+    if not pool:
+        console.print("[warning]No hay compañeros disponibles en el mercado.[/warning]")
+        pause_fn()
+        return
+
+    # Calcular tiempo restante para próximo refresco
+    now = _time.time()
+    elapsed   = now - _RECRUIT_POOL_TIMESTAMP
+    remaining = max(0.0, _RECRUIT_POOL_INTERVAL - elapsed)
+    mins_left = int(remaining // 60)
+    secs_left = int(remaining % 60)
+
+    rarity_colors = {
+        "Common": "white", "Uncommon": "green",
+        "Rare": "cyan", "Legendary": "bold yellow",
+    }
+
     opts = [(0, "Cancelar")]
-    available = []
-    for cid, tmpl in catalog.items():
-        tag = " [dim](ya en equipo)[/dim]" if cid in current_ids else ""
-        hire_cost = RARITY_HIRE_COST.get(tmpl.rarity, 50)
-        pay_cost  = RARITY_PAY_COST.get(tmpl.rarity, 30)
+    for i, comp in enumerate(pool):
+        in_team   = comp.companion_id in current_ids
+        team_tag  = " [dim](ya en equipo)[/dim]" if in_team else ""
+        hire_cost = RARITY_HIRE_COST.get(comp.rarity, 50)
+        pay_cost  = RARITY_PAY_COST.get(comp.rarity, 30)
         affordable = "✓" if player.Gold >= hire_cost else "✗"
+        rc = rarity_colors.get(comp.rarity, "white")
+        display = comp.generated_name or comp.name
         opts.append((
-            len(available) + 1,
-            f"{tmpl.icon} {tmpl.name} [{tmpl.rarity}]{tag} — Contratar: {hire_cost}g | Pago/3días: {pay_cost}g [{affordable}]",
+            i + 1,
+            f"{comp.icon} [{rc}]{display}[/{rc}]  [{comp.rarity}]{team_tag}"
+            f"  Contratar: {hire_cost}g | Paga/3d: {pay_cost}g [{affordable}]",
         ))
-        available.append(cid)
+
+    # Opción de refrescar
+    refresh_idx = len(pool) + 1
+    can_afford_refresh = player.Gold >= _RECRUIT_REFRESH_COST
+    refresh_label = (
+        f"🔄 Refrescar mercado ({_RECRUIT_REFRESH_COST}g) [{' ✓' if can_afford_refresh else '✗'}]  "
+        f"[dim]Auto-refresco en {mins_left}m {secs_left:02d}s[/dim]"
+    )
+    opts.append((refresh_idx, refresh_label))
 
     chosen = menu_fn(
-        title="Catálogo de Compañeros",
-        subtitle=f"Selecciona un compañero para contratar | Tu oro: {player.Gold:.0f}g",
+        title="🏪 Mercado de Compañeros",
+        subtitle=f"Tu oro: {player.Gold:.0f}g  |  Slots del equipo: {len(player.companion)}/4",
         options=opts,
         prompt="Compañero: ",
-        default_value=1 if len(opts) > 1 else 0,
+        default_value=1 if len(opts) > 2 else 0,
         border_style="cyan",
     )
 
     if chosen == 0:
         return
 
-    selected_id = available[chosen - 1]
-    if selected_id in current_ids:
+    # Refrescar manualmente
+    if chosen == refresh_idx:
+        if player.Gold < _RECRUIT_REFRESH_COST:
+            console.print(f"[danger]Necesitas {_RECRUIT_REFRESH_COST}g para refrescar el mercado.[/danger]")
+        else:
+            player.Gold -= _RECRUIT_REFRESH_COST
+            _RECRUIT_POOL = _roll_recruit_pool()
+            _RECRUIT_POOL_TIMESTAMP = _time.time()
+            console.print("[success]🔄 El mercado de compañeros se ha refrescado.[/success]")
+        pause_fn()
+        return
+
+    idx = chosen - 1
+    if idx < 0 or idx >= len(pool):
+        return
+
+    new_comp = pool[idx]
+
+    if new_comp.companion_id in current_ids:
         console.print("[warning]Este compañero ya está en tu equipo.[/warning]")
         pause_fn()
         return
@@ -742,13 +847,15 @@ def _recruit_companion_menu(player, console, menu_fn, pause_fn) -> None:
         pause_fn()
         return
 
-    new_comp = create_companion_instance(selected_id)
-    if new_comp:
-        # Generar identidad aleatoria antes de mostrar info
-        assign_random_identity(new_comp)
-        if hire_companion(new_comp, player, console):
-            player.companion.append(new_comp)
-        # Si no tiene oro suficiente, hire_companion ya mostró el mensaje
+    # Contratar: crear instancia nueva (el pool guarda la plantilla)
+    hired_instance = create_companion_instance(new_comp.companion_id)
+    if hired_instance:
+        hired_instance.generated_name = new_comp.generated_name
+        hired_instance.gender         = new_comp.gender
+        if hire_companion(hired_instance, player, console):
+            player.companion.append(hired_instance)
+            # Quitar del pool para que no aparezca dos veces
+            _RECRUIT_POOL = [c for c in _RECRUIT_POOL if c is not new_comp]
     else:
         console.print("[danger]Error al reclutar el compañero.[/danger]")
     pause_fn()
@@ -896,5 +1003,36 @@ def _show_companion_stats(comp, console, pause_fn) -> None:
         f"[bold]Arma:[/bold]      {weapon_str}",
         f"[bold]Armadura:[/bold]  {armor_str}",
     ]
+
+    # ── Buffs ──────────────────────────────────────────────────────────────────
+    lines.append("")
+    lines.append("[bold green]✨ Buffs activos:[/bold green]")
+    raw_buffs = getattr(comp, "appliedbuffs", []) or getattr(comp, "active_buffs", [])
+    raw_buffs = [b for b in raw_buffs if not getattr(b, "is_debuff", False)]
+    if raw_buffs:
+        for b in raw_buffs:
+            name = getattr(b, "name", getattr(b, "Name", "?"))
+            desc = getattr(b, "description", getattr(b, "Description", ""))
+            turns = getattr(b, "duration_current", "?")
+            lines.append(f"  [green]+ {name}[/green] ({turns}T)" + (f" [dim]— {desc}[/dim]" if desc else ""))
+    else:
+        lines.append("  [dim]Ningún buff activo.[/dim]")
+
+    # ── Debuffs ────────────────────────────────────────────────────────────────
+    lines.append("")
+    lines.append("[bold red]💀 Debuffs activos:[/bold red]")
+    raw_debuffs = getattr(comp, "applieddebuffs", [])
+    if not raw_debuffs:
+        # fallback: filtrar de active_buffs
+        raw_debuffs = [b for b in getattr(comp, "active_buffs", []) if getattr(b, "is_debuff", False)]
+    if raw_debuffs:
+        for d in raw_debuffs:
+            name = getattr(d, "name", getattr(d, "Name", "?"))
+            desc = getattr(d, "description", getattr(d, "Description", ""))
+            turns = getattr(d, "duration_current", "?")
+            lines.append(f"  [red]- {name}[/red] ({turns}T)" + (f" [dim]— {desc}[/dim]" if desc else ""))
+    else:
+        lines.append("  [dim]Ningún debuff activo.[/dim]")
+
     console.print(Panel("\n".join(lines), title=f"Stats – {display_name}", border_style="cyan"))
     pause_fn()

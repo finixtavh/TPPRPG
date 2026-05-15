@@ -203,6 +203,7 @@ class MasteryManager:
     def register_damage_dealt(self, player, damage_total: float) -> Optional[str]:
         """
         Llama cuando el jugador hace daño. Agrega EXP al mastery del arma equipada.
+        Aplica GLOBAL_WEAPON_MASTERY_MODIFIER desde config.json.
         Retorna un mensaje de level-up si subió, None si no.
         """
         if damage_total <= 0:
@@ -213,7 +214,17 @@ class MasteryManager:
         if skill is None:
             return None
 
-        exp_gain = damage_total / 35.0
+        # Leer modificador global
+        try:
+            from pathlib import Path
+            import json
+            _cfg_path = Path(__file__).parent.parent.parent / "config.json"
+            _cfg = json.loads(_cfg_path.read_text(encoding="utf-8"))
+            _wmm = float(_cfg.get("WORLD", {}).get("GLOBAL_WEAPON_MASTERY_MODIFIER", 1))
+        except Exception:
+            _wmm = 1.0
+
+        exp_gain = (damage_total / 35.0) * _wmm
         levels_up = skill.add_exp(exp_gain)
 
         if levels_up > 0:
@@ -229,12 +240,23 @@ class MasteryManager:
         """
         Llama cuando el jugador recibe daño. Agrega EXP a TODOS los masteries
         de armadura que tenga equipados.
+        Aplica GLOBAL_ARMOR_MASTERY_MODIFIER desde config.json.
         Retorna mensajes de level-up concatenados, o None.
         """
         if damage_total <= 0:
             return None
 
-        exp_gain = damage_total / 35.0
+        # Leer modificador global
+        try:
+            from pathlib import Path
+            import json
+            _cfg_path = Path(__file__).parent.parent.parent / "config.json"
+            _cfg = json.loads(_cfg_path.read_text(encoding="utf-8"))
+            _amm = float(_cfg.get("WORLD", {}).get("GLOBAL_ARMOR_MASTERY_MODIFIER", 1))
+        except Exception:
+            _amm = 1.0
+
+        exp_gain = (damage_total / 35.0) * _amm
         messages = []
 
         armor_slot_map = {

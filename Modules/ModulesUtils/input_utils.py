@@ -273,13 +273,13 @@ def interactive_menu_select(
             with Live(
                 _render(),
                 console=console,
-                refresh_per_second=30,
-                transient=True,
+                screen=True,
+                auto_refresh=False,
             ) as live:
                 while not state["done"]:
                     if state["dirty"]:
                         state["dirty"] = False
-                        live.update(_render())
+                        live.update(_render(), refresh=True)
                     time.sleep(0.01)
         finally:
             state["done"] = True

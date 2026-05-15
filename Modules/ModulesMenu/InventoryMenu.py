@@ -304,6 +304,30 @@ def _render_item_detail(slot, player=None) -> Panel:
         if mat_types:
             lines.append(Text(f"  📦 Tipo(s):     {', '.join(mat_types)}", style="dim"))
 
+    # ── Modificador de Objeto ────────────────────────────────────────────────
+    if itype in ("cWeapon", "cEquippableItems", "cTool"):
+        mod = getattr(item, "modifier", None)
+        lines.append(Text(""))
+        lines.append(Rule(style="grey35"))
+        if mod is not None:
+            m_color = "red" if mod.is_negative else "green"
+            mod_line = Text()
+            mod_line.append(f"  {mod.icon} Modificador:  ", style="dim")
+            mod_line.append(f"{mod.name}", style=f"bold {m_color}")
+            # Mostrar efectos
+            eff_parts = []
+            for k, v in mod.effects.items():
+                sign = "+" if v > 0 else ""
+                if "pct" in k:
+                    eff_parts.append(f"{sign}{v*100:.0f}%")
+                else:
+                    eff_parts.append(f"{sign}{v:.0f}")
+            if eff_parts:
+                mod_line.append(f"  ({', '.join(eff_parts)})", style=f"dim {m_color}")
+            lines.append(mod_line)
+        else:
+            lines.append(Text("  Sin modificador", style="dim italic"))
+
     # ── Encantamientos (para Armas, Equipo y Herramientas) ──
     if itype in ("cWeapon", "cEquippableItems", "cTool"):
         try:
@@ -624,7 +648,7 @@ def open_inventory_menu(
             state["done"]   = True
             stop_listening()
 
-        elif k in ("q", "escape"):
+        elif k in ("q", "esc"):
             state["action"] = "quit"
             state["done"]   = True
             stop_listening()
@@ -671,15 +695,14 @@ def open_inventory_menu(
                 with Live(
                     _full_render(),
                     console=console,
-                    refresh_per_second=30,
-                    transient=False,
+                    auto_refresh=False,
                     screen=True,
                 ) as live:
                     while not state["done"]:
                         if state["dirty"]:
                             state["dirty"] = False
-                            live.update(_full_render())
-                        time.sleep(0.01)
+                            live.update(_full_render(), refresh=True)
+                        time.sleep(0.005)
             finally:
                 state["done"] = True
                 try:

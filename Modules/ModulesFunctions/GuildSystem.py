@@ -602,6 +602,57 @@ class GuildManager:
         self.world_tension:   float                = 0.0
         self._load_definitions()
 
+    def generate_initial_player_events(self):
+        """Genera eventos interactivos iniciales para el jugador al fundar/unirse a una guild."""
+        pg = self.get_player_guild()
+        if not pg:
+            return
+
+        pg.pending_events = []
+
+        ev_welcome = {
+            "event_id": "initial_welcome",
+            "title": "Un Nuevo Amanecer",
+            "description": "Has tomado el mando. El mundo observa tus próximos movimientos con gran expectación. ¿Qué mensaje deseas dar a tus seguidores para motivarlos en este comienzo?",
+            "source_guild_id": pg.guild_id,
+            "options": [
+                {"text": "Discurso inspirador (+20 Moral)", "effects": {"moral": 20}},
+                {"text": "Promesa de riqueza (+100 Oro)", "effects": {"oro": 100}},
+                {"text": "Llamado a las armas (+5 Soldados)", "effects": {"soldiers": 5}},
+            ]
+        }
+        pg.pending_events.append(ev_welcome)
+
+        ev_merchant = {
+            "event_id": "initial_merchant",
+            "title": "Mercader Errante",
+            "description": "Un mercader ha escuchado sobre la actividad de tu gremio. Ofrece una inversión inicial a cambio de garantías, o venta de materiales.",
+            "source_guild_id": "",
+            "options": [
+                {"text": "Aceptar la inversión (+250 Oro)", "effects": {"oro": 250}},
+                {"text": "Comprar materiales (Pagar 100 Oro, +30 Hierro, +30 Madera)", "effects": {"oro": -100, "hierro": 30, "madera": 30}},
+                {"text": "Rechazar cordialmente (Sin efecto)", "effects": {}},
+            ]
+        }
+        pg.pending_events.append(ev_merchant)
+
+        npc_guilds = [g for g in self.guilds.values() if not g.is_player_guild]
+        if npc_guilds:
+            import random
+            neighbor = random.choice(npc_guilds)
+            ev_neighbor = {
+                "event_id": "initial_neighbor",
+                "title": "Mensajero Cercano",
+                "description": f"Un enviado de la guild vecina [{neighbor.icon} {neighbor.name}] llega con saludos formales. Expresan su deseo de paz, pero su tono es cauteloso.",
+                "source_guild_id": neighbor.guild_id,
+                "options": [
+                    {"text": "Enviar regalos de vuelta (-50 Oro, +15 Relación)", "effects": {"oro": -50, "rel_src": 15, "src_id": neighbor.guild_id}},
+                    {"text": "Agradecer verbalmente (+5 Relación)", "effects": {"rel_src": 5, "src_id": neighbor.guild_id}},
+                    {"text": "Despedir al enviado fríamente (-10 Relación)", "effects": {"rel_src": -10, "src_id": neighbor.guild_id}},
+                ]
+            }
+            pg.pending_events.append(ev_neighbor)
+
     def _load_definitions(self):
         for path, attr, key in [
             (_GUILD_RESOURCES_JSON, "resource_defs",   "resources"),
@@ -658,6 +709,97 @@ class GuildManager:
             for other in guild_ids:
                 if other != gid:
                     guild.relations[other] = random.randint(-30, 30)
+
+    def initialize_world_state(self, world_cfg: dict) -> List[str]:
+        """
+        Ejecuta eventos y guerras iniciales procedurales al comenzar una partida nueva.
+        Llamar después de generate_random_guilds().
+
+        Args:
+            world_cfg: sección CONFIG["WORLD"]
+        Returns:
+            Lista de mensajes generados (para mostrar en el log del mundo).
+        """
+        n_events = int(round(world_cfg.get("AMOUNT_OF_STARTING_EVENTS", 10)))
+        n_wars   = int(round(world_cfg.get("AMOUNT_OF_STARTING_WARS",   2)))
+
+        npc_guilds = [g for g in self.guilds.values() if not g.is_player_guild]
+        if not npc_guilds:
+            return []
+
+        messages = []
+
+        # ── Eventos aleatorios procedurales ──────────────────────────────────
+        for _ in range(n_events):
+            g = random.choice(npc_guilds)
+            # Usamos _generate_random_event si existe, si no, generamos uno simple
+            try:
+                evt = self._generate_random_event(g)
+                if evt and isinstance(evt, dict):
+                    msg = evt.get("message", "")
+                    if msg:
+                        self.world_events.append(msg)
+                        messages.append(msg)
+                elif evt and isinstance(evt, str):
+                    self.world_events.append(evt)
+                    messages.append(evt)
+                else:
+                    # Fallback: evento simple de relación
+                    candidates = [other for oid, other in self.guilds.items()
+                                  if oid != g.guild_id and not other.is_player_guild]
+                    if candidates:
+                        other = random.choice(candidates)
+                        delta = random.choice([-15, -10, -5, 5, 10, 15])
+                        old   = g.relations.get(other.guild_id, 0)
+                        g.relations[other.guild_id]     = max(-100, min(100, old + delta))
+                        other.relations[g.guild_id]     = max(-100, min(100, old + delta))
+                        verb = "mejoró" if delta > 0 else "deterioró"
+                        msg  = (f"📜 Las relaciones entre [{g.icon} {g.name}] y "
+                                f"[{other.icon} {other.name}] se {verb} ({delta:+d}).")
+                        self.world_events.append(msg)
+                        messages.append(msg)
+            except Exception:
+                pass  # Eventos no son críticos, si falla uno lo ignoramos
+
+        # ── Guerras iniciales ─────────────────────────────────────────────────
+        wars_declared = 0
+        # Candidatos: pares de guilds con relación <= -10 que no estén ya en guerra
+        candidates_war = []
+        guild_list = list(self.guilds.items())
+        for i, (gid_a, ga) in enumerate(guild_list):
+            if ga.is_player_guild:
+                continue
+            for gid_b, gb in guild_list[i+1:]:
+                if gb.is_player_guild:
+                    continue
+                rel_ab = ga.relations.get(gid_b, 0)
+                rel_ba = gb.relations.get(gid_a, 0)
+                avg_rel = (rel_ab + rel_ba) / 2
+                if avg_rel <= -10 and gid_b not in getattr(ga, "at_war_with", []):
+                    candidates_war.append((ga, gb, avg_rel))
+
+        # Ordenar por peor relación primero (más probable que peleen)
+        candidates_war.sort(key=lambda x: x[2])
+
+        for ga, gb, _ in candidates_war:
+            if wars_declared >= n_wars:
+                break
+            if not hasattr(ga, "at_war_with"):
+                ga.at_war_with = []
+            if not hasattr(gb, "at_war_with"):
+                gb.at_war_with = []
+            ga.at_war_with.append(gb.guild_id)
+            gb.at_war_with.append(ga.guild_id)
+            # Reducir relaciones más aún
+            ga.relations[gb.guild_id] = max(-100, ga.relations.get(gb.guild_id, -10) - 20)
+            gb.relations[ga.guild_id] = max(-100, gb.relations.get(ga.guild_id, -10) - 20)
+            msg = (f"⚔ [GUERRA INICIAL] [{ga.icon} {ga.name}] y [{gb.icon} {gb.name}] "
+                   f"ya están en conflicto desde el inicio del mundo.")
+            self.world_events.append(msg)
+            messages.append(msg)
+            wars_declared += 1
+
+        return messages
 
     # ── Tick de simulación ────────────────────────────────────────────────────
 
@@ -1126,7 +1268,7 @@ class GuildManager:
                         ev = {
                             "event_id":    "trade_proposal",
                             "title":       "Propuesta Comercial",
-                            "desc_tmpl":   f"{proposer.icon} {proposer.name} ofrece {offer_amt} {rname1} a cambio de {req_amt} {rname2}.",
+                            "description": f"{proposer.icon} {proposer.name} ofrece {offer_amt} {rname1} a cambio de {req_amt} {rname2}.",
                             "source_guild_id": proposer.guild_id,
                             "options": [
                                 {"text": f"Aceptar (recibir {offer_amt} {rname1})",

@@ -427,6 +427,7 @@ def save_load_menu(player, inventory, chosen_area, item_manager, console, menu_f
     from rich.panel import Panel
 
     while True:
+        console.clear()
         action = menu_fn(
             title="💾 Guardar / Cargar Partida",
             subtitle="Selecciona una acción",
@@ -448,12 +449,13 @@ def save_load_menu(player, inventory, chosen_area, item_manager, console, menu_f
         for s in [1, 2, 3]:
             info = get_slot_info(s)
             if info["exists"]:
+                # Formato más compacto para evitar wrapping en terminales pequeños
                 label = (
-                    f"Slot {s}: {info['player_name']}  Nv.{info['level']}  "
-                    f"[{info['area']}]  {info['timestamp']}"
+                    f"S{s}: {info['player_name']} [dim]| Nv.{info['level']} | "
+                    f"{info['area']} | {info['timestamp']}[/dim]"
                 )
             else:
-                label = f"Slot {s}: [dim]Vacío[/dim]"
+                label = f"S{s}: [dim]Vacío[/dim]"
             slot_options.append((s, label))
 
         chosen_slot = menu_fn(
