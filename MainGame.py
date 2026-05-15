@@ -14,17 +14,6 @@ import traceback
 from rich.live import Live
 from sshkeyboard import listen_keyboard, stop_listening
 
-
-_original_stdout_write = sys.stdout.write
-
-def _safe_stdout_write(text):
-    while True:
-        try:
-            return _original_stdout_write(text)
-        except BlockingIOError:
-            time.sleep(0.001)  # Esperar a que el buffer se drene
-
-sys.stdout.write = _safe_stdout_write
 # -----------------------------------------------------------------------------
 # Modules/
 
@@ -69,7 +58,6 @@ from Modules.ModulesUtils.setup import (
     enemy_loader,)
 
 # ---   ---
-import json
 import random
 import time as sp
 import os
@@ -95,6 +83,17 @@ custom_theme = Theme(
 )
 
 console = Console(theme=custom_theme)
+
+_original_stdout_write = sys.stdout.write
+
+def _safe_stdout_write(text):
+    while True:
+        try:
+            return _original_stdout_write(text)
+        except BlockingIOError:
+            time.sleep(0.001)  # Esperar a que el buffer se drene
+
+sys.stdout.write = _safe_stdout_write
 
 app_logger = setup_logging(CONFIG["DEBUG"]["ENABLED"])
 attach_console_logging(console, app_logger)
