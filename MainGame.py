@@ -33,6 +33,7 @@ from Modules.ModulesFunctions.CraftingSystem import open_crafting_menu
 from Modules.ModulesFunctions.GuildSystem import get_guild_manager, SIMULATION_INTERVAL
 from Modules.ModulesFunctions.QuestSystem import quest_manager
 from Modules.ModulesFunctions.BaseSystem import BaseManager, open_base_menu
+from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
 from Modules.ModulesFunctions.CompanionSystem import (
     cCompanion,
     companion_management_menu,
@@ -280,8 +281,6 @@ def zone_loader(player_zone: str) -> cEnemy:
         console.print(
             f"[danger]Error al cargar la zona {player_zone}: {str(e)}[/danger]"
         )
-        
-
         traceback.print_exc()
         return None
 
@@ -906,7 +905,7 @@ def run_zone_gathering(zone_key: str) -> bool:
             console.print("[danger]Error instanciando el material.[/danger]")
             return False
             
-        material_obj.ID = material_obj.MATERIAL_ID
+        material_obj.MATERIAL_ID
         material_obj.name = material_obj.Name
 
         console.print(f"[info]Iniciando recolección de [bold]{material_obj.Name}[/bold]...[/info]")
@@ -1218,7 +1217,7 @@ def main():
                 f"Evasion: {player.Evasion}%\n"
                 f"Contra-ataque: {player.CounterAttack}%\n"
                 f"\n[bold bright_magenta]Equipamiento[/]\n{a_s}\n"
-                f"\n[bold bright_green]Companeros[/]\n{c_s}\n"
+                f"\n[bold bright_green]Compañeros[/]\n{c_s}\n"
                 f"\n[bold bright_yellow]Efectos Activos[/]\n{b_s}"))
             return g
 
@@ -1260,7 +1259,6 @@ def main():
             return t
 
         def _tab_player_state():
-            from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
             g = Table.grid(padding=(0, 0))
             g.add_column()
 

@@ -21,7 +21,7 @@
   },
   "DISPLAY": {
     "BAR_LENGTH": 25,
-    "MENU_REFRESH_RATE": 0.5,
+    "MENU_REFRESH_RATE": 2.5,
     "SHOW_FULL_STATS": true
   },
   "DEBUG": {
