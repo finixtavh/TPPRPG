@@ -231,6 +231,19 @@
                 "ManaMaxPercent": 5
             },
             "Icon": "✨"
+        },
+        "torch_light": {
+            "STATIC_ID": "torch_light",
+            "Name": "Luz de Antorcha",
+            "Description": "La luz guía el camino. +10 de Agilidad, +10% Contraataque, -5% Evasión.",
+            "Duration": 999,
+            "Type": "mixed",
+            "Effects": {
+                "AgilityFlat": 10,
+                "CounterAttackPercent": 10,
+                "EvasionPercent": -5
+            },
+            "Icon": "🔦"
         }
     },
     "DEBUFFS": {

@@ -257,6 +257,19 @@
                 "dmg_bonus": 0.15,
                 "special_effect": "duel_bonus"
             }
+        },
+        "mana_infusion": {
+            "ENCHANT_ID": 70,
+            "Name": "Infusión de Maná",
+            "TargetClass": "cWeapon",
+            "Description": "Infundir el arma con maná. Consume 10 de maná por nivel para añadir 5 de daño térmico por nivel.",
+            "Rarity": "Uncommon",
+            "MaxLevel": 5,
+            "GoldCost": 250,
+            "family_id": "mana_infusion",
+            "Effects": {
+                "dmg_bonus": [0, 5, 0, 0, 0]
+            }
         }
     },
     "cEquippableItems": {

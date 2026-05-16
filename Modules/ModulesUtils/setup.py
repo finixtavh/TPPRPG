@@ -129,7 +129,7 @@ class cPlayer:
         self.combat_counter: int = 0      # Nº de combates realizados (trigger de simulación)
 
         # Seems like this can changed fore something better
-        self.items_in_PlayerClass = [self.weapon, self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3]
+        self.items_in_PlayerClass = [self.weapon, self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3, self.SecHand]
 
         self.applieddebuffs = []
         self.active_buffs = []
@@ -140,7 +140,8 @@ class cPlayer:
             (self.boots, "Boots"),
             (self.ring, "Ring"),
             (self.ring2, "Ring"),
-            (self.ring3, "Ring")
+            (self.ring3, "Ring"),
+            (self.SecHand, "SecHand")
         ]
 
     def attack(self, enemy):
@@ -174,6 +175,25 @@ class cPlayer:
             attack_info["is_counter"] = True
 
         # 3. Calcular Daño
+        has_enough_mana = True
+        mana_cost = 0
+        if self.weapon:
+            mana_cost = getattr(self.weapon, "ManaCost", 0)
+            
+            # Encantamiento Infusión de Maná (si existe)
+            try:
+                from Modules.ModulesFunctions.EnchantmentSystem import get_item_enchants
+                enchants = get_item_enchants(self.weapon)
+                for e in enchants:
+                    if e.get("family_id") == "mana_infusion":
+                        mana_cost += 10 * e.get("level", 1)
+            except: pass
+
+            if self.Mana < mana_cost:
+                has_enough_mana = False
+            else:
+                self.Mana -= mana_cost
+
         if self.weapon:
             weapon_res = self.weapon.use_weapon(self)
             # Aseguramos que sea dict, si no (fallback)
@@ -184,6 +204,13 @@ class cPlayer:
                 damage_array = weapon_res
         else:
             damage_array = [float(random.randint(2, 5)), 0.0, 0.0, 0.0, 0.0]
+
+        # Aplicar penalización si no hubo maná
+        if not has_enough_mana:
+            damage_array = [d * 0.4 for d in damage_array]
+            attack_info["enchant_dmg"] = [0.0] * 5
+            # Avisar al jugador
+            console.print(f"[yellow]¡No tienes maná suficiente! El ataque es mucho más débil.[/yellow]")
 
         # Aplicar clima al ataque
         weather_raw = list(damage_array)
@@ -343,8 +370,8 @@ class cPlayer:
 
     def Check(self, lInventory):
         """Valida estado del jugador, equipamiento e inventario. Recibe lInventory (cInventory)."""
-        slot_names = ["weapon", "helmet", "armor", "boots", "ring", "ring2", "ring3"]
-        self.items_in_PlayerClass = [self.weapon, self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3]
+        slot_names = ["weapon", "helmet", "armor", "boots", "ring", "ring2", "ring3", "SecHand"]
+        self.items_in_PlayerClass = [self.weapon, self.helmet, self.armor, self.boots, self.ring, self.ring2, self.ring3, self.SecHand]
         # Actualizar lobjectscheck con el estado actual (no el de __init__)
         self.lobjectscheck = [
             (self.helmet, "Helmet"),
@@ -352,7 +379,8 @@ class cPlayer:
             (self.boots, "Boots"),
             (self.ring, "Ring"),
             (self.ring2, "Ring"),
-            (self.ring3, "Ring")
+            (self.ring3, "Ring"),
+            (self.SecHand, "SecHand")
         ]
 
         # Auto-discover currently equipped items, tools, and inventory items
@@ -392,21 +420,40 @@ class cPlayer:
             if isinstance(obj, cObject):
                 setattr(self, slot_names[i], None)
                 lInventory.addObject(obj)
-        if self.Health <= 0:
-            self.Health = self.Health_max
-            self.Gold -= (self.Health_max * 0.6)
         
+        # RESET STATS BEFORE RECALCULATION
+        self.DEF = [0, 0, 0, 0, 0]
+        self.DefensePercentage = [0.0, 0.0, 0.0, 0.0, 0.0]
+        self.Health_max = 100 # Reset base
+        self.ManaRegen = 2.5 # Reset base
+        self.AGI = 0
+        self.CounterAttack = 0
+        self.Evasion = 0
+
         for item in self.items_in_PlayerClass:
-            if isinstance(item, cEquippableItems) and item.AppliedStats == False:
+            if isinstance(item, cEquippableItems):
                 # Handle defense as array
                 for i in range(min(5, len(item.Defense))):
                     self.DEF[i] += item.Defense[i]
-                    
-                self.Health_max += item.HealthBoost
                 
-                # Marcar el item como aplicado para evitar aplicar stats múltiples veces
-                item.AppliedStats = True
+                # HealthBoost
+                if hasattr(item, "HealthBoost"):
+                    self.Health_max += item.HealthBoost
                 
+                # DefensePercentage
+                if hasattr(item, "DefensePercentage"):
+                    for i in range(min(5, len(item.DefensePercentage))):
+                        self.DefensePercentage[i] += item.DefensePercentage[i]
+                
+                # ManaRegen
+                if hasattr(item, "ManaRegen"):
+                    self.ManaRegen += item.ManaRegen
+                
+                # AGI, Evasion, CounterAttack
+                if hasattr(item, "AGI"): self.AGI += item.AGI
+                if hasattr(item, "Evasion"): self.Evasion += item.Evasion
+                if hasattr(item, "CounterAttack"): self.CounterAttack += item.CounterAttack
+
         for item, objecttype in self.lobjectscheck:
             if item and objecttype is not None:
                 if item.objectcheck != objecttype:
@@ -569,6 +616,14 @@ class cWeapon:
         self.DMG = _normalize_5_values(DMG)
         self.DMG_min = _normalize_4_values(DMG_min)
         
+        # Atributos nuevos para mano secundaria y mana
+        self.ManaCost = 0
+        self.is_two_handed = False
+        self.AGI = 0
+        self.Evasion = 0
+        self.CounterAttack = 0
+        self.Buffs = []
+        
         LObject.append(self)
         
 
@@ -638,6 +693,15 @@ class cEquippableItems:
         self.Description = Description
         self.objectcheck = objectcheck
         self.AppliedStats = False
+
+        # Atributos nuevos para SecHand
+        self.ManaRegen = 0.0
+        self.DefensePercentage = [0.0] * 5
+        self.AGI = 0
+        self.Evasion = 0
+        self.CounterAttack = 0
+        self.Barrier = 0
+        self.Buffs = []
 
         LObject.append(self)
         

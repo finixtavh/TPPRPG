@@ -313,7 +313,16 @@ class cFarm:
 
         # ── XP ────────────────────────────────
         xp_base = material.Hardness / 13
-        xp_gained = xp_base * skill_obj.xp_bonus_factor
+        
+        global_xp_mod = 1.0
+        try:
+            cfg_world = Read(self.ruta, "WORLD")
+            if cfg_world and "GLOBAL_RESOURCE_EXP_MASTERY_MODIFIER" in cfg_world:
+                global_xp_mod = float(cfg_world["GLOBAL_RESOURCE_EXP_MASTERY_MODIFIER"])
+        except Exception:
+            pass
+            
+        xp_gained = xp_base * skill_obj.xp_bonus_factor * global_xp_mod
         levels_up = skill_obj.add_exp(xp_gained)
 
         level_msg = ""
@@ -451,13 +460,13 @@ class cMaterial:
             raise ValueError(f"Gold_Cost debe ser un entero >= 0, recibido: {Gold_Cost!r}")
         self.Gold_Cost: int = Gold_Cost
 
-    @property
-    def ID(self):
-        return self.MATERIAL_ID
-
         if not isinstance(MaxStack, int) or MaxStack < 1:
             raise ValueError(f"MaxStack debe ser un entero >= 1, recibido: {MaxStack!r}")
         self.MaxStack: int = MaxStack
+
+    @property
+    def ID(self):
+        return self.MATERIAL_ID
 
 
     def has_type(self, type_str: str) -> bool:

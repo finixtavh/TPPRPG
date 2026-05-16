@@ -168,7 +168,8 @@ class ItemManager:
         # DMG Array
         dmg = item_data.get("DMG", [0, 0, 0, 0, 0])
         dmg_min = item_data.get("DMG_min", [0, 0, 0, 0])
-        return cWeapon(
+        
+        w = cWeapon(
             ID=item_data.get("STATIC_ID"),
             name=item_data.get("Name"),
             DMG=dmg,
@@ -176,6 +177,16 @@ class ItemManager:
             Gold_Cost=item_data.get("Gold_Cost", 0),
             Description=item_data.get("Description", "")
         )
+        
+        # Nuevos Atributos
+        w.ManaCost = item_data.get("ManaCost", 0)
+        w.is_two_handed = item_data.get("is_two_handed", False)
+        w.AGI = item_data.get("AGI", 0)
+        w.Evasion = item_data.get("Evasion", 0)
+        w.CounterAttack = item_data.get("CounterAttack", 0)
+        w.Buffs = item_data.get("Buffs", [])
+        
+        return w
     
     def _create_equippable(self, item_data: Dict, cEquippableItems):
         """
@@ -187,8 +198,7 @@ class ItemManager:
         # DEF Array
         defense = item_data.get("Defense", [0, 0, 0, 0, 0])
 
-        
-        return cEquippableItems(
+        e = cEquippableItems(
             ID=item_data.get("STATIC_ID"),
             name=item_data.get("Name"),
             Defense=defense,
@@ -199,6 +209,17 @@ class ItemManager:
             Description=item_data.get("Description", ""),
             objectcheck=item_data.get("Type")
         )
+        
+        # Nuevos Atributos para SecHand y otros
+        e.ManaRegen = item_data.get("ManaRegen", 0.0)
+        e.DefensePercentage = item_data.get("DefensePercentage", [0.0] * 5)
+        e.AGI = item_data.get("AGI", 0)
+        e.Evasion = item_data.get("Evasion", 0)
+        e.CounterAttack = item_data.get("CounterAttack", 0)
+        e.Barrier = item_data.get("Barrier", 0)
+        e.Buffs = item_data.get("Buffs", [])
+        
+        return e
     
     def _create_consumable(self, item_data: Dict, cObject):
         """Crea un objeto cObject (consumible) desde datos JSON"""

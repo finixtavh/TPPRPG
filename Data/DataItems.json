@@ -4,8 +4,19 @@
             "STATIC_ID": 1,
             "Name": "Espada de Madera",
             "Type": "Weapon",
-            "DMG": [10, 0, 0, 0, 0],
-            "DMG_min": [5, 0, 0, 0],
+            "DMG": [
+                10,
+                0,
+                0,
+                0,
+                0
+            ],
+            "DMG_min": [
+                5,
+                0,
+                0,
+                0
+            ],
             "Gold_Cost": 10,
             "Description": "Una simple espada de madera para principiantes"
         },
@@ -13,8 +24,19 @@
             "STATIC_ID": 2,
             "Name": "Espada de Hierro",
             "Type": "Weapon",
-            "DMG": [20, 0, 0, 0, 0],
-            "DMG_min": [10, 0, 0, 0],
+            "DMG": [
+                20,
+                0,
+                0,
+                0,
+                0
+            ],
+            "DMG_min": [
+                10,
+                0,
+                0,
+                0
+            ],
             "Gold_Cost": 50,
             "Description": "Una espada de hierro confiable"
         },
@@ -22,8 +44,19 @@
             "STATIC_ID": 3,
             "Name": "Espada de Acero",
             "Type": "Weapon",
-            "DMG": [30, 0, 0, 0, 0],
-            "DMG_min": [15, 0, 0, 0],
+            "DMG": [
+                30,
+                0,
+                0,
+                0,
+                0
+            ],
+            "DMG_min": [
+                15,
+                0,
+                0,
+                0
+            ],
             "Gold_Cost": 150,
             "Description": "Una espada afilada de acero templado"
         },
@@ -31,8 +64,19 @@
             "STATIC_ID": 4,
             "Name": "Bastón Mágico",
             "Type": "Weapon",
-            "DMG": [5, 20, 0, 0, 0],
-            "DMG_min": [3, 10, 0, 0],
+            "DMG": [
+                5,
+                20,
+                0,
+                0,
+                0
+            ],
+            "DMG_min": [
+                3,
+                10,
+                0,
+                0
+            ],
             "Gold_Cost": 100,
             "Description": "Un bastón que canaliza energía térmica"
         },
@@ -40,8 +84,19 @@
             "STATIC_ID": 5,
             "Name": "Bastón de Llamas",
             "Type": "Weapon",
-            "DMG": [8, 35, 0, 0, 0],
-            "DMG_min": [5, 20, 0, 0],
+            "DMG": [
+                8,
+                35,
+                0,
+                0,
+                0
+            ],
+            "DMG_min": [
+                5,
+                20,
+                0,
+                0
+            ],
             "Gold_Cost": 300,
             "Description": "Un bastón envuelto en llamas eternas"
         },
@@ -49,8 +104,19 @@
             "STATIC_ID": 6,
             "Name": "Martillo de Tierra",
             "Type": "Weapon",
-            "DMG": [25, 0, 30, 0, 0],
-            "DMG_min": [12, 0, 15, 0],
+            "DMG": [
+                25,
+                0,
+                30,
+                0,
+                0
+            ],
+            "DMG_min": [
+                12,
+                0,
+                15,
+                0
+            ],
             "Gold_Cost": 250,
             "Description": "Martillo pesado imbuido con poder de la tierra"
         },
@@ -58,8 +124,19 @@
             "STATIC_ID": 7,
             "Name": "Lanza del Trueno",
             "Type": "Weapon",
-            "DMG": [15, 0, 0, 40, 0],
-            "DMG_min": [8, 0, 0, 20],
+            "DMG": [
+                15,
+                0,
+                0,
+                40,
+                0
+            ],
+            "DMG_min": [
+                8,
+                0,
+                0,
+                20
+            ],
             "Gold_Cost": 350,
             "Description": "Lanza que resuena con energía eléctrica"
         },
@@ -67,8 +144,19 @@
             "STATIC_ID": 8,
             "Name": "Hoja del Vacío",
             "Type": "Weapon",
-            "DMG": [20, 10, 0, 0, 25],
-            "DMG_min": [10, 5, 0, 0],
+            "DMG": [
+                20,
+                10,
+                0,
+                0,
+                25
+            ],
+            "DMG_min": [
+                10,
+                5,
+                0,
+                0
+            ],
             "Gold_Cost": 800,
             "Description": "Arma legendaria que atraviesa el tejido de la realidad - daño profundo siempre máximo"
         },
@@ -76,8 +164,19 @@
             "STATIC_ID": 9,
             "Name": "Espada Elemental",
             "Type": "Weapon",
-            "DMG": [25, 15, 15, 15, 0],
-            "DMG_min": [12, 7, 7, 7],
+            "DMG": [
+                25,
+                15,
+                15,
+                15,
+                0
+            ],
+            "DMG_min": [
+                12,
+                7,
+                7,
+                7
+            ],
             "Gold_Cost": 600,
             "Description": "Espada que domina múltiples elementos"
         },
@@ -85,8 +184,19 @@
             "STATIC_ID": 90,
             "Name": "Bastón de Curandero",
             "Type": "Weapon",
-            "DMG": [5, 5, 0, 0, 0],
-            "DMG_min": [2, 2, 0, 0],
+            "DMG": [
+                5,
+                5,
+                0,
+                0,
+                0
+            ],
+            "DMG_min": [
+                2,
+                2,
+                0,
+                0
+            ],
             "Gold_Cost": 250,
             "Description": "Báculo que potencia la curación y la regeneración de magia"
         },
@@ -94,10 +204,162 @@
             "STATIC_ID": 91,
             "Name": "Bastón de Soporte",
             "Type": "Weapon",
-            "DMG": [8, 0, 0, 0, 0],
-            "DMG_min": [4, 0, 0, 0],
+            "DMG": [
+                8,
+                0,
+                0,
+                0,
+                0
+            ],
+            "DMG_min": [
+                4,
+                0,
+                0,
+                0
+            ],
             "Gold_Cost": 250,
             "Description": "Báculo enfocado en debilitar a los enemigos"
+        },
+        "novice_wand": {
+            "STATIC_ID": 123,
+            "Name": "Varita de Novato",
+            "Type": "Weapon",
+            "DMG": [
+                2,
+                10,
+                0,
+                0,
+                0
+            ],
+            "DMG_min": [
+                1,
+                5,
+                0,
+                0
+            ],
+            "ManaCost": 5,
+            "is_two_handed": false,
+            "Evasion": 5,
+            "Gold_Cost": 80,
+            "Description": "Varita ligera que permite usar la mano secundaria"
+        },
+        "apprentice_wand": {
+            "STATIC_ID": 124,
+            "Name": "Varita de Aprendiz",
+            "Type": "Weapon",
+            "DMG": [
+                3,
+                18,
+                5,
+                0,
+                0
+            ],
+            "DMG_min": [
+                1,
+                8,
+                2,
+                0
+            ],
+            "ManaCost": 8,
+            "is_two_handed": false,
+            "CounterAttack": 8,
+            "Gold_Cost": 220,
+            "Description": "Varita equilibrada con buen flujo de maná"
+        },
+        "great_staff": {
+            "STATIC_ID": 120,
+            "Name": "Gran Báculo de Sabio",
+            "Type": "Weapon",
+            "DMG": [
+                10,
+                45,
+                10,
+                10,
+                0
+            ],
+            "DMG_min": [
+                5,
+                25,
+                5,
+                5
+            ],
+            "ManaCost": 35,
+            "is_two_handed": true,
+            "Evasion": -10,
+            "CounterAttack": -5,
+            "Gold_Cost": 650,
+            "Description": "Báculo masivo que requiere ambas manos para canalizar su inmenso poder"
+        },
+        "chaos_staff": {
+            "STATIC_ID": 121,
+            "Name": "Báculo del Caos",
+            "Type": "Weapon",
+            "DMG": [
+                15,
+                20,
+                20,
+                20,
+                20
+            ],
+            "DMG_min": [
+                5,
+                5,
+                5,
+                5
+            ],
+            "ManaCost": 50,
+            "is_two_handed": true,
+            "AGI": -15,
+            "Gold_Cost": 1200,
+            "Description": "Báculo inestable que drena gran cantidad de maná pero golpea con todos los elementos"
+        },
+        "claymore": {
+            "STATIC_ID": 126,
+            "Name": "Claymore de Acero",
+            "Type": "Weapon",
+            "DMG": [
+                55,
+                0,
+                0,
+                0,
+                0
+            ],
+            "DMG_min": [
+                30,
+                0,
+                0,
+                0
+            ],
+            "ManaCost": 0,
+            "is_two_handed": true,
+            "Evasion": -15,
+            "CounterAttack": 10,
+            "Gold_Cost": 400,
+            "Description": "Espada pesada de dos manos que sacrifica evasión por puro daño físico"
+        },
+        "zweihander": {
+            "STATIC_ID": 127,
+            "Name": "Zweihänder de Caballero",
+            "Type": "Weapon",
+            "DMG": [
+                85,
+                0,
+                5,
+                0,
+                0
+            ],
+            "DMG_min": [
+                45,
+                0,
+                2,
+                0
+            ],
+            "ManaCost": 0,
+            "is_two_handed": true,
+            "Evasion": -25,
+            "AGI": -10,
+            "Gold_Cost": 950,
+            "Description": "Una espada colosal capaz de partir armaduras, pero muy difícil de manejar"
         }
     },
     "TYPE:Armor": {
@@ -105,7 +367,13 @@
             "STATIC_ID": 10,
             "Name": "Armadura de Cuero",
             "Type": "Armor",
-            "Defense": [5, 2, 2, 2, 1],
+            "Defense": [
+                5,
+                2,
+                2,
+                2,
+                1
+            ],
             "HealthBoost": 10,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -116,7 +384,13 @@
             "STATIC_ID": 11,
             "Name": "Cota de Malla",
             "Type": "Armor",
-            "Defense": [10, 3, 3, 3, 2],
+            "Defense": [
+                10,
+                3,
+                3,
+                3,
+                2
+            ],
             "HealthBoost": 20,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -127,7 +401,13 @@
             "STATIC_ID": 12,
             "Name": "Armadura de Placas",
             "Type": "Armor",
-            "Defense": [20, 5, 5, 5, 3],
+            "Defense": [
+                20,
+                5,
+                5,
+                5,
+                3
+            ],
             "HealthBoost": 50,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -138,7 +418,13 @@
             "STATIC_ID": 13,
             "Name": "Armadura de Dragón",
             "Type": "Armor",
-            "Defense": [35, 40, 20, 20, 10],
+            "Defense": [
+                35,
+                40,
+                20,
+                20,
+                10
+            ],
             "HealthBoost": 100,
             "HealthSteal": 0,
             "DmgBoost": 5,
@@ -149,7 +435,13 @@
             "STATIC_ID": 14,
             "Name": "Armadura de Piedra",
             "Type": "Armor",
-            "Defense": [25, 10, 50, 15, 8],
+            "Defense": [
+                25,
+                10,
+                50,
+                15,
+                8
+            ],
             "HealthBoost": 80,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -160,7 +452,13 @@
             "STATIC_ID": 15,
             "Name": "Armadura del Vacío",
             "Type": "Armor",
-            "Defense": [20, 15, 15, 15, 30],
+            "Defense": [
+                20,
+                15,
+                15,
+                15,
+                30
+            ],
             "HealthBoost": 120,
             "HealthSteal": 0,
             "DmgBoost": 10,
@@ -173,7 +471,13 @@
             "STATIC_ID": 20,
             "Name": "Gorro de Cuero",
             "Type": "Helmet",
-            "Defense": [2, 1, 1, 1, 0],
+            "Defense": [
+                2,
+                1,
+                1,
+                1,
+                0
+            ],
             "HealthBoost": 5,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -184,7 +488,13 @@
             "STATIC_ID": 21,
             "Name": "Casco de Hierro",
             "Type": "Helmet",
-            "Defense": [5, 2, 2, 2, 1],
+            "Defense": [
+                5,
+                2,
+                2,
+                2,
+                1
+            ],
             "HealthBoost": 10,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -195,7 +505,13 @@
             "STATIC_ID": 22,
             "Name": "Yelmo de Caballero",
             "Type": "Helmet",
-            "Defense": [10, 4, 4, 4, 2],
+            "Defense": [
+                10,
+                4,
+                4,
+                4,
+                2
+            ],
             "HealthBoost": 25,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -206,7 +522,13 @@
             "STATIC_ID": 23,
             "Name": "Yelmo de Cristal",
             "Type": "Helmet",
-            "Defense": [5, 8, 8, 12, 5],
+            "Defense": [
+                5,
+                8,
+                8,
+                12,
+                5
+            ],
             "HealthBoost": 30,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -219,7 +541,13 @@
             "STATIC_ID": 30,
             "Name": "Botas de Cuero",
             "Type": "Boots",
-            "Defense": [2, 1, 1, 1, 0],
+            "Defense": [
+                2,
+                1,
+                1,
+                1,
+                0
+            ],
             "HealthBoost": 5,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -230,7 +558,13 @@
             "STATIC_ID": 31,
             "Name": "Botas de Hierro",
             "Type": "Boots",
-            "Defense": [5, 2, 2, 2, 1],
+            "Defense": [
+                5,
+                2,
+                2,
+                2,
+                1
+            ],
             "HealthBoost": 10,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -241,7 +575,13 @@
             "STATIC_ID": 32,
             "Name": "Botas Veloces",
             "Type": "Boots",
-            "Defense": [3, 2, 2, 5, 1],
+            "Defense": [
+                3,
+                2,
+                2,
+                5,
+                1
+            ],
             "HealthBoost": 15,
             "HealthSteal": 0,
             "DmgBoost": 2,
@@ -252,7 +592,13 @@
             "STATIC_ID": 33,
             "Name": "Pisadas de Tierra",
             "Type": "Boots",
-            "Defense": [8, 3, 15, 3, 2],
+            "Defense": [
+                8,
+                3,
+                15,
+                3,
+                2
+            ],
             "HealthBoost": 20,
             "HealthSteal": 0,
             "DmgBoost": 0,
@@ -265,7 +611,13 @@
             "STATIC_ID": 40,
             "Name": "Anillo de Bronce",
             "Type": "Ring",
-            "Defense": [1, 0, 0, 0, 0],
+            "Defense": [
+                1,
+                0,
+                0,
+                0,
+                0
+            ],
             "HealthBoost": 5,
             "HealthSteal": 0,
             "DmgBoost": 1,
@@ -276,7 +628,13 @@
             "STATIC_ID": 41,
             "Name": "Anillo de Plata",
             "Type": "Ring",
-            "Defense": [3, 1, 1, 1, 0],
+            "Defense": [
+                3,
+                1,
+                1,
+                1,
+                0
+            ],
             "HealthBoost": 10,
             "HealthSteal": 0,
             "DmgBoost": 2,
@@ -287,7 +645,13 @@
             "STATIC_ID": 42,
             "Name": "Anillo de Oro",
             "Type": "Ring",
-            "Defense": [5, 2, 2, 2, 1],
+            "Defense": [
+                5,
+                2,
+                2,
+                2,
+                1
+            ],
             "HealthBoost": 20,
             "HealthSteal": 0,
             "DmgBoost": 5,
@@ -298,7 +662,13 @@
             "STATIC_ID": 43,
             "Name": "Anillo Vampírico",
             "Type": "Ring",
-            "Defense": [2, 1, 1, 1, 3],
+            "Defense": [
+                2,
+                1,
+                1,
+                1,
+                3
+            ],
             "HealthBoost": 15,
             "HealthSteal": 5,
             "DmgBoost": 3,
@@ -309,7 +679,13 @@
             "STATIC_ID": 44,
             "Name": "Anillo de Poder",
             "Type": "Ring",
-            "Defense": [8, 5, 5, 5, 5],
+            "Defense": [
+                8,
+                5,
+                5,
+                5,
+                5
+            ],
             "HealthBoost": 30,
             "HealthSteal": 0,
             "DmgBoost": 10,
@@ -320,7 +696,13 @@
             "STATIC_ID": 45,
             "Name": "Anillo de Fuego",
             "Type": "Ring",
-            "Defense": [3, 10, 2, 2, 1],
+            "Defense": [
+                3,
+                10,
+                2,
+                2,
+                1
+            ],
             "HealthBoost": 15,
             "HealthSteal": 0,
             "DmgBoost": 4,
@@ -331,7 +713,13 @@
             "STATIC_ID": 46,
             "Name": "Anillo de Tierra",
             "Type": "Ring",
-            "Defense": [3, 2, 10, 2, 1],
+            "Defense": [
+                3,
+                2,
+                10,
+                2,
+                1
+            ],
             "HealthBoost": 25,
             "HealthSteal": 0,
             "DmgBoost": 2,
@@ -342,7 +730,13 @@
             "STATIC_ID": 47,
             "Name": "Anillo de Tormenta",
             "Type": "Ring",
-            "Defense": [3, 2, 2, 10, 1],
+            "Defense": [
+                3,
+                2,
+                2,
+                10,
+                1
+            ],
             "HealthBoost": 15,
             "HealthSteal": 0,
             "DmgBoost": 6,
@@ -720,7 +1114,9 @@
             "Type": "Tool",
             "Desc": "Hacha legendaria que corta árboles con facilidad",
             "Efficiency": 5.0,
-            "Enchantments": ["Sharpness"],
+            "Enchantments": [
+                "Sharpness"
+            ],
             "Gold_Cost": 500,
             "MaxStack": 1
         },
@@ -775,7 +1171,9 @@
             "Type": "Tool",
             "Desc": "Pico excepcional capaz de romper las rocas más duras",
             "Efficiency": 6.0,
-            "Enchantments": ["Unbreaking"],
+            "Enchantments": [
+                "Unbreaking"
+            ],
             "Gold_Cost": 600,
             "MaxStack": 1
         },
@@ -808,7 +1206,9 @@
             "Type": "Tool",
             "Desc": "Pico de acero diseñado para minerales preciosos",
             "Efficiency": 4.0,
-            "Enchantments": ["Fortune I"],
+            "Enchantments": [
+                "Fortune I"
+            ],
             "Gold_Cost": 300,
             "MaxStack": 1
         },
@@ -819,7 +1219,10 @@
             "Type": "Tool",
             "Desc": "Pico legendario que extrae minerales raros con facilidad",
             "Efficiency": 7.0,
-            "Enchantments": ["Fortune II", "Efficiency"],
+            "Enchantments": [
+                "Fortune II",
+                "Efficiency"
+            ],
             "Gold_Cost": 800,
             "MaxStack": 1
         },
@@ -852,7 +1255,9 @@
             "Type": "Tool",
             "Desc": "Hoz de plata que preserva propiedades mágicas",
             "Efficiency": 4.0,
-            "Enchantments": ["Preservation"],
+            "Enchantments": [
+                "Preservation"
+            ],
             "Gold_Cost": 200,
             "MaxStack": 1
         },
@@ -863,7 +1268,10 @@
             "Type": "Tool",
             "Desc": "Hoz encantada que potencia hierbas mágicas",
             "Efficiency": 6.5,
-            "Enchantments": ["Moon's Blessing", "Efficiency"],
+            "Enchantments": [
+                "Moon's Blessing",
+                "Efficiency"
+            ],
             "Gold_Cost": 500,
             "MaxStack": 1
         },
@@ -885,9 +1293,167 @@
             "Type": "Tool",
             "Desc": "Cuchillo profesional para cazadores expertos",
             "Efficiency": 3.5,
-            "Enchantments": ["Clean Cut"],
+            "Enchantments": [
+                "Clean Cut"
+            ],
             "Gold_Cost": 180,
             "MaxStack": 1
+        }
+    },
+    "TYPE:SecHand": {
+        "wooden_shield": {
+            "STATIC_ID": 129,
+            "Name": "Escudo de Madera",
+            "Type": "SecHand",
+            "Defense": [
+                8,
+                2,
+                0,
+                0,
+                0
+            ],
+            "DefensePercentage": [
+                5.0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "AGI": -2,
+            "Evasion": -5,
+            "Barrier": 20,
+            "Gold_Cost": 30,
+            "Description": "Un escudo básico que ofrece protección física mínima"
+        },
+        "iron_shield": {
+            "STATIC_ID": 130,
+            "Name": "Escudo de Hierro",
+            "Type": "SecHand",
+            "Defense": [
+                20,
+                10,
+                5,
+                0,
+                0
+            ],
+            "DefensePercentage": [
+                12.0,
+                5.0,
+                0,
+                0,
+                0
+            ],
+            "AGI": -8,
+            "Evasion": -15,
+            "Barrier": 60,
+            "Gold_Cost": 150,
+            "Description": "Escudo pesado de hierro. Gran defensa, poca movilidad."
+        },
+        "blessed_talisman": {
+            "STATIC_ID": 131,
+            "Name": "Talismán Bendito",
+            "Type": "SecHand",
+            "Defense": [
+                0,
+                0,
+                0,
+                15,
+                15
+            ],
+            "DmgBoost": -5,
+            "Gold_Cost": 200,
+            "Description": "Talismán que protege contra lo eléctrico y lo profundo, pero reduce el ataque"
+        },
+        "cursed_relic": {
+            "STATIC_ID": 133,
+            "Name": "Reliquia Maldita",
+            "Type": "SecHand",
+            "Defense": [
+                -10,
+                -10,
+                -10,
+                -10,
+                -10
+            ],
+            "DmgBoost": 25,
+            "Buffs": [
+                "1_buff"
+            ],
+            "Gold_Cost": 500,
+            "Description": "Reliquia que otorga gran poder a cambio de vulnerabilidad extrema"
+        },
+        "hunters_quiver": {
+            "STATIC_ID": 137,
+            "Name": "Carcaj de Cazador",
+            "Type": "SecHand",
+            "Evasion": 15,
+            "CounterAttack": 10,
+            "Barrier": 30,
+            "AGI": -5,
+            "Gold_Cost": 180,
+            "Description": "Mejora los reflejos y proporciona una barrera ligera"
+        },
+        "parrying_dagger": {
+            "STATIC_ID": 139,
+            "Name": "Daga de Parada",
+            "Type": "SecHand",
+            "Defense": [
+                5,
+                0,
+                0,
+                0,
+                0
+            ],
+            "DmgBoost": 8,
+            "Evasion": 10,
+            "CounterAttack": 15,
+            "AGI": 5,
+            "Gold_Cost": 250,
+            "Description": "Daga secundaria diseñada para desviar ataques y contraatacar rápidamente"
+        },
+        "torch": {
+            "STATIC_ID": 141,
+            "Name": "Antorcha de Expedición",
+            "Type": "SecHand",
+            "AGI": 5,
+            "CounterAttack": 10,
+            "Evasion": -5,
+            "Defense": [
+                0,
+                10,
+                0,
+                0,
+                0
+            ],
+            "Buffs": [
+                {
+                    "id": "torch_light",
+                    "party": true
+                }
+            ],
+            "Gold_Cost": 50,
+            "Description": "Ilumina el camino y proporciona buffs permanentes mientras está equipada"
+        },
+        "spellbook": {
+            "STATIC_ID": 143,
+            "Name": "Libro de Hechizos Arcano",
+            "Type": "SecHand",
+            "ManaRegen": 3.5,
+            "HealthBoost": 20,
+            "Defense": [
+                -10,
+                15,
+                15,
+                15,
+                15
+            ],
+            "DmgBoost": -15,
+            "Evasion": -10,
+            "Buffs": [
+                "16_buff"
+            ],
+            "Gold_Cost": 400,
+            "Description": "Grimorio que aumenta enormemente la regeneración de maná y defensa elemental"
         }
     }
 }

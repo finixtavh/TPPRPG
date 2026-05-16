@@ -12,7 +12,8 @@ class EquipmentManager:
         "Helmet": "helmet", 
         "Armor": "armor",
         "Boots": "boots",
-        "Ring": ["ring", "ring2", "ring3"]  # Múltiples slots para anillos
+        "Ring": ["ring", "ring2", "ring3"],  # Múltiples slots para anillos
+        "SecHand": "SecHand"
     }
     
     @staticmethod
@@ -74,6 +75,32 @@ class EquipmentManager:
         # Marcar el item como aplicado
         if hasattr(item, 'AppliedStats'):
             item.AppliedStats = True
+            
+        if hasattr(item, 'Buffs') and item.Buffs:
+            from Modules.ModulesManager.BuffManager import apply_buff_to_player
+            for b_info in item.Buffs:
+                b_id = b_info.get("id") if isinstance(b_info, dict) else b_info
+                is_party = b_info.get("party", False) if isinstance(b_info, dict) else False
+                
+                # Aplicar al jugador
+                apply_buff_to_player(player, b_id, source="Equip", permanent=True)
+                
+                # Aplicar a compañeros si es party buff
+                if is_party and hasattr(player, "companions"):
+                    for companion in player.companions:
+                        apply_buff_to_player(companion, b_id, source="Equip", permanent=True)
+            
+            print(f"  [cyan]¡Efectos mágicos de {getattr(item, 'Name', 'item')} activados![/cyan]")
+
+        # LÓGICA ESPECIAL ANTORCHA (Antigua, mantenida por retrocompatibilidad si no tiene Buffs definidos)
+        item_name = getattr(item, "Name", getattr(item, "name", "")).lower()
+        if "antorcha" in item_name and not (hasattr(item, 'Buffs') and item.Buffs):
+            from Modules.ModulesManager.BuffManager import apply_buff_to_player
+            apply_buff_to_player(player, "torch_light", source="Equip", permanent=True)
+            if hasattr(player, "companions"):
+                for companion in player.companions:
+                    apply_buff_to_player(companion, "torch_light", source="Equip", permanent=True)
+            print(f"  [cyan]¡La antorcha ilumina al grupo![/cyan]")
     
     @staticmethod
     def remove_item_stats(player, item):
@@ -105,6 +132,28 @@ class EquipmentManager:
         
         # Marcar el item como no aplicado
         item.AppliedStats = False
+
+        # REMOCIÓN DE BUFFS (SISTEMA GLOBAL)
+        if hasattr(item, 'Buffs') and item.Buffs:
+            from Modules.ModulesManager.BuffManager import remove_buff_from_player
+            for b_info in item.Buffs:
+                b_id = b_info.get("id") if isinstance(b_info, dict) else b_info
+                is_party = b_info.get("party", False) if isinstance(b_info, dict) else False
+                
+                remove_buff_from_player(player, b_id)
+                if is_party and hasattr(player, "companions"):
+                    for companion in player.companions:
+                        remove_buff_from_player(companion, b_id)
+
+        # LÓGICA ESPECIAL ANTORCHA (Remover - Antigua)
+        item_name = getattr(item, "Name", getattr(item, "name", "")).lower()
+        if "antorcha" in item_name and not (hasattr(item, 'Buffs') and item.Buffs):
+            from Modules.ModulesManager.BuffManager import remove_buff_from_player
+            remove_buff_from_player(player, "torch_light")
+            if hasattr(player, "companions"):
+                for companion in player.companions:
+                    remove_buff_from_player(companion, "torch_light")
+            print(f"  [yellow]La luz de la antorcha se apaga...[/yellow]")
     
     @staticmethod
     def find_available_ring_slot(player):
@@ -150,16 +199,25 @@ class EquipmentManager:
         # Manejo especial para armas (cWeapon, que no tiene objectcheck)
         from Modules.ModulesUtils.setup import cWeapon
         if isinstance(item, cWeapon):
+            # LÓGICA ARMAS 2 MANOS
+            if getattr(item, "is_two_handed", False):
+                current_sec = getattr(player, "SecHand", None)
+                if current_sec is not None:
+                    sec_name = getattr(current_sec, "Name", getattr(current_sec, "name", "Objeto"))
+                    print(f"\n[yellow]Arma a 2 manos detectada. Desequipando mano secundaria: {sec_name}[/yellow]")
+                    EquipmentManager.unequip_item(player, "SecHand", inventory)
+
             current_weapon = getattr(player, "weapon", None)
             if current_weapon is not None:
                 w_name = current_weapon.Name if hasattr(current_weapon, "Name") else current_weapon.name
                 print(f"\nDesequipando {w_name}...")
                 if inventory is not None:
                     inventory.addObject(current_weapon)
+            
             item_name = item.Name if hasattr(item, "Name") else item.name
             print(f"\nEquipando {item_name}...")
             player.weapon = item
-            print(f"\u2713 {item_name} equipado en weapon!")
+            print(f"✓ {item_name} equipado en weapon!")
             return True
 
         if not hasattr(item, 'objectcheck'):
@@ -198,7 +256,15 @@ class EquipmentManager:
             if slot_choice == 0:
                 return False
             slot_name = ring_slots_list[slot_choice - 1]
-        elif item_type in ["Weapon", "Helmet", "Armor", "Boots"]:
+        elif item_type in ["Weapon", "Helmet", "Armor", "Boots", "SecHand"]:
+            # LÓGICA SEC HAND vs 2 MANOS
+            if item_type == "SecHand":
+                current_weapon = getattr(player, "weapon", None)
+                if current_weapon and getattr(current_weapon, "is_two_handed", False):
+                    w_name = getattr(current_weapon, "Name", getattr(current_weapon, "name", "Arma"))
+                    print(f"\n[yellow]No puedes usar mano secundaria con arma a 2 manos. Desequipando: {w_name}[/yellow]")
+                    EquipmentManager.unequip_item(player, "weapon", inventory)
+
             slot_name = EquipmentManager.VALID_SLOTS[item_type]
         else:
             print(f"Tipo de item desconocido: {item_type}")
