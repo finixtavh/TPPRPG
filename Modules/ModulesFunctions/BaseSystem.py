@@ -27,6 +27,8 @@ import random
 from typing import Dict, Optional, List
 
 from Modules.ModulesUtils.Loader import Read
+from Modules.ModulesUtils.input_utils import get_menu_refresh_rate
+
 
 _BUILDINGS_JSON = os.path.join("Data", "DataBuildings.json")
 _BASE_SAVE_KEY = "player_base"
@@ -209,7 +211,7 @@ def minigame_timing(console, building: Building) -> bool:
     )
     console.print(f"[dim]{building.minigame_desc}[/dim]\n")
     console.print("Pulsa [bold]Enter[/bold] cuando el cursor '●' llegue a la zona [bold green]★★★[/bold green].\n")
-    time.sleep(1)
+    time.sleep(get_menu_refresh_rate())
 
     BAR_LEN = 30
     TARGET_START = 12
@@ -275,7 +277,7 @@ def minigame_endurance(console, building: Building, player) -> bool:
     console.print(f"[dim]{building.minigame_desc}[/dim]\n")
     console.print("Recibirás 3 oleadas de golpes de entrenamiento.")
     console.print("Tu salud no baja de verdad, pero debes \"aguantar\" las 3 oleadas.\n")
-    time.sleep(1)
+    time.sleep(get_menu_refresh_rate())
 
     WAVES = 3
     survived = True

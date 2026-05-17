@@ -1,4 +1,5 @@
 from rich.console import Console, Group
+from rich.layout import Layout
 from rich.theme import Theme
 from rich.panel import Panel
 from rich.table import Table
@@ -12,6 +13,10 @@ import sys
 import time
 import traceback
 from rich.live import Live
+from Modules.ModulesUtils.UIStyle import (
+    herald_bar, herald_panel, herald_table, ICONS, 
+    COLOR_PRIMARY, COLOR_SECONDARY, COLOR_DIM
+)
 from sshkeyboard import listen_keyboard, stop_listening
 
 # -----------------------------------------------------------------------------
@@ -184,21 +189,38 @@ def _display_combat_details(attacker_name, defender_name, res, is_counter=False)
         box=box.ROUNDED,
         expand=False
     )
-    console.print(panel)
+    return panel
 
-def _perform_attack(attacker, defender, console):
+def _perform_attack(attacker, defender, console, redraw_callback=None, combat_logs=None):
     """Ejecuta un ataque y maneja el posible contraataque en cadena."""
     res = attacker.attack(defender)
-    _display_combat_details(getattr(attacker, "name", getattr(attacker, "NAME", "???")), 
+    panel = _display_combat_details(getattr(attacker, "name", getattr(attacker, "NAME", "???")), 
                            getattr(defender, "name", getattr(defender, "NAME", "???")), res)
+    
+    if combat_logs is not None:
+        combat_logs.append(panel)
+        if redraw_callback:
+            redraw_callback(combat_logs)
+    else:
+        console.print(panel)
     
     total_dmg = res.get("total_damage", 0)
     
     if res.get("is_counter") and getattr(defender, "Health", getattr(defender, "HP", 0)) > 0:
-        sp.sleep(0.5)
+        sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0) * 0.5)
         counter_res = defender.attack(attacker)
-        _display_combat_details(getattr(defender, "name", getattr(defender, "NAME", "???")), 
+        c_panel = _display_combat_details(getattr(defender, "name", getattr(defender, "NAME", "???")), 
                                getattr(attacker, "name", getattr(attacker, "NAME", "???")), counter_res, is_counter=True)
+        
+        if combat_logs is not None:
+            combat_logs.append(c_panel)
+            if redraw_callback:
+                redraw_callback(combat_logs)
+        else:
+            console.print(c_panel)
+    
+    # Pausa para leer el resultado del ataque
+    sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
     return total_dmg
 if CONFIG["DEBUG"]["ENABLED"]:
     log_imported_modules(app_logger)
@@ -410,179 +432,102 @@ def display_player_status() -> None:
 player = None
 
 
-def create_status_bar(
-    current: float, maximum: float, color: str, return_values: bool = True) -> Union[None, Tuple[str, int]]:
-    """
-    Create a visual status bar representation for health, mana, etc.
-
-    Args:
-        current: Current value of the status
-        maximum: Maximum possible value
-        color: Color to use for the filled portion of the bar
-        return_values: Whether to return the bar or print it directly
-
-    Returns:
-        If return_values is True, returns a tuple with (bar_string, percentage)
-        Otherwise, prints the bar and returns None
-    """
-
-    current = min(current, maximum)
-
-    if maximum <= 0:
-        maximum = 1
-
-    bar_length = CONFIG["DISPLAY"]["BAR_LENGTH"]
-    filled_length = int(bar_length * current / maximum)
-
-    # Create the bar string
-    bar = (
-        "["
-        + f"[{color}]#[/{color}]" * filled_length
-        + "-" * (bar_length - filled_length)
-        + "]"
-    )
-    percentage = int((current / maximum) * 100)
-
+def create_status_bar(current: float, maximum: float, color: str = "green", return_values: bool = True) -> Any:
+    """Crea una barra de estado estilo Heraldo."""
+    bar = herald_bar(current, maximum, width=CONFIG["DISPLAY"]["BAR_LENGTH"], color=color)
+    percentage = int((current / maximum) * 100) if maximum > 0 else 0
     if not return_values:
-        console.print(f"Vida: {bar} {percentage}%")
+        console.print(f"{bar} {percentage}%")
         return None
-
     return bar, percentage
 
 
 def create_hp_barrier_bar(
     health: float, health_max: float, barrier: float, _unused=None
 ) -> Tuple[str, int]:
-    """
-    Create an HP bar with a bright_cyan barrier overlay (like League of Legends shields).
-
-    Visual: [CYAN_barrier | GREEN_hp | EMPTY]
-    The barrier overlays from the LEFT of the bar, covering HP.
-    Barrier is proportional to health_max.
-
-    Returns:
-        Tuple of (bar_string, health_percentage)
-    """
     health = min(health, health_max)
     if health_max <= 0:
         health_max = 1
     barrier = max(0, barrier)
-
     bar_length = CONFIG["DISPLAY"]["BAR_LENGTH"]
-
     health_pct = health / health_max
     barrier_pct = barrier / health_max
-
     health_cells = int(bar_length * health_pct)
     barrier_cells = int(bar_length * barrier_pct)
-
-    # Total filled = health + barrier (barrier extends beyond current HP)
     total_filled = min(health_cells + barrier_cells, bar_length)
-
-    # Barrier overlays FROM THE LEFT, on top of HP
     barrier_shown = min(barrier_cells, total_filled)
     health_shown = total_filled - barrier_shown
     empty = bar_length - total_filled
-
     bar = (
-        "["
-        + f"[bright_cyan]#[/bright_cyan]" * barrier_shown
-        + f"[green]#[/green]" * health_shown
-        + "-" * empty
-        + "]"
+        f"[bright_cyan]{'◆' * barrier_shown}[/]" +
+        f"[green]{'◆' * health_shown}[/]" +
+        f"[dim]{'◇' * empty}[/]"
     )
-    percentage = int(health_pct * 100)
+    percentage = int((health / health_max) * 100)
     return bar, percentage
 
 
 def render_combat_menu(player, enemy, combat_round: int) -> None:
-    """UI de combate con soporte de compañeros: [comp…] [jugador] vs [enemigo]."""
+    """UI de combate Heraldo: [aliados] vs [enemigo]."""
     try:
         from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
         w = get_weather_manager().get_current_weather()
-        
-        # Mostrar modificadores del clima de forma compacta
-        mods = []
-        for k, v in w.combat_mods.items():
-            if v != 1.0:
-                sign = "+" if v > 1.0 else ""
-                pct = int((v - 1.0) * 100)
-                mods.append(f"{k.upper()}: {sign}{pct}%")
-        
-        mod_str = f" ({', '.join(mods)})" if mods else ""
-        weather_text = f"  |  Clima: {w.icon} {w.name}{mod_str}"
-    except ImportError:
+        weather_text = f"  |  {ICONS['weather']} {w.name}"
+    except Exception:
         weather_text = ""
         
-    header = Text.from_markup(f"[bold]Combate - Ronda {combat_round}[/]{weather_text}")
+    console.print(Align.center(Text.from_markup(f"[bold gold3]RONDA {combat_round}[/]{weather_text}")))
 
-    # ── Bloques de aliados (compañeros primero, jugador al final) ────────────
+    # Aliados
     ally_blocks = []
+    active_comps = [c for c in player.companion if c.is_alive or not c.is_alive][:4]
 
-    # Solo mostrar hasta 4 compañeros activos; el resto se gestiona desde companion_bank
-    active_companions = [c for c in player.companion if c.is_alive or not c.is_alive][:4]
-
-    for comp in active_companions:
+    for comp in active_comps:
         if comp.is_alive:
-            comp_barrier = getattr(comp, "Barrier", 0)
-            if comp_barrier > 0:
-                c_hp_bar, c_hp_pct = create_hp_barrier_bar(comp.Health, comp.Health_max, comp_barrier)
-                barrier_line = f"\n[bright_cyan]🛡️ Barrera: {int(comp_barrier)}[/bright_cyan]"
-            else:
-                c_hp_bar, c_hp_pct = create_status_bar(comp.Health, comp.Health_max, "green")
-                barrier_line = ""
-            c_mp_bar, c_mp_pct = create_status_bar(comp.Mana, comp.Mana_max, "blue")
-            weapon_tag = f" [{comp.weapon.name}]" if comp.weapon else ""
-            comp_block = Panel(
-                f"[bold cyan]{comp.name}[/bold cyan]{weapon_tag}\n"
-                f"[red]HP:[/red] {c_hp_bar} [dim]{c_hp_pct}%[/]{barrier_line}\n"
-                f"[blue]MP:[/blue] {c_mp_bar} [dim]{c_mp_pct}%[/]",
-                border_style="cyan",
-                padding=(0, 1),
-            )
+            barrier = getattr(comp, "Barrier", 0)
+            hp_bar, hp_pct = create_hp_barrier_bar(comp.Health, comp.Health_max, barrier) if barrier > 0 else create_status_bar(comp.Health, comp.Health_max, "green")
+            mp_bar, mp_pct = create_status_bar(comp.Mana, comp.Mana_max, "blue")
+            
+            content = Table.grid()
+            content.add_row(f"[bold cyan]{comp.name}[/]")
+            content.add_row(f"{ICONS['hp']}{hp_bar} [dim]{hp_pct}%[/]")
+            content.add_row(f"{ICONS['mp']}{mp_bar} [dim]{mp_pct}%[/]")
+            if barrier > 0: content.add_row(f"[bright_cyan]{ICONS['def']}Barrera: {int(barrier)}[/]")
+            
+            ally_blocks.append(herald_panel(content, border_style="cyan"))
         else:
-            comp_block = Panel(
-                f"[dim]{comp.name}[/dim]\n"
-                f"[bold red]💀 KO[/bold red]\n"
-                f"[dim]Necesita ser revivido[/dim]",
-                border_style="dim",
-                padding=(0, 1),
-            )
-        ally_blocks.append(comp_block)
+            ally_blocks.append(herald_panel(f"[dim]{comp.name}[/]\n[bold red]💀 KO[/]", border_style="dim"))
 
-    # ── Bloque del jugador ───────────────────────────────────────────────────
-    if player.Barrier > 0:
-        p_hp_bar, p_hp_pct = create_hp_barrier_bar(
-            player.Health, player.Health_max, player.Barrier
-        )
-        barrier_text = f"\n[bright_cyan]🛡️ Barrera: {int(player.Barrier)}[/bright_cyan]"
-    else:
-        p_hp_bar, p_hp_pct = create_status_bar(player.Health, player.Health_max, "green")
-        barrier_text = ""
+    # Jugador
+    p_barrier = getattr(player, "Barrier", 0)
+    p_hp_bar, p_hp_pct = create_hp_barrier_bar(player.Health, player.Health_max, p_barrier) if p_barrier > 0 else create_status_bar(player.Health, player.Health_max, "green")
     p_mp_bar, p_mp_pct = create_status_bar(player.Mana, player.Mana_max, "blue")
-    player_block = Panel(
-        f"[bold]{player.name}[/]\n"
-        f"[red]HP:[/red] {p_hp_bar} [dim]{p_hp_pct}%[/]{barrier_text}\n"
-        f"[blue]MP:[/blue] {p_mp_bar} [dim]{p_mp_pct}%[/]",
-        border_style="success",
-        padding=(0, 1),
-    )
-    ally_blocks.append(player_block)
+    
+    p_content = Table.grid()
+    p_content.add_row(f"[bold]{player.name}[/]")
+    p_content.add_row(f"{ICONS['hp']}{p_hp_bar} [dim]{p_hp_pct}%[/]")
+    p_content.add_row(f"{ICONS['mp']}{p_mp_bar} [dim]{p_mp_pct}%[/]")
+    if p_barrier > 0: p_content.add_row(f"[bright_cyan]{ICONS['def']}Barrera: {int(p_barrier)}[/]")
+    
+    ally_blocks.append(herald_panel(p_content, border_style="green"))
 
-    # ── Bloque del enemigo ───────────────────────────────────────────────────
+    # Enemigo
     e_hp_bar, e_hp_pct = create_status_bar(enemy.HP, enemy.HP_M, "red")
     e_mp_bar, e_mp_pct = create_status_bar(enemy.MP, enemy.MP_M, "blue")
-    enemy_block = Panel(
-        f"[bold red]{enemy.NAME}[/bold red]\n"
-        f"[red]HP:[/red] {e_hp_bar} [dim]{e_hp_pct}%[/]\n"
-        f"[blue]MP:[/blue] {e_mp_bar} [dim]{e_mp_pct}%[/]",
-        border_style="danger",
-        padding=(0, 1),
-    )
+    e_content = Table.grid()
+    e_content.add_row(f"[bold red]{enemy.NAME}[/]")
+    e_content.add_row(f"{ICONS['hp']}{e_hp_bar} [dim]{e_hp_pct}%[/]")
+    e_content.add_row(f"{ICONS['mp']}{e_mp_bar} [dim]{e_mp_pct}%[/]")
+    
+    enemy_panel = herald_panel(e_content, border_style="red")
 
-    separator_text = Text("│\n│\n│\n│", style="dim")
-    sep_panel = Panel(separator_text, border_style="dim", padding=(0, 0))
-    top = Columns(ally_blocks + [sep_panel, enemy_block], equal=False, expand=True)
+    # Layout de Combate
+    main_grid = herald_table()
+    main_grid.add_column(ratio=2) # Aliados
+    main_grid.add_column(ratio=1) # Enemigo
+    main_grid.add_row(Columns(ally_blocks, padding=(0, 1), equal=True), enemy_panel)
+    
+    console.print(main_grid)
 
     actions = Table.grid(padding=(0, 2))
     actions.add_column(style="bold yellow")
@@ -593,58 +538,44 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
     actions.add_row("[1]", "Atacar", "  │  ", "[2]", "Inventario")
     actions.add_row("[3]", "Huir",   "  │  ", "",    "")
 
-    bottom = Panel(
-        actions, title="[bold yellow]Acciones[/]", border_style="yellow", padding=(0, 1)
+    bottom = herald_panel(
+        actions, title="Acciones", border_style=COLOR_PRIMARY
     )
-    content = Group(header, "", top, "", bottom)
-    console.print(Panel(content, border_style="danger", padding=(1, 2)))
+    console.print(bottom)
 
 
 def apply_debuffs(player: Any) -> Dict[str, Any]:
-    """
-    Apply all active debuffs to the player and return a summary of applied effects.
-
-    Args:
-        player: The player object to apply debuffs to
-
-    Returns:
-        A dictionary summarizing all applied debuff effects
-    """
-    applied_effects = {}
-
-    if not hasattr(player, "applieddebuffs") or not player.applieddebuffs:
-        return applied_effects
-
-    for debuff in player.applieddebuffs:
-        # Get all non-callable, non-dunder attributes
-        debuff_attributes = [
-            attr
-            for attr in dir(debuff)
-            if not callable(getattr(debuff, attr)) and not attr.startswith("__")
-        ]
-
-        for debuff_attr in debuff_attributes:
-            debuff_value = getattr(debuff, debuff_attr, None)
-            if debuff_value is not None:
-                # Apply the debuff effect
-                debuff.Apply(debuff_attr, player)
-                # Record the applied effect
-                applied_effects[debuff_attr] = debuff_value
-
-    return applied_effects
+    """Aplica todos los debuffs activos al jugador usando el BuffManager."""
+    from Modules.ModulesManager.BuffManager import get_buff_manager
+    manager = get_buff_manager()
+    
+    debuffs = getattr(player, "applieddebuffs", [])
+    if not debuffs:
+        return {}
+        
+    # Identificar qué buffs no han sido aplicados para procesar sus efectos una sola vez
+    to_process = [b for b in debuffs if not b.applied]
+    
+    # El manager calcula los multiplicadores y marca como applied
+    total_modifiers = manager.apply_buffs_to_entity(player, debuffs)
+    
+    # Aplicar efectos a los atributos reales del jugador
+    # Nota: Los cambios en stats bases (como ATK) se gestionan sumando el total_modifiers 
+    # en el momento del cálculo, pero efectos como veneno (HP Regen) deben aplicarse aquí.
+    for b in to_process:
+        for effect_name, val in b.effects.items():
+            # Ejemplo: HealthRegenFlat resta vida cada turno
+            if effect_name == "HealthRegenFlat" and val < 0:
+                player.Health = max(0, player.Health + val)
+            elif effect_name == "ManaRegenFlat" and val < 0:
+                player.Mana = max(0, player.Mana + val)
+            # Otros efectos se procesan dinámicamente en el combate
+                
+    return total_modifiers
 
 
-def display_zone_enemies(
-    zone_name: str, enemies_data: List, strings_data: Dict
-) -> None:
-    """
-    Display enemy information for a zone with physical and magical damage.
-
-    Args:
-        zone_name: Name of the zone to display
-        enemies_data: JSON data containing enemy information
-        strings_data: String data containing zone description
-    """
+def display_zone_enemies(zone_name: str, enemies_data: List, strings_data: Dict) -> None:
+    """Muestra información de enemigos de una zona."""
     # Nombre y estilo de la zona desde el JSON (Strings.name)
     # Obtener título y color de la zona desde JSON
     zone_title = strings_data.get("name", zone_name)
@@ -694,13 +625,133 @@ def display_zone_enemies(
 
 
 _MAIN_MENU_ASCII = '''
-  ___  ___  ___ 
- | _ \\| _ \\/ __|
- |   /|  _/ (_ |
- |_|_\\|_|  \\___|
+  _______ _____  _____  _____   _____  _____ 
+ |__   __|  __ \\|  __ \\|  __ \\ / ____|/ ____|
+    | |  | |__) | |__) | |__) | |  __| |  __ 
+    | |  |  ___/|  ___/|  _  /| | |_ | | |_ |
+    | |  | |    | |    | | \\ \\| |__| | |__| |
+    |_|  |_|    |_|    |_|  \\_\\\\_____|\\_____|
 '''
 
+def _bar(current: float, maximum: float, width: int = 10, color: str = "green") -> str:
+    if maximum <= 0: return "░" * width
+    filled = int((current / maximum) * width)
+    filled = max(0, min(width, filled))
+    return f"[{color}]" + "█" * filled + f"[/][bright_black]" + "░" * (width - filled) + "[/]"
+
+def _create_player_panel(player):
+    table = herald_table(expand=True)
+    table.add_column(style=f"bold {COLOR_PRIMARY}", width=12)
+    table.add_column(justify="right")
+    
+    table.add_row(f" {ICONS['hp']}Vida", herald_bar(player.Health, player.Health_max))
+    table.add_row("", f"[dim]{int(player.Health)}/{player.Health_max}[/dim]")
+    table.add_row(f" {ICONS['mp']}Maná", herald_bar(player.Mana, player.Mana_max, color="blue"))
+    table.add_row("", f"[dim]{int(player.Mana)}/{player.Mana_max}[/dim]")
+    
+    table.add_row("", "") # Espaciador
+    
+    from Modules.ModulesFunctions.WeatherSystem import apply_weather_combat_mods
+    atk_f = apply_weather_combat_mods(getattr(player, "ATK", 0), "attack")
+    def_f = apply_weather_combat_mods(player.DEF[0] if hasattr(player, "DEF") else 0, "defense")
+    
+    def format_stat(base, final, is_pct=False):
+        res = f"{final:.1f}{'%' if is_pct else ''}"
+        if abs(final - base) > 0.01:
+            diff = final - base
+            color = "green" if diff > 0 else "red"
+            res += f"[{color}]({'+' if diff > 0 else ''}{diff:.1f})[/{color}]"
+        return res
+
+    table.add_row(f" {ICONS['atk']}ATK", format_stat(getattr(player, "ATK", 0), atk_f))
+    table.add_row(f" {ICONS['def']}DEF", format_stat(player.DEF[0] if hasattr(player, "DEF") else 0, def_f))
+    table.add_row(f" {ICONS['agi']}AGI", format_stat(player.AGI, apply_weather_combat_mods(player.AGI, "agi")))
+    
+    table.add_row("", "") # Espaciador
+    
+    slots = [(" Arma", player.weapon), (" SecH", getattr(player, "SecHand", None)), (" Pecho", player.armor)]
+    for label, item in slots:
+        if item:
+            name = getattr(item, "Name", getattr(item, "name", "Equipado"))
+            table.add_row(f"{ICONS['item']}{label}", f"[{COLOR_SECONDARY}]{name[:10]}[/]")
+        else:
+            table.add_row(f"{ICONS['item']}{label}", "[dim red]---[/]")
+            
+    return herald_panel(table, title="Estado", border_style=COLOR_PRIMARY, expand=True)
+
+def _create_buffs_panel(player):
+    all_buffs = getattr(player, "appliedbuffs", []) + getattr(player, "applieddebuffs", [])
+    if not all_buffs: return None
+        
+    _MAP = {
+        "PhysicalDamageFlat": "DMG-F", "ThermalDamageFlat": "DMG-T", "EarthDamageFlat": "DMG-E", "ElectricDamageFlat": "DMG-EL", "DeepDamageFlat": "DMG-P",
+        "PhysicalDamagePercent": "%DMG-F", "ThermalDamagePercent": "%DMG-T", "EarthDamagePercent": "%DMG-E", "ElectricDamagePercent": "%DMG-EL", "DeepDamagePercent": "%DMG-P",
+        "DefenseFlat": "DEF-F", "ThermalDefenseFlat": "DEF-T", "EarthDefenseFlat": "DEF-E", "ElectricDefenseFlat": "DEF-EL", "DeepDefenseFlat": "DEF-P",
+        "DefensePercent": "%DEF-F", "MagicDefenseFlat": "DEF-M", "MagicDefensePercent": "%DEF-M",
+        "AgilityFlat": "AGI", "AgilityPercent": "%AGI", "EvasionPercent": "EVA", "CounterAttackPercent": "CTK",
+        "HealthMaxFlat": "HPX", "HealthMaxPercent": "%HPX", "ManaMaxFlat": "MPX", "ManaMaxPercent": "%MPX",
+        "ManaRegenFlat": "MPR", "HealthRegenFlat": "HPR", "Barrier": "BR", "MagicalDamageFlat": "DMG-M", "MagicalDamagePercent": "%DMG-M"
+    }
+
+    table = herald_table(expand=True)
+    table.add_column("Estado")
+    table.add_column("Efectos", ratio=1)
+
+    for b in all_buffs:
+        icon = ICONS['debuff'] if b.is_debuff else ICONS['buff']
+        color = "red" if b.is_debuff else "green"
+        duration = f"{b.duration_current}T" if not b.permanent else "∞"
+        
+        # Resumen de efectos
+        fx_list = []
+        for key, val in b.effects.items():
+            short = _MAP.get(key, key[:5])
+            sign = "+" if val > 0 else ""
+            suffix = "%" if "Percent" in key else ""
+            fx_list.append(f"{short}{sign}{val}{suffix}")
+        
+        fx_str = " ".join(fx_list)
+        table.add_row(
+            f"{icon} [bold {color}]{b.name[:12]}[/] [dim]({duration})[/]",
+            f"[dim]{fx_str}[/]"
+        )
+
+    return herald_panel(table, title="Estados", border_style="green", expand=True)
+
+def _create_guild_panel(player):
+    gm = get_guild_manager()
+    guild = gm.get_player_guild()
+    if not guild: return None
+    
+    table = herald_table(expand=True)
+    table.add_column(width=4)
+    table.add_column()
+    table.add_row(ICONS['guild'], f"[bold {COLOR_PRIMARY}]{guild.name[:18]}[/]")
+    table.add_row(ICONS['atk'], f"Ataque Lv.{guild.attack_rating}")
+    
+    return herald_panel(table, title="Guild", border_style=COLOR_PRIMARY, expand=True)
+
+def _create_weather_panel():
+    wm = get_weather_manager()
+    w = wm.get_current_weather()
+    
+    table = herald_table(expand=True)
+    table.add_row(f"{ICONS['weather']} [bold magenta]{w.name}[/]")
+    
+    mods = []
+    for stat, mod in w.combat_mods.items():
+        if mod != 1.0:
+            color = "green" if mod > 1.0 else "red"
+            pct = int((mod - 1.0) * 100)
+            mods.append(f"[{color}]{stat[:3].upper()}{'+' if pct > 0 else ''}{pct}%[/{color}]")
+    
+    if mods: table.add_row(" ".join(mods[:2]))
+    
+    return herald_panel(table, title="Clima", border_style="magenta", expand=True)
+
+
 def display_main_menu() -> int:
+    global player, item_manager, vInventory
 
 
     options = [
@@ -733,10 +784,10 @@ def display_main_menu() -> int:
         header = Text.from_markup(f"[bold yellow]{_MAIN_MENU_ASCII}[/bold yellow]")
         header = Align.center(header)
 
-        # Table
-        t = Table(show_header=False, box=box.ROUNDED, padding=(0, 1))
-        t.add_column("Opción", style="bright_yellow", justify="right")
-        t.add_column("Sep", style="bright_yellow")
+        # Table de Opciones
+        t = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+        t.add_column("Opción", style="bright_yellow", justify="right", width=4)
+        t.add_column("Sep", style="bright_yellow", width=1)
         t.add_column("Acción", style="bright_white")
 
         for i, (val, label) in enumerate(options):
@@ -751,19 +802,43 @@ def display_main_menu() -> int:
                 sep = "·"
             t.add_row(opt, sep, lab)
 
-        footer_str = "Selecciona una opción: "
-        if state["buf"]:
-            footer_str += f"[dim]↑/↓ + Enter | número: {state['buf']}[/dim]"
-        else:
-            footer_str += "[dim]↑/↓ + Enter | número[/dim]"
-        footer = Align.center(Text.from_markup(footer_str))
+        # Dashboard Lateral (Derecha)
+        dash_group = []
+        dash_group.append(_create_weather_panel())
+        
+        buffs_p = _create_buffs_panel(player)
+        if buffs_p: dash_group.append(buffs_p)
+            
+        guild_p = _create_guild_panel(player)
+        if guild_p: dash_group.append(guild_p)
 
-        return Panel(
-            Group(header, "", Align.center(t), "", footer),
-            border_style="yellow",
-            title=f"[bold yellow]RPG[/bold yellow]",
-            padding=(1, 2),
+        # Panel exclusivo para el menú de opciones
+        footer_str = "Selecciona: "
+        if state["buf"]:
+            footer_str += f"[dim]{state['buf']}[/dim]"
+        else:
+            footer_str += "[dim]↑/↓ + Enter[/dim]"
+        
+        menu_content = herald_panel(
+            Group(Align.center(t), "", Align.center(Text.from_markup(footer_str))),
+            title="Menú",
+            border_style=COLOR_PRIMARY,
+            padding=(1, 2)
         )
+
+        # Tabla contenedora sin borde exterior
+        main_layout = herald_table(expand=True)
+        main_layout.add_column(ratio=0.9, vertical="top")
+        main_layout.add_column(ratio=1.4, vertical="top")
+        main_layout.add_column(ratio=1.2, vertical="top")
+        
+        main_layout.add_row(
+            _create_player_panel(player),
+            menu_content,
+            Group(*dash_group)
+        )
+
+        return Group(header, "", main_layout)
 
     def _on_press(key):
         if state["done"]: return
@@ -934,7 +1009,7 @@ def main():
     os.system("cls" if os.name == "nt" else "clear")
 
     # Display player status
-    display_player_status()
+    # display_player_status()
 
     # Display main menu
     main_input = display_main_menu()
@@ -1397,8 +1472,21 @@ def main():
 
                     combat_round = 1
                     combat_active = True
+                    
+                    combat_logs = []
+                    def redraw_combat_screen(logs=None):
+                        if logs is None: logs = combat_logs
+                        os.system("cls" if os.name == "nt" else "clear")
+                        render_combat_menu(player, enemy, combat_round)
+                        for log in logs:
+                            console.print(log)
+                            
+                    def add_log(markup):
+                        combat_logs.append(Text.from_markup(markup))
+                        redraw_combat_screen()
 
                     while combat_active:
+                        os.system("cls" if os.name == "nt" else "clear")
                         render_combat_menu(player, enemy, combat_round)
                         player_debuffs = apply_debuffs(player)
                         
@@ -1427,15 +1515,17 @@ def main():
                                 (3, "Intentar huir"),
                             ],
                             prompt="Acción: ",
-                            default_value=1,
-                            border_style="danger",
+                            use_screen=False,
+                            bottom_content=Group(*combat_logs) if combat_logs else None
                         )
-                        os.system("cls" if os.name == "nt" else "clear")
+                        
+                        combat_logs.clear()
+                        redraw_combat_screen()
 
                         if combat_action == 1:
-                            console.print("\n[bold]¡Tu turno![/bold]")
-                            sp.sleep(1.0)
-                            damage_dealt = _perform_attack(player, enemy, console)
+                            add_log("\n[bold]¡Tu turno![/bold]")
+                            sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0) * 0.3)
+                            damage_dealt = _perform_attack(player, enemy, console, redraw_combat_screen, combat_logs)
                             
                             # Registrar daño en mastery de arma
                             try:
@@ -1449,8 +1539,8 @@ def main():
                             # ── Acción de los Compañeros ────────────────────────────
                             for comp in player.companion:
                                 if comp.is_alive and enemy.HP > 0:
-                                    console.print(f"\n[cyan]>> Turno de {comp.name} <<[/cyan]")
-                                    sp.sleep(0.5)
+                                    add_log(f"\n[cyan]>> Turno de {comp.name} <<[/cyan]")
+                                    sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0) * 0.2)
                                     c_opts = [(1, "Atacar")]
                                     c_class = getattr(comp, 'c_class', 'Daño')
                                     
@@ -1469,28 +1559,28 @@ def main():
                                     )
                                     
                                     if c_action == 1:
-                                        _perform_attack(comp, enemy, console)
+                                        _perform_attack(comp, enemy, console, redraw_combat_screen, combat_logs)
                                     elif c_action == 2 and c_class == "Curandero":
                                         cura = player.Health_max * 0.20
                                         player.Health = min(player.Health_max, player.Health + cura)
-                                        console.print(f"[success]{comp.name} curó a {player.name} por {cura:.1f} HP![/success]")
+                                        add_log(f"[success]{comp.name} curó a {player.name} por {cura:.1f} HP![/success]")
                                     elif c_action == 3 and c_class == "Curandero":
                                         cura_p = player.Health_max * 0.15
                                         player.Health = min(player.Health_max, player.Health + cura_p)
                                         for c in player.companion:
                                             if c.is_alive: c.Health = min(c.Health_max, c.Health + c.Health_max * 0.15)
-                                        console.print(f"[success]{comp.name} curó a todo el equipo.[/success]")
+                                        add_log(f"[success]{comp.name} curó a todo el equipo.[/success]")
                                     elif c_action == 2 and c_class == "Soporte":
                                         bm = get_buff_manager()
                                         debuff = bm.create_buff("5_debuff", "companion_skill")
                                         if debuff:
                                             if not hasattr(enemy, 'active_buffs'): enemy.active_buffs = []
                                             enemy.active_buffs.append(debuff)
-                                            console.print(f"[warning]{comp.name} aplicó {debuff.name} a {enemy.NAME}![/warning]")
+                                            add_log(f"[warning]{comp.name} aplicó {debuff.name} a {enemy.NAME}![/warning]")
 
                             # ── ¿Murió el enemigo? ────────────────────────────────
                             if enemy.HP <= 0:
-                                console.print(f"[success]¡Has derrotado a {enemy.NAME}![/success]")
+                                add_log(f"[success]¡Has derrotado a {enemy.NAME}![/success]")
 
                                 # ── Modificadores globales de EXP y Oro ──────────
                                 _world_cfg   = CONFIG.get("WORLD", {})
@@ -1504,7 +1594,7 @@ def main():
                                 gold_gain = int(enemy.GOLD          * _gold_mod)
                                 player.EXP  += exp_gain
                                 player.Gold += gold_gain
-                                console.print(f"[success]Ganaste {exp_gain} EXP y {gold_gain} oro.[/success]")
+                                add_log(f"[success]Ganaste {exp_gain} EXP y {gold_gain} oro.[/success]")
 
                                 # ── Drop de loot ─────────────────────────────────
                                 _base_loot_chance = 0.40
@@ -1547,9 +1637,9 @@ def main():
                                             vInventory.addObject(loot_item)
                                             
                                     if dropped_items_summary:
-                                        console.print(f"\n[success]¡{enemy.NAME} soltó los siguientes objetos![/success]")
+                                        add_log(f"\n[success]¡{enemy.NAME} soltó los siguientes objetos![/success]")
                                         for item_desc in dropped_items_summary:
-                                            console.print(f"  [yellow]- {item_desc}[/yellow]")
+                                            add_log(f"  [yellow]- {item_desc}[/yellow]")
 
                                 quest_manager.update_kill_quest(enemy.NAME, player)
                                 player.level_up()
@@ -1561,7 +1651,7 @@ def main():
                                     pg.fight_count += 1
                                     if pg.fight_count >= 5:
                                         tax_msg = pg.apply_taxes()
-                                        console.print(f"\n[bold yellow]💰 {tax_msg}[/bold yellow]")
+                                        add_log(f"\n[bold yellow]💰 {tax_msg}[/bold yellow]")
                                         pg.fight_count = 0
                                 
                                 if input("¿Seguir en esta zona? (s/n): ").lower() == 's':
@@ -1572,13 +1662,13 @@ def main():
                                 break
 
                             # ── Turno del enemigo ──
-                            console.print("\n[bold]¡Turno del enemigo![/bold]")
-                            sp.sleep(1.0)
+                            add_log("\n[bold]¡Turno del enemigo![/bold]")
+                            sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
                             alive_companions = [c for c in player.companion if c.is_alive]
                             possible_targets = [player] + alive_companions
                             attack_target = random.choice(possible_targets)
 
-                            damage_taken = _perform_attack(enemy, attack_target, console)
+                            damage_taken = _perform_attack(enemy, attack_target, console, redraw_combat_screen, combat_logs)
 
                             if attack_target is player:
                                 try:
@@ -1588,7 +1678,7 @@ def main():
                                 except Exception: pass
                                 
                                 if player.Health <= 0:
-                                    console.print("[danger]¡Has sido derrotado![/danger]")
+                                    add_log("[danger]¡Has sido derrotado![/danger]")
                                     player.Health = max(1, int(player.Health_max * 0.1))
                                     player.Gold = max(0, player.Gold * 0.5)
                                     combat_active = False
@@ -1596,35 +1686,39 @@ def main():
                                     break
                             else:
                                 if not attack_target.is_alive:
-                                    console.print(f"[bold red]💀 {attack_target.name} ha caído![/bold red]")
+                                    add_log(f"[bold red]💀 {attack_target.name} ha caído![/bold red]")
+
+                            combat_round += 1
 
                         elif combat_action == 2:
                             open_inventory_menu(vInventory, player)
+                            os.system("cls" if os.name == "nt" else "clear")
+                            render_combat_menu(player, enemy, combat_round)
                             continue
 
                         elif combat_action == 3:
-                            if random.random() < 0.5:
-                                console.print("[success]¡Escapaste![/success]")
+                            # Cálculo de escape: (EVA del jugador - AGI del enemigo) + chance aleatoria
+                            base_escape_chance = random.uniform(0.3, 0.6)
+                            player_eva = getattr(player, "Evasion", 0) / 100.0
+                            enemy_agi = getattr(enemy, "AGI", 0) / 100.0
+                            escape_chance = base_escape_chance + player_eva - enemy_agi
+                            
+                            if random.random() < escape_chance:
+                                add_log(f"\n[success]¡Escapaste con éxito! (Probabilidad: {escape_chance*100:.1f}%)[/success]")
+                                sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
                                 combat_active = False
                                 enemy = None
                                 break
                             else:
-                                console.print("[danger]¡No pudiste escapar![/danger]")
-                                _perform_attack(enemy, player, console)
+                                add_log(f"\n[danger]¡No pudiste escapar! (Probabilidad: {escape_chance*100:.1f}%)[/danger]")
+                                sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0) * 0.5)
+                                _perform_attack(enemy, player, console, redraw_combat_screen, combat_logs)
                                 if player.Health <= 0:
                                     combat_active = False
                                     enemy = None
                                     break
-
-                        # Mostrar estados al final de ronda
-                        status_table = Table(show_header=False, box=None)
-                        p_hp_bar, p_hp_pct = create_status_bar(player.Health, player.Health_max, "green", True)
-                        e_hp_bar, e_hp_pct = create_status_bar(enemy.HP, enemy.HP_M, "red", True)
-                        status_table.add_row(f"[bold]{player.name}[/bold]", f"{p_hp_bar} {p_hp_pct}%")
-                        status_table.add_row(f"[bold red]{enemy.NAME}[/bold red]", f"{e_hp_bar} {e_hp_pct}%")
-                        console.print(status_table)
-                        combat_round += 1
-                        sp.sleep(0.5)
+                                
+                                combat_round += 1
 
                 elif zone_input == 2:
                     try:
@@ -1786,7 +1880,7 @@ def main():
         except Exception as e:
             console.print(f"[danger]Error en el menú de Guilds: {e}[/danger]")
             import traceback; traceback.print_exc()
-            sp.sleep(2)
+            sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
 
     elif main_input == 17 and CONFIG["DEBUG"]["ENABLED"]:
         try:
@@ -1801,7 +1895,7 @@ def main():
             )
         except Exception as e:
             console.print(f"[danger]Error en el menú debug: {e}[/danger]")
-            sp.sleep(2)
+            sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
 
 
 # Save functions handled by Modules.ModulesFunctions.SaveSystem
@@ -1862,7 +1956,7 @@ if __name__ == "__main__":
                 main()
             except Exception as e:
                 console.print(f"[danger]Error en el bucle principal: {str(e)}[/danger]")
-                sp.sleep(2)
+                sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
     except Exception as e:
         console.print(f"[danger]Error: {str(e)}[/danger]")
         sys.exit(1) # 67

@@ -4,6 +4,8 @@ from typing import Dict, Any
 from rich.console import Console
 from rich.tree import Tree
 from rich.panel import Panel
+from Modules.ModulesUtils.input_utils import get_menu_refresh_rate
+
 
 console = Console()
 
@@ -175,10 +177,10 @@ class SkillTreeManager:
                     player.skills_purchased[node.node_id] = current_level + 1
                     self.apply_node_effects(player, node)
                     console.print(f"\n[bold green]¡Has mejorado: {node.name} a Nivel {current_level+1}![/]")
-                    import time; time.sleep(1)
+                    import time; time.sleep(get_menu_refresh_rate())
                 else:
                     console.print(f"\n[bold red]Puntos insuficientes. Necesitas {cost}.[/]")
-                    import time; time.sleep(1.5)
+                    import time; time.sleep(get_menu_refresh_rate())
 
 # Instancia global pre-cargada
 skill_tree_manager = SkillTreeManager()

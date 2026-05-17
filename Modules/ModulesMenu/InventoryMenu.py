@@ -26,6 +26,10 @@ from rich.rule import Rule
 from sshkeyboard import listen_keyboard, stop_listening
 
 from Modules.ModulesUtils.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.UIStyle import (
+    herald_panel, herald_bar, herald_table, ICONS, 
+    COLOR_PRIMARY, COLOR_SECONDARY, COLOR_DIM
+)
 
 # ──────────────────────────────────────────────
 #  Paleta / constantes visuales
@@ -106,12 +110,11 @@ def _obscure(text: str) -> str:
 #  Panel: lista de inventario (lado izquierdo)
 # ──────────────────────────────────────────────
 def _render_item_list(slots, selected_idx: int, scroll_offset: int, max_visible: int, player=None) -> Panel:
-    t = Table(show_header=False, box=None, padding=(0, 1), expand=True)
-    t.add_column("Idx",   width=3,  no_wrap=True)
-    t.add_column("Icon",  width=2,  no_wrap=True)
-    t.add_column("Nombre", ratio=1,  no_wrap=False)
-    t.add_column("Tipo",  width=13, no_wrap=True)
-    t.add_column("Cant",  width=4,  no_wrap=True)
+    t = herald_table(expand=True)
+    t.add_column("Idx",   width=3)
+    t.add_column("Icon",  width=3)
+    t.add_column("Nombre", ratio=1)
+    t.add_column("Cant",  width=4)
 
     visible = slots[scroll_offset : scroll_offset + max_visible]
 
@@ -123,41 +126,23 @@ def _render_item_list(slots, selected_idx: int, scroll_offset: int, max_visible:
         
         discovered = _is_discovered(slot.item, player)
         name     = _item_name(slot.item) if discovered else _obscure(_item_name(slot.item))
-        label    = _TYPE_LABEL.get(itype, itype)
         qty      = str(slot.quantity) if slot.quantity > 1 else ""
 
         if selected:
-            row_style = "black on bright_white"
-            idx_text  = Text(f"►{abs_idx + 1:2d}", style=row_style)
-            icon_text = Text(icon,                  style=row_style)
-            name_text = Text(name,                  style=f"bold {row_style}")
-            type_text = Text(f"[{label}]",          style=row_style)
-            qty_text  = Text(qty,                   style=row_style)
+            row_style = f"bold {COLOR_PRIMARY}"
+            idx_text  = Text(f"{ICONS['arrow']}{abs_idx + 1:2d}", style=row_style)
+            icon_text = Text(icon, style=row_style)
+            name_text = Text(name, style=row_style)
+            qty_text  = Text(qty,  style=row_style)
         else:
-            tcolor    = _TYPE_COLOR.get(itype, "white")
-            idx_text  = Text(f"  {abs_idx + 1:2d}", style="dim")
-            icon_text = Text(icon,                  style=tcolor)
-            name_text = Text(name,                  style="bright_white")
-            type_text = Text(f"[{label}]",          style="dim " + tcolor)
-            qty_text  = Text(qty,                   style="dim")
+            idx_text  = Text(f"  {abs_idx + 1:2d}", style=COLOR_DIM)
+            icon_text = Text(icon, style=COLOR_SECONDARY)
+            name_text = Text(name, style="bright_white")
+            qty_text  = Text(qty,  style=COLOR_DIM)
 
-        t.add_row(idx_text, icon_text, name_text, type_text, qty_text)
+        t.add_row(idx_text, icon_text, name_text, qty_text)
 
-    # scroll indicator
-    total = len(slots)
-    shown_end = min(scroll_offset + max_visible, total)
-    footer = Text(
-        f"  {scroll_offset + 1}–{shown_end} de {total}  [↑/↓ para mover]",
-        style="dim",
-        justify="right",
-    )
-
-    return Panel(
-        Group(t, footer),
-        title="[bold bright_white]  INVENTARIO  [/bold bright_white]",
-        border_style="grey50",
-        padding=(0, 1),
-    )
+    return herald_panel(t, title="Inventario", border_style=COLOR_PRIMARY, expand=True)
 
 
 # ──────────────────────────────────────────────
@@ -225,15 +210,11 @@ def _render_item_detail(slot, player=None) -> Panel:
 
         has_dmg = any(v > 0 for v in dmg)
         if has_dmg:
-            lines.append(Text("  Daño:", style="bold"))
+            lines.append(Text("  Daño:", style=f"bold {COLOR_PRIMARY}"))
+            max_val = max(dmg) or 1
             for i, (mn, mx) in enumerate(zip(dmg_min + [dmg[4]], dmg)):
                 if mx > 0:
-                    bar_len = min(int(mx / max(dmg) * 12), 12) if max(dmg) else 0
-                    bar     = "█" * bar_len + "░" * (12 - bar_len)
-                    if i == 4:
-                        lines.append(Text(f"    {_DMG_NAMES[i]:<4}  {bar}  {mx} (fijo)", style="dim"))
-                    else:
-                        lines.append(Text(f"    {_DMG_NAMES[i]:<4}  {bar}  {mn}–{mx}", style="dim"))
+                    lines.append(Text(f"    {_DMG_NAMES[i]:<4} {herald_bar(mx, max_val, 12)} {mn}-{mx}", style="dim"))
 
     elif itype == "cEquippableItems":
         defense     = getattr(item, "Defense",     [0]*5)
@@ -243,13 +224,11 @@ def _render_item_detail(slot, player=None) -> Panel:
 
         has_def = any(v > 0 for v in defense)
         if has_def:
-            lines.append(Text("  Defensa:", style="bold"))
+            lines.append(Text("  Defensa:", style=f"bold {COLOR_PRIMARY}"))
             max_def = max(defense) or 1
             for i, v in enumerate(defense):
                 if v > 0:
-                    bar_len = min(int(v / max_def * 12), 12)
-                    bar     = "█" * bar_len + "░" * (12 - bar_len)
-                    lines.append(Text(f"    {_DEF_NAMES[i]:<4}  {bar}  +{v}", style="dim"))
+                    lines.append(Text(f"    {_DEF_NAMES[i]:<4} {herald_bar(v, max_def, 12)} +{v}", style="dim"))
 
         if health_b > 0:
             lines.append(Text(f"  ❤  HP Máximo:     +{health_b}", style="green"))
@@ -380,11 +359,11 @@ def _render_item_detail(slot, player=None) -> Panel:
                 lines.append(Text(""))
                 lines.append(Text("  ✓ ACTUALMENTE EQUIPADO", style="bold bright_green"))
 
-    return Panel(
+    return herald_panel(
         Group(*lines),
-        title=f"[bold {tcolor}]  DETALLE  [/bold {tcolor}]",
-        border_style=tcolor.replace("bold ", ""),
-        padding=(0, 1),
+        title="Detalle",
+        border_style=COLOR_PRIMARY,
+        expand=True
     )
 
 

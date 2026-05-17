@@ -3,6 +3,8 @@ import os
 import time
 from rich.console import Console
 from rich.panel import Panel
+from Modules.ModulesUtils.input_utils import get_menu_refresh_rate
+
 
 console = Console()
 
@@ -164,14 +166,14 @@ class QuestManager:
             
             if action_type == "available":
                 self.accept_quest(selected_q.quest_id)
-                time.sleep(1.5)
+                time.sleep(get_menu_refresh_rate())
             elif action_type == "active":
                 if selected_q.completed:
                     self.claim_reward(selected_q.quest_id, player, vInventory)
-                    time.sleep(2)
+                    time.sleep(get_menu_refresh_rate())
                 else:
                     console.print(f"[yellow]Aún no has completado esta misión.[/]")
-                    time.sleep(1.5)
+                    time.sleep(get_menu_refresh_rate())
 
 # Instancia global
 quest_manager = QuestManager()

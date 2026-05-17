@@ -25,6 +25,17 @@ _MENU_THEME = Theme(
 
 _MENU_LISTENER_LOCK = threading.Lock()
 
+def get_menu_refresh_rate() -> float:
+    """Obtiene la tasa de refresco del menú desde config.json"""
+    try:
+        from Modules.ModulesUtils.Loader import Read
+        config = Read("config.json", None)
+        if config and "DISPLAY" in config:
+            return float(config["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
+        return 1.0
+    except Exception:
+        return 1.0
+
 
 def _stop_keyboard_listener_and_wait() -> None:
     """sshkeyboard solo permite un listener; hay que esperar a que termine el hilo."""
@@ -125,7 +136,9 @@ def interactive_menu_select(
     allow_zero_shortcut: bool = True,
     border_style: str = "menu_title",
     ascii_art: Optional[str] = None,
-    theme: str = "default"
+    theme: str = "default",
+    use_screen: bool = True,
+    bottom_content: Optional[Any] = None
 ) -> int:
     """
     Menú interactivo (Rich) con selección invertida o estilos temáticos.
@@ -166,26 +179,33 @@ def interactive_menu_select(
             if subtitle:
                 header = Group(header, Text.from_markup(f"[dim]{subtitle}[/dim]"))
 
+        footer = Text.from_markup(
+            f"[dim]{prompt}[/dim]"
+            + (f"[dim][↑/↓ + Enter] o número: {state['buf']}[/dim]" if state["buf"] else "[dim][↑/↓ + Enter] o número[/dim]")
+        )
+
         if theme == "fantasy":
-            t = Table(show_header=False, box=box.ROUNDED, padding=(0, 1))
-            t.add_column("Opción", style="bright_yellow", justify="right")
-            t.add_column("Sep", style="bright_yellow")
+            from Modules.ModulesUtils.UIStyle import herald_panel, ICONS, COLOR_PRIMARY
+            t = Table(show_header=False, box=None, padding=(0, 1))
+            t.add_column("Opción", style=COLOR_PRIMARY, justify="right")
+            t.add_column("Sep", style=COLOR_PRIMARY)
             t.add_column("Acción", style="bright_white")
 
             for i, (val, label) in enumerate(options):
                 selected = i == state["idx"]
                 if selected:
-                    opt = f"[bold bright_yellow]► {val}[/]"
-                    lab = f"[bold bright_yellow]{label}[/]"
-                    sep = f"[bold bright_yellow]·[/]"
+                    opt = f"[bold {COLOR_PRIMARY}]{ICONS['arrow']} {val}[/]"
+                    lab = f"[bold {COLOR_PRIMARY}]{label}[/]"
+                    sep = f"[bold {COLOR_PRIMARY}]{ICONS['sep']}[/]"
                 else:
                     opt = f"  {val}"
                     lab = label
-                    sep = "·"
+                    sep = ICONS['sep']
                 t.add_row(opt, sep, lab)
             
+            
             menu_content = Align.center(t)
-            p_border = "yellow"
+            menu_panel = herald_panel(Group(header, "", menu_content, "", Align.center(footer)), title=title, border_style=COLOR_PRIMARY)
         else:
             t = Table(show_header=False, box=box.SIMPLE, padding=(0, 1))
             t.add_column("Opción", style="bright_white", width=6)
@@ -203,15 +223,11 @@ def interactive_menu_select(
             
             menu_content = t
             p_border = border_style
+            menu_panel = Panel(Group(header, "", menu_content, "", footer), border_style=p_border)
 
-        footer = Text.from_markup(
-            f"[dim]{prompt}[/dim]"
-            + (f"[dim][↑/↓ + Enter] o número: {state['buf']}[/dim]" if state["buf"] else "[dim][↑/↓ + Enter] o número[/dim]")
-        )
-        if theme == "fantasy":
-            footer = Align.center(footer)
-
-        return Panel(Group(header, "", menu_content, "", footer), border_style=p_border)
+        if bottom_content is not None:
+            return Group(menu_panel, bottom_content)
+        return menu_panel
 
     def _on_press(key: str) -> None:
         if state["done"]:
@@ -273,7 +289,7 @@ def interactive_menu_select(
             with Live(
                 _render(),
                 console=console,
-                screen=True,
+                screen=use_screen,
                 auto_refresh=False,
             ) as live:
                 while not state["done"]:

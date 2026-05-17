@@ -1,5 +1,7 @@
 from typing import Dict, Any, List, Optional
 import copy
+from Modules.ModulesUtils.input_utils import get_menu_refresh_rate
+
 
 # ── Constantes ──
 MAX_ENCHANT_SLOTS = 5  # Máximo de encantamientos ÚNICOS por item
@@ -447,7 +449,7 @@ def open_enchantment_menu(player, vInventory):
 
         if not enchantable_items:
             console.print("\n[dim]No posees ningún objeto de Equipamiento o Herramienta válida para encantar.[/]")
-            time.sleep(2)
+            time.sleep(get_menu_refresh_rate())
             break
 
         options = [(0, "Volver al Menú Principal")]
@@ -515,7 +517,7 @@ def open_enchantment_menu(player, vInventory):
 
             if len(e_options) == 1:
                 console.print("[dim]No hay encantamientos conocidos compatibles con este objeto.[/]")
-                time.sleep(2)
+                time.sleep(get_menu_refresh_rate())
                 break
 
             e_choice = interactive_menu_select(
@@ -537,28 +539,28 @@ def open_enchantment_menu(player, vInventory):
                 cur_lv = existing["level"]
                 if cur_lv >= selected_enchant.MaxLevel:
                     console.print(f"\n[bold red]{selected_enchant.Name} ya está al nivel máximo.[/]")
-                    time.sleep(1.5)
+                    time.sleep(get_menu_refresh_rate())
                     continue
                 # Upgrade: costo escala con el nivel
                 upgrade_cost = selected_enchant.GoldCost * (cur_lv + 1)
                 if player.Gold < upgrade_cost:
                     console.print(f"\n[bold red]Necesitas {upgrade_cost}g para la mejora.[/]")
-                    time.sleep(1.5)
+                    time.sleep(get_menu_refresh_rate())
                     continue
                 player.Gold -= upgrade_cost
                 existing["level"] = cur_lv + 1
                 new_display = format_enchant_display(existing, ENCHANTMENTS_CATALOG)
                 console.print(f"\n[green]¡Éxito! {selected_enchant.Name} ha subido a [bold]{new_display}[/]![/]")
-                time.sleep(2)
+                time.sleep(get_menu_refresh_rate())
             else:
                 # Nuevo encantamiento
                 if n_families >= MAX_ENCHANT_SLOTS:
                     console.print(f"\n[bold red]El item ya tiene {MAX_ENCHANT_SLOTS} encantamientos. ¡No caben más![/]")
-                    time.sleep(1.5)
+                    time.sleep(get_menu_refresh_rate())
                     continue
                 if player.Gold < selected_enchant.GoldCost:
                     console.print(f"\n[bold red]Estás pobre. {selected_enchant.Name} I cuesta {selected_enchant.GoldCost}g.[/]")
-                    time.sleep(1.5)
+                    time.sleep(get_menu_refresh_rate())
                     continue
                 player.Gold -= selected_enchant.GoldCost
                 if not hasattr(target_item, "Enchantments") or target_item.Enchantments is None:
@@ -569,7 +571,7 @@ def open_enchantment_menu(player, vInventory):
                     "level": 1
                 })
                 console.print(f"\n[green]¡Éxito! Infundiste [bold]{selected_enchant.Name} I[/] en tu {item_name}.[/]")
-                time.sleep(2)
+                time.sleep(get_menu_refresh_rate())
 
 # ── Auto-carga de encantamientos base al importar ──
 if not _BASE_LOADED:

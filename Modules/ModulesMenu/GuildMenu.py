@@ -43,6 +43,10 @@ from Modules.ModulesFunctions.GuildSystem import Guild, GuildManager, get_guild_
 from Modules.ModulesFunctions.GuildSkillTree import open_guild_skill_tree, BRANCH_ICONS
 from Modules.ModulesFunctions.GuildMissions import open_guild_missions_menu
 from Modules.ModulesUtils.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.UIStyle import (
+    herald_panel, herald_bar, herald_table, ICONS, 
+    COLOR_PRIMARY, COLOR_SECONDARY, COLOR_DIM
+)
 
 console = Console()
 
@@ -53,35 +57,27 @@ RARITY_COLORS = {
     "Legendary": "bright_yellow",
 }
 
-
-# ── Helpers de renderizado (sin estado, solo devuelven renderizables) ──────────
-
 def _render_summary(guild: Guild, player, gm: GuildManager):
-    t = Table(show_header=False, box=None, expand=True)
-    t.add_column("K", style="cyan",  width=22)
+    t = herald_table(expand=True)
+    t.add_column("K", style=COLOR_PRIMARY, width=22)
     t.add_column("V", style="white", ratio=1)
 
-    moral_bar = "█" * (guild.moral // 10) + "░" * (10 - guild.moral // 10)
-    ml_bar    = "█" * (guild.military_power // 10) + "░" * (10 - guild.military_power // 10)
-    rep       = gm.get_player_reputation(player, guild.guild_id)
+    rep = gm.get_player_reputation(player, guild.guild_id)
     rank_name, rank_color = gm.get_reputation_rank(rep)
 
     t.add_row("Tipo",          f"{guild.icon} {guild.guild_type}")
-    t.add_row("Poder Militar", f"[bold red]{ml_bar}[/] {guild.military_power}")
-    t.add_row("Moral",         f"[yellow]{moral_bar}[/] {guild.moral}/100")
+    t.add_row(f"{ICONS['atk']}Poder Militar", f"{herald_bar(guild.military_power, 100)} {guild.military_power}")
+    t.add_row(f"{ICONS['hp']}Moral",         f"{herald_bar(guild.moral, 100, color='yellow')} {guild.moral}/100")
     t.add_row("Población",     str(guild.population))
-    t.add_row("Influencia",    str(guild.influence))
-    t.add_row("Territorios",   str(len(guild.territories)))
-    t.add_row("Skill Points",  f"[bold green]{guild.skill_points}[/]")
     t.add_row("Tu Reputación", f"[{rank_color}]{rank_name} ({rep:+d})[/]")
 
     log_text = Text()
     log_text.append("\n  Eventos recientes:\n", style="bold dim")
-    for ev in guild.event_log[-5:]:
+    for ev in guild.event_log[-3:]:
         log_text.append(f"  • {ev}\n", style="dim")
 
-    return Panel(Group(t, Rule(style="dim"), log_text),
-                 title=f"[bold]{guild.icon} {guild.name}[/]", border_style="bright_magenta")
+    return herald_panel(Group(t, Rule(style="dim"), log_text),
+                  title=f"{guild.icon} {guild.name}", border_style=COLOR_PRIMARY)
 
 
 def _render_territories(guild: Guild, gm: GuildManager, page: int = 0):
@@ -121,38 +117,23 @@ def _render_territories(guild: Guild, gm: GuildManager, page: int = 0):
 
 
 def _render_resources(guild: Guild, gm: GuildManager):
-    t = Table(show_header=True, box=box.SIMPLE, expand=True)
-    t.add_column("",       width=3)    # icon
-    t.add_column("Recurso", ratio=3)   # name
-    t.add_column("Cant/Max", width=14) # numbers
-    t.add_column("",       ratio=2)    # bar
-    t.add_column("Rareza", width=12)   # rareza
+    t = herald_table(expand=True)
+    t.add_column("",       width=3)
+    t.add_column("Recurso", ratio=3)
+    t.add_column("Cant/Max", width=14)
+    t.add_column("",       ratio=2)
 
     for rid, defn in gm.resource_defs.items():
         amount = guild.get_resource(rid)
         cap    = guild.get_resource_cap(rid, gm.resource_defs, gm.guild_type_defs)
-        rarity = defn.get("rarity", "Common")
-        color  = RARITY_COLORS.get(rarity, "white")
         icon   = defn.get("icon", "?")
-        
-        ratio_fill = min(1.0, amount / max(1, cap))
-        bar_len = int(30 * ratio_fill)
-        bar_str = "█" * bar_len + "░" * (30 - bar_len)
-        
         t.add_row(
-            icon,
-            defn.get("name", rid),
-            f"[{color}]{amount:,}/{cap}[/]",
-            f"[{color}]{bar_str}[/]",
-            f"[{color}]{rarity}[/]",
+            icon, defn.get("name", rid),
+            f"[white]{amount:,}/{cap}[/]",
+            herald_bar(amount, cap, width=20)
         )
 
-    food_needed = max(1, guild.population // 8)
-    food_have   = guild.get_resource("comida")
-    ticks_left  = food_have // food_needed if food_needed > 0 else 9999
-    footer = Text(f"\n🍞 Consumo: {food_needed}/tick | Stock: {food_have} ({ticks_left} ticks)\n", style="dim")
-
-    return Panel(Group(t, footer), title="[bold]💰 RECURSOS DE GUILD[/]", border_style="yellow")
+    return herald_panel(t, title="Recursos", border_style=COLOR_PRIMARY)
 
 
 def _render_world(gm: GuildManager, player, page: int = 0):
@@ -246,7 +227,7 @@ def _diplomacy_action_menu(player_guild: Guild, player, gm: GuildManager, con):
 
     if not all_guilds:
         con.print("\n[bold dim]No hay otras guilds en el mundo.[/]")
-        time.sleep(2)
+        time.sleep(get_menu_refresh_rate())
         return
 
     def _render():
@@ -403,6 +384,8 @@ def _diplomacy_action_menu(player_guild: Guild, player, gm: GuildManager, con):
 # ── Pantallas interactivas de acción ──────────────────────────────────────────
 
 import random
+from Modules.ModulesUtils.input_utils import get_menu_refresh_rate
+
 
 def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con):
     """Pantalla interactiva para conquistar o ver territorios."""
@@ -1421,7 +1404,7 @@ def _military_management_menu(player_guild: Guild, player, gm: GuildManager, con
 def _garrison_management_menu(player_guild: Guild, player, gm: GuildManager, con):
     if not player_guild.territories:
         con.print("\n[bold red]No controlas ningún territorio para gestionar guarniciones.[/bold red]")
-        time.sleep(2)
+        time.sleep(get_menu_refresh_rate())
         return
         
     state = {
@@ -1566,14 +1549,14 @@ def open_guild_menu(player, console=None):
                 if guild:
                     gm.generate_initial_player_events()
                     console.print(f"\n[bold green]✨ Guild '{guild.name}' ({guild.guild_type}) creada con éxito![/bold green]")
-                    time.sleep(1.5)
+                    time.sleep(get_menu_refresh_rate())
                 continue
             elif action == "join":
                 guild = _join_guild_flow(player, gm, console)
                 if guild:
                     gm.generate_initial_player_events()
                     console.print(f"\n[bold green]✓ Te has unido a {guild.icon} {guild.name}![/bold green]")
-                    time.sleep(1.5)
+                    time.sleep(get_menu_refresh_rate())
                 continue
             else:
                 break
@@ -1979,7 +1962,7 @@ def _custom_trade_menu(player_guild: Guild, target_guild: Guild, player, gm: Gui
                     target_guild.consume_resource(r, a)
                     player_guild.add_resource(r, a, gm.resource_defs)
                 state["msg"] = "[bold green]¡Aceptado![/] " + msg
-                time.sleep(1.5)
+                time.sleep(get_menu_refresh_rate())
                 state["exit"] = True
             else:
                 state["msg"] = "[bold red]Rechazado:[/] " + msg
