@@ -112,13 +112,12 @@ def _display_combat_details(attacker_name, defender_name, res, is_counter=False)
     from rich.text import Text
     from rich.columns import Columns
     
-    title = f"[bold yellow]⚔️ CONTRAATAQUE[/]" if is_counter else f"[bold cyan]⚔️ ATAQUE: {attacker_name} → {defender_name}[/]"
+    title = f"[bold yellow]CONTRAATAQUE[/]" if is_counter else f"[bold cyan]ATAQUE: {attacker_name} → {defender_name}[/]"
     
     if res.get("is_evaded"):
-        console.print(Panel(Text(f"¡{defender_name} ha ESQUIVADO el ataque! 💨", style="bold cyan"), border_style="cyan"))
+        console.print(Panel(Text(f"¡{defender_name} ha ESQUIVADO el ataque!", style="bold cyan"), border_style="cyan"))
         return
 
-    # --- NUEVA INTERFAZ V4 (BLOQUES MODERNOS) ---
     from rich.console import Group
     icons = ["⚔️", "🔥", "🪨", "⚡", "🔮"]
     colors = ["white", "orange3", "yellow4", "bright_blue", "purple"]
@@ -174,11 +173,11 @@ def _display_combat_details(attacker_name, defender_name, res, is_counter=False)
     # Footer
     footer = Text()
     if res.get("barrier_absorbed", 0) > 0:
-        footer.append(f"🛡️ Barrera: -{res['barrier_absorbed']:.1f} ", style="bold blue")
+        footer.append(f"Barrera: -{res['barrier_absorbed']:.1f} ", style="bold blue")
     
-    footer.append(f"💥 TOTAL: {res['total_damage']:.1f}", style="bold yellow")
+    footer.append(f"TOTAL: {res['total_damage']:.1f}", style="bold yellow")
     if res.get("is_counter"):
-        footer.append(f"\n⚡ ¡{defender_name} se prepara para CONTRAATACAR!", style="bold magenta")
+        footer.append(f"\n¡{defender_name} se prepara para CONTRAATACAR!", style="bold magenta")
     
     panel = Panel(
         content,
@@ -279,7 +278,6 @@ def zone_loader(player_zone: str) -> cEnemy:
             )
             return None
 
-        # PASO 5: Filtrar jefes por SPAWN_CHANCE y seleccionar aleatoriamente
         valid_enemies = []
         for e in enemy_list:
             if getattr(e, 'IS_BOSS', False):
@@ -351,20 +349,16 @@ def load_test_items():
     global item_manager
 
     try:
-        # Cargar Espada Grande (ID: 3)
         great_sword = load_item_by_id(3, cWeapon, cEquippableItems, cObject, cTool)
-
-        # Cargar Bastón Mágico (ID: 4 o 5)
         magic_staff = load_item_by_id(4, cWeapon, cEquippableItems, cObject, cTool)
 
-        # Cargar algunos anillos
+
         ring_1 = load_item_by_id(40, cWeapon, cEquippableItems, cObject, cTool)
         ring_2 = load_item_by_id(41, cWeapon, cEquippableItems, cObject, cTool)
 
-        # Cargar pociones
+
         health_potion = load_item_by_id(52, cWeapon, cEquippableItems, cObject, cTool)
 
-        # Agregar al inventario para pruebas (opcional)
         if great_sword:
             vInventory.addObject(great_sword)
             console.print(
@@ -377,7 +371,7 @@ def load_test_items():
 
 def display_player_status() -> None:
     """Estado del jugador con barras y zona actual (inspirado en Interfaces/01_dashboard.py)."""
-    # Cabecera: nombre, nivel, zona, oro
+
     header = Table.grid(expand=True)
     header.add_column(justify="left")
     header.add_column(justify="right")
@@ -470,7 +464,6 @@ def create_hp_barrier_bar(
 def render_combat_menu(player, enemy, combat_round: int) -> None:
     """UI de combate Heraldo: [aliados] vs [enemigo]."""
     try:
-        from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
         w = get_weather_manager().get_current_weather()
         weather_text = f"  |  {ICONS['weather']} {w.name}"
     except Exception:
@@ -608,9 +601,9 @@ def display_zone_enemies(zone_name: str, enemies_data: List, strings_data: Dict)
             f"{magical_total_min}-{magical_total_max}" if magical_total_max > 0 else "0"
         )
 
-        # Formatear defensa - mostrar la física principalmente
+  
         if isinstance(enemy.DEF, (list, tuple)):
-            defense = f"{enemy.DEF[0]}"  # Mostrar defensa física
+            defense = f"{enemy.DEF[0]}" 
         else:
             defense = f"{enemy.DEF}"
 
@@ -625,13 +618,15 @@ def display_zone_enemies(zone_name: str, enemies_data: List, strings_data: Dict)
 
 
 _MAIN_MENU_ASCII = '''
-  _______ _____  _____  _____   _____  _____ 
- |__   __|  __ \\|  __ \\|  __ \\ / ____|/ ____|
-    | |  | |__) | |__) | |__) | |  __| |  __ 
-    | |  |  ___/|  ___/|  _  /| | |_ | | |_ |
-    | |  | |    | |    | | \\ \\| |__| | |__| |
-    |_|  |_|    |_|    |_|  \\_\\\\_____|\\_____|
+  _______ _____  _____  _____   _____   ____
+ |__   __|  __ \\|  __ \\|  __ \\ |  __ \\ / ____|
+    | |  | |__) | |__) | |__)  | |__)|| |  ___ 
+    | |  |  ___/|  ___/|  _  / |  ___/| | |_ |
+    | |  | |    | |    | | \\ \\ | |    | |__| |
+    |_|  |_|    |_|    |_|  \\_\\|_|    |______|
 '''
+
+
 
 def _bar(current: float, maximum: float, width: int = 10, color: str = "green") -> str:
     if maximum <= 0: return "░" * width
