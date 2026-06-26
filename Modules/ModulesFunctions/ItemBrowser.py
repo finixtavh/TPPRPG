@@ -11,9 +11,9 @@ from rich.live import Live
 from rich.box import ROUNDED
 from rich.rule import Rule
 from rich import box
-from sshkeyboard import listen_keyboard, stop_listening
+from sshkeyboard import stop_listening
 
-from Modules.ModulesUtils.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope, start_key_listener
 from Modules.ModulesManager.ItemManager import get_item_manager
 from Modules.ModulesUtils.setup import cWeapon, cEquippableItems, cObject
 from Modules.ModulesFunctions.GatheringMasterySystem import cMaterial, cTool  
@@ -161,8 +161,7 @@ def open_item_browser(player, item_manager):
     state["dirty"] = True
     with console.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             try:
                 with Live(console=console, screen=True, auto_refresh=False) as live:
                     while not state["exit"]:

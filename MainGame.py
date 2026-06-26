@@ -1,13 +1,11 @@
 from rich.console import Console, Group
-from rich.layout import Layout
 from rich.theme import Theme
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.columns import Columns
-from rich.progress import Progress, SpinnerColumn, TextColumn # IDK HOW TO USE TS
-from rich.align import Align 
-from typing import List, Dict, Optional, Tuple, Any, Union
+from rich.align import Align
+from typing import List, Dict, Optional, Tuple, Any
 from rich import box
 import sys
 import time
@@ -17,7 +15,7 @@ from Modules.ModulesUtils.UIStyle import (
     herald_bar, herald_panel, herald_table, ICONS, 
     COLOR_PRIMARY, COLOR_SECONDARY, COLOR_DIM
 )
-from sshkeyboard import listen_keyboard, stop_listening
+from sshkeyboard import stop_listening
 
 # -----------------------------------------------------------------------------
 # Modules/
@@ -29,6 +27,7 @@ from Modules.ModulesManager.BuffManager import get_buff_manager
 
 from Modules.ModulesMenu.InventoryMenu import open_inventory_menu
 from Modules.ModulesMenu.GuildMenu import open_guild_menu
+from Modules.ModulesMenu.DebugMenu import open_enhanced_debug_menu
 
 from Modules.ModulesFunctions.GatheringMasterySystem import cTool, cMaterial, Gathering_init
 from Modules.ModulesFunctions.EnchantmentSystem import open_enchantment_menu
@@ -38,15 +37,16 @@ from Modules.ModulesFunctions.CraftingSystem import open_crafting_menu
 from Modules.ModulesFunctions.GuildSystem import get_guild_manager, SIMULATION_INTERVAL
 from Modules.ModulesFunctions.QuestSystem import quest_manager
 from Modules.ModulesFunctions.BaseSystem import BaseManager, open_base_menu
-from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
+from Modules.ModulesFunctions.WeatherSystem import get_weather_manager, apply_weather_combat_mods
+from Modules.ModulesManager.ItemModifierSystem import roll_and_apply_modifier, get_item_display_name
 from Modules.ModulesFunctions.CompanionSystem import (
     cCompanion,
     companion_management_menu,
     COMPANION_REVIVAL_GOLD_COST,)
 
 from Modules.ModulesUtils.Loader import Write, Read
-from Modules.ModulesUtils.ModLoader import get_mod_loader, get_mod_api
-from Modules.ModulesUtils.input_utils import wait_for_enter, interactive_menu_select, keyboard_listener_scope
+from Modules.ModulesUtils.ModLoader import get_mod_loader, get_mod_api, GAME_VERSION
+from Modules.ModulesUtils.input_utils import wait_for_enter, interactive_menu_select, keyboard_listener_scope, start_key_listener
 from Modules.ModulesUtils.debug import (
     setup_logging,
     attach_console_logging,
@@ -61,20 +61,18 @@ from Modules.ModulesUtils.setup import (
     cObject,
     setup_player,
     vInventory,
-    enemy_loader,)
+    enemy_loader,
+    roll_group_size,)
 
 # ---   ---
 import random
 import time as sp
 import os
-import sys
-import traceback
+import copy
 import threading
 
 # Game configuration
 CONFIG = Read("config.json", None)
-
-data_path = os.path.join("Data", "DataStats.json")
 
 # Initialize console with custom theme
 custom_theme = Theme(
@@ -115,8 +113,7 @@ def _display_combat_details(attacker_name, defender_name, res, is_counter=False)
     title = f"[bold yellow]CONTRAATAQUE[/]" if is_counter else f"[bold cyan]ATAQUE: {attacker_name} → {defender_name}[/]"
     
     if res.get("is_evaded"):
-        console.print(Panel(Text(f"¡{defender_name} ha ESQUIVADO el ataque!", style="bold cyan"), border_style="cyan"))
-        return
+        return Panel(Text(f"¡{defender_name} ha ESQUIVADO el ataque!", style="bold cyan"), border_style="cyan")
 
     from rich.console import Group
     icons = ["⚔️", "🔥", "🪨", "⚡", "🔮"]
@@ -134,7 +131,14 @@ def _display_combat_details(attacker_name, defender_name, res, is_counter=False)
             bar = "▉" * bar_size
             content.append(f"{bar}", style=colors[i])
             content.append(f" {icons[i]} {val:.1f} {types_display[i]}", style="bold " + colors[i])
-            
+
+            # Afinidad elemental: marcar debilidad / resistencia
+            aff = res.get("affinity_mult", [1.0]*5)[i]
+            if aff > 1.0:
+                content.append(f"  ¡DÉBIL! x{aff:.2g}", style="bold bright_green")
+            elif aff < 1.0:
+                content.append(f"  Resiste x{aff:.2g}", style="bold bright_red")
+
             # Construir explicación detallada (Parentesis)
             parts = []
             
@@ -193,33 +197,33 @@ def _display_combat_details(attacker_name, defender_name, res, is_counter=False)
 def _perform_attack(attacker, defender, console, redraw_callback=None, combat_logs=None):
     """Ejecuta un ataque y maneja el posible contraataque en cadena."""
     res = attacker.attack(defender)
-    panel = _display_combat_details(getattr(attacker, "name", getattr(attacker, "NAME", "???")), 
-                           getattr(defender, "name", getattr(defender, "NAME", "???")), res)
-    
-    if combat_logs is not None:
-        combat_logs.append(panel)
-        if redraw_callback:
-            redraw_callback(combat_logs)
-    else:
-        console.print(panel)
-    
-    total_dmg = res.get("total_damage", 0)
-    
-    if res.get("is_counter") and getattr(defender, "Health", getattr(defender, "HP", 0)) > 0:
-        sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0) * 0.5)
-        counter_res = defender.attack(attacker)
-        c_panel = _display_combat_details(getattr(defender, "name", getattr(defender, "NAME", "???")), 
-                               getattr(attacker, "name", getattr(attacker, "NAME", "???")), counter_res, is_counter=True)
-        
+    panel = _display_combat_details(attacker.name, defender.name, res)
+
+    if panel is not None:
         if combat_logs is not None:
-            combat_logs.append(c_panel)
+            combat_logs.append(panel)
             if redraw_callback:
                 redraw_callback(combat_logs)
         else:
-            console.print(c_panel)
-    
+            console.print(panel)
+
+    total_dmg = res.get("total_damage", 0)
+
+    if res.get("is_counter") and defender.Health > 0:
+        _combat_delay(0.5)
+        counter_res = defender.attack(attacker)
+        c_panel = _display_combat_details(defender.name, attacker.name, counter_res, is_counter=True)
+
+        if c_panel is not None:
+            if combat_logs is not None:
+                combat_logs.append(c_panel)
+                if redraw_callback:
+                    redraw_callback(combat_logs)
+            else:
+                console.print(c_panel)
+
     # Pausa para leer el resultado del ataque
-    sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
+    _combat_delay()
     return total_dmg
 if CONFIG["DEBUG"]["ENABLED"]:
     log_imported_modules(app_logger)
@@ -236,61 +240,56 @@ chars: List[Any] = []
 item_manager = None
 shop_manager = None
 
-def zone_loader(player_zone: str) -> cEnemy:
-    """
-    Carga enemigos de la zona especificada (DataStats.json O mods)
-
-    Args:
-        player_zone: Nombre de la zona a cargar
+def _load_zone_enemy_list(player_zone: str) -> Optional[List[cEnemy]]:
+    """Carga la lista de enemigos (instancias distintas) de una zona (base o mod).
 
     Returns:
-        Un enemigo aleatorio de la zona especificada
+        Lista de enemigos, o None si no hay datos/enemigos.
     """
+    data_npcs = None
     try:
-        data_npcs = None
-        try:
-            mod_api = get_mod_api()
+        mod_api = get_mod_api()
+        if player_zone in mod_api.stats_injections:
+            data_npcs = mod_api.stats_injections[player_zone]
+            console.print(f"[dim]Cargando zona de mod: {player_zone}[/dim]")
+    except Exception:
+        pass
 
-            if player_zone in mod_api.stats_injections:
-                data_npcs = mod_api.stats_injections[player_zone]
-                console.print(f"[dim]Cargando zona de mod: {player_zone}[/dim]")
-        except:
-            pass
+    if not data_npcs:
+        data_npcs = Read(os.path.join("Data", "DataStats.json"), player_zone, None)
 
-        if not data_npcs:
-            data_path = os.path.join("Data", "DataStats.json")
-            data_npcs = Read(data_path, player_zone, None)
+    if not data_npcs:
+        console.print(f"[danger]No se encontraron datos para la zona: {player_zone}[/danger]")
+        return None
 
-            if data_npcs:
-                console.print(f"[dim]Cargando zona del juego base: {player_zone}[/dim]")
+    enemy_list = enemy_loader(data_npcs)
+    if not enemy_list:
+        console.print(f"[danger]No se encontraron enemigos en la zona: {player_zone}[/danger]")
+        return None
+    return enemy_list
 
-        if not data_npcs:
-            console.print(
-                f"[danger]No se encontraron datos para la zona: {player_zone}[/danger]"
-            )
-            return None
 
-        enemy_list = enemy_loader(data_npcs)
+def _spawnable_enemies(enemy_list: List[cEnemy]) -> List[cEnemy]:
+    """Filtra jefes según su SPAWN_CHANCE; nunca devuelve lista vacía."""
+    valid = []
+    for e in enemy_list:
+        if getattr(e, 'IS_BOSS', False):
+            if random.random() <= getattr(e, 'SPAWN_CHANCE', 1.0):
+                valid.append(e)
+        else:
+            valid.append(e)
+    return valid or enemy_list
 
+
+def zone_loader(player_zone: str) -> Optional[cEnemy]:
+    """Carga un enemigo aleatorio de la zona indicada."""
+    try:
+        enemy_list = _load_zone_enemy_list(player_zone)
         if not enemy_list:
-            console.print(
-                f"[danger]No se encontraron enemigos en la zona: {player_zone}[/danger]"
-            )
             return None
 
-        valid_enemies = []
-        for e in enemy_list:
-            if getattr(e, 'IS_BOSS', False):
-                if random.random() <= getattr(e, 'SPAWN_CHANCE', 1.0):
-                    valid_enemies.append(e)
-            else:
-                valid_enemies.append(e)
-                
-        if not valid_enemies:
-            valid_enemies = enemy_list
-            
-        enemy_random = random.choice(valid_enemies)
-        
+        enemy_random = random.choice(_spawnable_enemies(enemy_list))
+
         if getattr(enemy_random, 'IS_BOSS', False):
             console.print(f"[blink bold red]¡ADVERTENCIA! ¡Has encontrado a un JEFE: {enemy_random.NAME}![/blink bold red]")
         else:
@@ -298,141 +297,59 @@ def zone_loader(player_zone: str) -> cEnemy:
         return enemy_random
 
     except Exception as e:
-        console.print(
-            f"[danger]Error al cargar la zona {player_zone}: {str(e)}[/danger]"
-        )
+        console.print(f"[danger]Error al cargar la zona {player_zone}: {str(e)}[/danger]")
         traceback.print_exc()
         return None
 
 
 def zone_loader_group(player_zone: str, max_enemies: int = 5) -> List[cEnemy]:
-    """
-    Carga un grupo de hasta `max_enemies` enemigos de la zona indicada.
+    """Carga un grupo de enemigos de la zona.
 
-    Returns:
-        Lista de enemigos (puede ser vacía si falla la carga).
+    El tamaño del grupo lo decide el dict `group_spawn` del enemigo líder
+    (probabilidades 1..5). Los jefes siempre aparecen en solitario.
+    Devuelve instancias independientes (deepcopy) para que el HP no se comparta.
     """
     try:
-        data_npcs = None
-        try:
-            mod_api = get_mod_api()
-            if player_zone in mod_api.stats_injections:
-                data_npcs = mod_api.stats_injections[player_zone]
-        except Exception:
-            pass
-
-        if not data_npcs:
-            data_path_local = os.path.join("Data", "DataStats.json")
-            data_npcs = Read(data_path_local, player_zone, None)
-
-        if not data_npcs:
-            console.print(f"[danger]No se encontraron datos para la zona: {player_zone}[/danger]")
-            return []
-
-        enemy_list = enemy_loader(data_npcs)
+        enemy_list = _load_zone_enemy_list(player_zone)
         if not enemy_list:
             return []
 
-        # Elegir entre 1 y max_enemies enemigos aleatoriamente
-        count = random.randint(1, min(max_enemies, len(enemy_list)))
-        group = [random.choice(enemy_list) for _ in range(count)]
-        console.print(f"[success]Grupo de {count} enemigo(s) encontrado en {player_zone}.[/success]")
+        pool = _spawnable_enemies(enemy_list)
+        lead = random.choice(pool)
+
+        # Los jefes son encuentros en solitario
+        if getattr(lead, 'IS_BOSS', False):
+            console.print(f"[blink bold red]¡ADVERTENCIA! ¡Has encontrado a un JEFE: {lead.NAME}![/blink bold red]")
+            return [lead]
+
+        size = roll_group_size(getattr(lead, 'GROUP_SPAWN', None))
+        size = max(1, min(size, max_enemies))
+
+        # El relleno excluye jefes
+        fillers = [e for e in pool if not getattr(e, 'IS_BOSS', False)] or pool
+        group = [lead]
+        for _ in range(size - 1):
+            group.append(copy.deepcopy(random.choice(fillers)))
+
+        if len(group) > 1:
+            console.print(f"[success]¡Grupo de {len(group)} enemigos! Liderado por {lead.NAME}.[/success]")
+        else:
+            console.print(f"[success]Enemigo seleccionado: {lead.NAME}[/success]")
         return group
 
     except Exception as e:
         console.print(f"[danger]Error al cargar grupo de zona {player_zone}: {e}[/danger]")
+        traceback.print_exc()
         return []
-
-
-def load_test_items():
-    """Carga algunos items de prueba desde JSON para testing"""
-    global item_manager
-
-    try:
-        great_sword = load_item_by_id(3, cWeapon, cEquippableItems, cObject, cTool)
-        magic_staff = load_item_by_id(4, cWeapon, cEquippableItems, cObject, cTool)
-
-
-        ring_1 = load_item_by_id(40, cWeapon, cEquippableItems, cObject, cTool)
-        ring_2 = load_item_by_id(41, cWeapon, cEquippableItems, cObject, cTool)
-
-
-        health_potion = load_item_by_id(52, cWeapon, cEquippableItems, cObject, cTool)
-
-        if great_sword:
-            vInventory.addObject(great_sword)
-            console.print(
-                f"[info]Item de prueba cargado: {getattr(great_sword, 'Name', great_sword.name)}[/info]"
-            )
-
-    except Exception as e:
-        console.print(f"[warning]No se pudieron cargar items de prueba: {e}[/warning]")
-
-
-def display_player_status() -> None:
-    """Estado del jugador con barras y zona actual (inspirado en Interfaces/01_dashboard.py)."""
-
-    header = Table.grid(expand=True)
-    header.add_column(justify="left")
-    header.add_column(justify="right")
-
-    try:
-        from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
-        w = get_weather_manager().get_current_weather()
-        weather_text = f"   [bold]Clima:[/bold] {w.icon} {w.name}"
-    except ImportError:
-        weather_text = ""
-
-    zone_text = chosen_area if chosen_area is not None else "Ninguna"
-    left = Text.from_markup(
-        f"[bold]Nombre:[/bold] {player.name} [dim](Nivel {player.Level})[/dim]"
-    )
-    right = Text.from_markup(
-        f"[bold yellow]Oro:[/bold yellow] {player.Gold}   [bold]Zona:[/bold] {zone_text}{weather_text}"
-    )
-    header.add_row(left, right)
-
-    # Barras HP (con barrera) / MP
-    if player.Barrier >= 0:
-        health_bar, health_percent = create_hp_barrier_bar(
-            player.Health, player.Health_max, player.Barrier
-        )
-    else:
-        health_bar, health_percent = create_status_bar(
-            player.Health, player.Health_max, "red"
-        )
-    mana_bar, mana_percent = create_status_bar(player.Mana, player.Mana_max, "blue")
-
-    bars = Table.grid(padding=(0, 1))
-    bars.add_column()
-    
-    hp_label = f"[bold red]HP:[/bold red] {health_bar} [dim]{health_percent}%[/]"
-    if player.Barrier > 0:
-        hp_label += f" [bright_cyan]+{int(player.Barrier)} 🛡️[/bright_cyan]"    
-    bars.add_row(Text.from_markup(hp_label))
-    bars.add_row(
-        Text.from_markup(
-            f"[bold blue]MP:[/bold blue] {mana_bar} [dim]{mana_percent}%[/]"
-        )
-    )
-
-    content = Group(header, "", bars)
-    panel = Panel(
-        content, title="Estado del Jugador", border_style="bright_white", padding=(0, 1)
-    )
-    console.print(panel)
 
 
 player = None
 
 
-def create_status_bar(current: float, maximum: float, color: str = "green", return_values: bool = True) -> Any:
+def create_status_bar(current: float, maximum: float, color: str = "green") -> Tuple[str, int]:
     """Crea una barra de estado estilo Heraldo."""
     bar = herald_bar(current, maximum, width=CONFIG["DISPLAY"]["BAR_LENGTH"], color=color)
     percentage = int((current / maximum) * 100) if maximum > 0 else 0
-    if not return_values:
-        console.print(f"{bar} {percentage}%")
-        return None
     return bar, percentage
 
 
@@ -461,19 +378,25 @@ def create_hp_barrier_bar(
     return bar, percentage
 
 
-def render_combat_menu(player, enemy, combat_round: int) -> None:
-    """UI de combate Heraldo: [aliados] vs [enemigo]."""
+def render_combat_menu(player, enemies, combat_round: int) -> None:
+    """UI de combate Heraldo: [aliados] vs [grupo de enemigos].
+
+    `enemies` puede ser un solo enemigo o una lista de enemigos.
+    """
+    if not isinstance(enemies, (list, tuple)):
+        enemies = [enemies]
+
     try:
         w = get_weather_manager().get_current_weather()
         weather_text = f"  |  {ICONS['weather']} {w.name}"
     except Exception:
         weather_text = ""
-        
+
     console.print(Align.center(Text.from_markup(f"[bold gold3]RONDA {combat_round}[/]{weather_text}")))
 
     # Aliados
     ally_blocks = []
-    active_comps = [c for c in player.companion if c.is_alive or not c.is_alive][:4]
+    active_comps = player.companion[:4]
 
     for comp in active_comps:
         if comp.is_alive:
@@ -504,22 +427,27 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
     
     ally_blocks.append(herald_panel(p_content, border_style="green"))
 
-    # Enemigo
-    e_hp_bar, e_hp_pct = create_status_bar(enemy.HP, enemy.HP_M, "red")
-    e_mp_bar, e_mp_pct = create_status_bar(enemy.MP, enemy.MP_M, "blue")
-    e_content = Table.grid()
-    e_content.add_row(f"[bold red]{enemy.NAME}[/]")
-    e_content.add_row(f"{ICONS['hp']}{e_hp_bar} [dim]{e_hp_pct}%[/]")
-    e_content.add_row(f"{ICONS['mp']}{e_mp_bar} [dim]{e_mp_pct}%[/]")
-    
-    enemy_panel = herald_panel(e_content, border_style="red")
+    # Enemigos (grupo): cada uno con su índice de objetivo [1], [2], ...
+    enemy_blocks = []
+    for idx, en in enumerate(enemies, 1):
+        if getattr(en, "HP", 0) > 0:
+            e_hp_bar, e_hp_pct = create_status_bar(en.HP, en.HP_M, "red")
+            e_content = Table.grid()
+            e_content.add_row(f"[bold red][{idx}] {en.NAME}[/]")
+            e_content.add_row(f"{ICONS['hp']}{e_hp_bar} [dim]{e_hp_pct}%[/]")
+            e_content.add_row(f"[dim]{int(en.HP)}/{en.HP_M}[/]")
+            enemy_blocks.append(herald_panel(e_content, border_style="red"))
+        else:
+            enemy_blocks.append(herald_panel(f"[dim][{idx}] {en.NAME}[/]\n[bold red]💀 Muerto[/]", border_style="dim"))
+
+    enemy_panel = Columns(enemy_blocks, padding=(0, 1), equal=True)
 
     # Layout de Combate
     main_grid = herald_table()
     main_grid.add_column(ratio=2) # Aliados
-    main_grid.add_column(ratio=1) # Enemigo
+    main_grid.add_column(ratio=2) # Enemigos
     main_grid.add_row(Columns(ally_blocks, padding=(0, 1), equal=True), enemy_panel)
-    
+
     console.print(main_grid)
 
     actions = Table.grid(padding=(0, 2))
@@ -539,7 +467,6 @@ def render_combat_menu(player, enemy, combat_round: int) -> None:
 
 def apply_debuffs(player: Any) -> Dict[str, Any]:
     """Aplica todos los debuffs activos al jugador usando el BuffManager."""
-    from Modules.ModulesManager.BuffManager import get_buff_manager
     manager = get_buff_manager()
     
     debuffs = getattr(player, "applieddebuffs", [])
@@ -565,53 +492,6 @@ def apply_debuffs(player: Any) -> Dict[str, Any]:
             # Otros efectos se procesan dinámicamente en el combate
                 
     return total_modifiers
-
-
-def display_zone_enemies(zone_name: str, enemies_data: List, strings_data: Dict) -> None:
-    """Muestra información de enemigos de una zona."""
-    # Nombre y estilo de la zona desde el JSON (Strings.name)
-    # Obtener título y color de la zona desde JSON
-    zone_title = strings_data.get("name", zone_name)
-    zone_style = strings_data.get("color", "white")  # Color desde JSON, default "white"
-
-    zone_table = Table(title=zone_title, title_style=zone_style)
-    zone_table.add_column("Enemigo", style=zone_style)
-    zone_table.add_column("Vida", justify="right")
-    zone_table.add_column("Daño Físico", justify="right", style="red")
-    zone_table.add_column("Daño Mágico", justify="right", style="blue")
-    zone_table.add_column("Defensa", justify="right")
-
-    console.print(
-        f"\n[bold {zone_style}]{zone_title}[/bold {zone_style}]: {strings_data.get('desc', 'No hay descripción disponible')}"
-    )
-
-    for enemy in enemy_loader(enemies_data, False):
-        # Formatear daño multi-tipo
-        # DMG es [Físico, Térmico, Tierra, Eléctrico, Profundo]
-        physical_dmg = f"{enemy.DMG_min[0]}-{enemy.DMG[0]}" if enemy.DMG[0] > 0 else "0"
-
-        # Sumar todos los daños mágicos (Térmico, Tierra, Eléctrico, Profundo)
-        magical_total_min = sum(enemy.DMG_min[1:4])
-        magical_total_max = sum(enemy.DMG[1:4])
-        if enemy.DMG[4] > 0:  # Profundo siempre máximo
-            magical_total_max += enemy.DMG[4]
-            magical_total_min += enemy.DMG[4]
-
-        magical_dmg = (
-            f"{magical_total_min}-{magical_total_max}" if magical_total_max > 0 else "0"
-        )
-
-  
-        if isinstance(enemy.DEF, (list, tuple)):
-            defense = f"{enemy.DEF[0]}" 
-        else:
-            defense = f"{enemy.DEF}"
-
-        zone_table.add_row(
-            enemy.NAME, str(enemy.HP_M), physical_dmg, magical_dmg, defense
-        )
-
-    console.print(zone_table)
 
 
 ############################## Main Menu Functions ##############################
@@ -645,8 +525,7 @@ def _create_player_panel(player):
     table.add_row("", f"[dim]{int(player.Mana)}/{player.Mana_max}[/dim]")
     
     table.add_row("", "") # Espaciador
-    
-    from Modules.ModulesFunctions.WeatherSystem import apply_weather_combat_mods
+
     atk_f = apply_weather_combat_mods(getattr(player, "ATK", 0), "attack")
     def_f = apply_weather_combat_mods(player.DEF[0] if hasattr(player, "DEF") else 0, "defense")
     
@@ -871,12 +750,7 @@ def display_main_menu() -> int:
     
     kb = None
     with keyboard_listener_scope():
-        kb = threading.Thread(
-            target=listen_keyboard,
-            kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0, "until": None},
-            daemon=True,
-        )
-        kb.start()
+        kb = start_key_listener(_on_press)
         try:
             with Live(_render(), console=console, screen=True, auto_refresh=False) as live:
                 while not state["done"]:
@@ -989,6 +863,302 @@ def run_zone_gathering(zone_key: str) -> bool:
         return False
 
 
+############################## Combat Helpers ##############################
+
+
+def _combat_delay(factor: float = 1.0) -> None:
+    """Pausa de animación de combate (configurable, desacoplada del refresh de menús)."""
+    sp.sleep(CONFIG.get("COMBAT", {}).get("ANIM_DELAY", 0.4) * factor)
+
+
+def _alive_enemies(enemies: List[cEnemy]) -> List[cEnemy]:
+    return [e for e in enemies if getattr(e, "HP", 0) > 0]
+
+
+def _choose_target(enemies: List[cEnemy]) -> Optional[cEnemy]:
+    """Elige un enemigo objetivo. Auto si solo queda uno vivo."""
+    alive = [(i + 1, e) for i, e in enumerate(enemies) if getattr(e, "HP", 0) > 0]
+    if not alive:
+        return None
+    if len(alive) == 1:
+        return alive[0][1]
+    options = [(idx, f"[{idx}] {e.NAME} — HP {int(e.HP)}/{e.HP_M}") for idx, e in alive]
+    sel = interactive_menu_select(
+        title="¿A quién atacas?",
+        subtitle="Elige tu objetivo",
+        options=options,
+        prompt="Objetivo: ",
+        default_value=alive[0][0],
+        border_style="red",
+        use_screen=False,
+    )
+    for idx, e in alive:
+        if idx == sel:
+            return e
+    return alive[0][1]
+
+
+def _process_enemy_loot(enemy: cEnemy) -> List[str]:
+    """Genera el loot de un enemigo derrotado y lo agrega al inventario.
+
+    Returns:
+        Lista de nombres (con markup) de los items soltados.
+    """
+    _world_cfg = CONFIG.get("WORLD", {})
+    _loot_mod = float(_world_cfg.get("GLOBAL_LOOT_MODIFIER", 1))
+    _lq_pos = float(_world_cfg.get("GLOBAL_LOOT_QUALITY_MODIFIER_POSITIVE", 1))
+    _lq_neg = float(_world_cfg.get("GLOBAL_LOOT_QUALITY_MODIFIER_NEGATIVE", 1))
+    _combat_cfg = CONFIG.get("COMBAT", {})
+    base_chance = float(_combat_cfg.get("LOOT_CHANCE", 0.40))
+    fallback_ids = _combat_cfg.get("LOOT_FALLBACK_IDS", [1, 10, 21, 32, 43, 54])
+
+    dropped: List[str] = []
+    if random.random() >= min(1.0, base_chance * _loot_mod):
+        return dropped
+
+    items_to_drop = random.choices([1, 2, 3, 4, 5], weights=[0.4, 0.5, 0.3, 0.2, 0.08], k=1)[0]
+    loot_pool = getattr(enemy, "loot_tables", None)
+
+    for _ in range(items_to_drop):
+        if loot_pool and isinstance(loot_pool, dict) and len(loot_pool) > 0:
+            ids = list(loot_pool.keys())
+            weights = list(loot_pool.values())
+            loot_id = int(random.choices(ids, weights=weights, k=1)[0])
+        else:
+            loot_id = random.choice(fallback_ids)
+
+        loot_item = load_item_by_id(loot_id, cWeapon, cEquippableItems, cObject, cTool, cMaterial)
+        if not loot_item:
+            continue
+        try:
+            mod = roll_and_apply_modifier(loot_item, _lq_pos, _lq_neg)
+            display_name = get_item_display_name(loot_item)
+            mod_txt = f" [{('red' if mod.is_negative else 'green')}]{mod.icon} {mod.name}[/]" if mod else ""
+        except Exception:
+            display_name = getattr(loot_item, "name", getattr(loot_item, "Name", "Objeto"))
+            mod_txt = ""
+        dropped.append(f"{display_name}{mod_txt}")
+        vInventory.addObject(loot_item)
+        try:
+            get_mod_api().fire_event("item_looted", player, loot_item, enemy)
+        except Exception:
+            pass
+    return dropped
+
+
+def _grant_group_victory(enemies: List[cEnemy], add_log) -> None:
+    """Otorga EXP, oro, loot y dispara quests/impuestos al derrotar al grupo."""
+    _world_cfg = CONFIG.get("WORLD", {})
+    _exp_mod = float(_world_cfg.get("GLOBAL_EXP_MODIFIER", 1))
+    _gold_mod = float(_world_cfg.get("GLOBAL_GOLD_MODIFIER", 1))
+
+    total_exp = sum(int(getattr(e, "EXP_TO_PLAYER", 0) * _exp_mod) for e in enemies)
+    total_gold = sum(int(getattr(e, "GOLD", 0) * _gold_mod) for e in enemies)
+    player.EXP += total_exp
+    player.Gold += total_gold
+    add_log(f"[success]Ganaste {total_exp} EXP y {total_gold} oro.[/success]")
+
+    all_drops: List[str] = []
+    for e in enemies:
+        all_drops.extend(_process_enemy_loot(e))
+        quest_manager.update_kill_quest(e.NAME, player)
+        try:
+            get_mod_api().fire_event("enemy_killed", player, e, chosen_area)
+        except Exception:
+            pass
+
+    if all_drops:
+        add_log("\n[success]¡El grupo soltó los siguientes objetos![/success]")
+        for d in all_drops:
+            add_log(f"  [yellow]- {d}[/yellow]")
+
+    player.level_up()
+
+    gm = get_guild_manager()
+    pg = gm.get_player_guild()
+    if pg:
+        pg.fight_count += 1
+        if pg.fight_count >= 5:
+            tax_msg = pg.apply_taxes()
+            add_log(f"\n[bold yellow]💰 {tax_msg}[/bold yellow]")
+            pg.fight_count = 0
+
+    # ── Avanzar la simulación viva de guilds cada SIMULATION_INTERVAL combates ──
+    player.combat_counter = getattr(player, "combat_counter", 0) + 1
+    if gm.guilds and player.combat_counter % SIMULATION_INTERVAL == 0:
+        try:
+            events = gm.tick(gm.resource_defs, gm.guild_type_defs)
+            try:
+                get_mod_api().fire_guild_tick_handlers(gm)
+            except Exception:
+                pass
+            if events:
+                add_log("\n[bold magenta]🌍 El mundo de las guilds avanza:[/]")
+                for e in events[:5]:
+                    add_log(f"  [dim]{e}[/dim]")
+        except Exception as e:
+            add_log(f"[dim]Error en simulación de guilds: {e}[/dim]")
+
+
+############################## Mod Manager UI ##############################
+
+
+def open_mod_manager() -> None:
+    """Gestor de mods: activar/desactivar, recargar, ajustes y comandos."""
+    mod_loader_instance = get_mod_loader()
+    api = get_mod_api()
+
+    while True:
+        console.clear()
+        mod_loader_instance.display_mods_info()
+
+        choice = interactive_menu_select(
+            title="Gestión de Mods",
+            subtitle=f"Versión del juego: {GAME_VERSION}",
+            options=[
+                (1, "Activar / Desactivar un mod"),
+                (2, "Recargar un mod"),
+                (3, "Recargar TODOS los mods"),
+                (4, "Ajustes de un mod"),
+                (5, "Ejecutar comando de mod"),
+                (6, "Estado del sistema"),
+                (0, "Volver"),
+            ],
+            prompt="Opción: ",
+            default_value=0,
+            border_style="cyan",
+            use_screen=False,
+        )
+
+        if choice == 0:
+            break
+
+        all_mods = mod_loader_instance.discover_mods()
+
+        if choice == 1:  # toggle enable/disable
+            if not all_mods:
+                console.print("[warning]No hay mods.[/warning]"); wait_for_enter(); continue
+            opts = []
+            keys = list(all_mods.keys())
+            for i, name in enumerate(keys, 1):
+                state = "ON" if mod_loader_instance.is_enabled(name) else "OFF"
+                opts.append((i, f"[{state}] {all_mods[name].display_name}"))
+            opts.append((0, "Cancelar"))
+            sel = interactive_menu_select(title="Activar/Desactivar", options=opts,
+                                          prompt="Mod: ", default_value=0, border_style="yellow", use_screen=False)
+            if sel and sel != 0:
+                name = keys[sel - 1]
+                if mod_loader_instance.is_enabled(name):
+                    mod_loader_instance.disable_mod(name)
+                    console.print(f"[yellow]'{name}' desactivado. Recargando...[/yellow]")
+                else:
+                    mod_loader_instance.enable_mod(name)
+                    console.print(f"[green]'{name}' activado. Recargando...[/green]")
+                mod_loader_instance.load_all_mods()
+                api.integrate_all()
+                api.integrate_with_quest_manager(quest_manager)
+                api.apply_player_attributes(player)
+            wait_for_enter()
+
+        elif choice == 2:  # reload one
+            loaded = list(mod_loader_instance.loaded_mods.keys())
+            if not loaded:
+                console.print("[warning]No hay mods cargados.[/warning]"); wait_for_enter(); continue
+            opts = [(i, n) for i, n in enumerate(loaded, 1)] + [(0, "Cancelar")]
+            sel = interactive_menu_select(title="Recargar mod", options=opts, prompt="Mod: ",
+                                          default_value=0, border_style="yellow", use_screen=False)
+            if sel and sel != 0:
+                name = loaded[sel - 1]
+                if mod_loader_instance.reload_mod(name):
+                    api.integrate_all()
+                    console.print(f"[success]'{name}' recargado.[/success]")
+                else:
+                    console.print(f"[danger]No se pudo recargar '{name}'.[/danger]")
+            wait_for_enter()
+
+        elif choice == 3:  # reload all
+            mod_loader_instance.load_all_mods()
+            api.integrate_all()
+            api.integrate_with_quest_manager(quest_manager)
+            api.apply_player_attributes(player)
+            console.print("[success]Todos los mods recargados.[/success]")
+            wait_for_enter()
+
+        elif choice == 4:  # settings
+            mods_with_settings = [n for n in all_mods if api.mod_settings_schema.get(n)]
+            if not mods_with_settings:
+                console.print("[warning]Ningún mod expone ajustes.[/warning]"); wait_for_enter(); continue
+            opts = [(i, all_mods[n].display_name) for i, n in enumerate(mods_with_settings, 1)] + [(0, "Cancelar")]
+            sel = interactive_menu_select(title="Ajustes de Mod", options=opts, prompt="Mod: ",
+                                          default_value=0, border_style="yellow", use_screen=False)
+            if sel and sel != 0:
+                _edit_mod_settings(mods_with_settings[sel - 1], api, mod_loader_instance)
+
+        elif choice == 5:  # run command
+            cmds = list(api.custom_commands.items())
+            if not cmds:
+                console.print("[warning]No hay comandos de mod registrados.[/warning]"); wait_for_enter(); continue
+            opts = [(i, f"{n} — {info.get('description', '')}") for i, (n, info) in enumerate(cmds, 1)] + [(0, "Cancelar")]
+            sel = interactive_menu_select(title="Comandos de Mod", options=opts, prompt="Comando: ",
+                                          default_value=0, border_style="yellow", use_screen=False)
+            if sel and sel != 0:
+                cmd_name = cmds[sel - 1][0]
+                console.print(f"[info]Ejecutando '{cmd_name}'...[/info]")
+                api.run_command(cmd_name, player)
+            wait_for_enter()
+
+        elif choice == 6:  # system status
+            console.print(Panel(" Estado del Sistema de Mods", style="green"))
+            console.print(f"Mods cargados: {len(mod_loader_instance.loaded_mods)}")
+            console.print(f"Items inyectados (tipos): {len(api.item_injections)}")
+            console.print(f"Zonas inyectadas: {len(api.stats_injections)}")
+            console.print(f"Tiendas inyectadas: {len(api.shop_injections)}")
+            console.print(f"Recetas: {len(api.recipe_injections)} | Quests: {len(api.quest_injections)}")
+            console.print(f"Climas: {len(api.weather_injections)} | Afinidades: {len(api.affinity_injections)}")
+            console.print(f"Compañeros: {len(api.companion_injections)} | Buffs: {len(api.buff_injections)}")
+            console.print(f"Comandos: {len(api.custom_commands)}")
+            console.print(f"Event handlers: {sum(len(h) for h in api.event_handlers.values())}")
+            console.print(f"Atributos de jugador: {len(api.player_attributes)}")
+            wait_for_enter()
+
+
+def _edit_mod_settings(mod_name, api, mod_loader_instance) -> None:
+    schema = api.mod_settings_schema.get(mod_name, {})
+    while True:
+        keys = list(schema.keys())
+        opts = []
+        for i, k in enumerate(keys, 1):
+            val = api.get_setting(mod_name, k)
+            opts.append((i, f"{k} = {val}  [dim]({schema[k].get('description', '')})[/dim]"))
+        opts.append((0, "Volver"))
+        sel = interactive_menu_select(title=f"Ajustes: {mod_name}", options=opts, prompt="Ajuste: ",
+                                      default_value=0, border_style="cyan", use_screen=False)
+        if not sel or sel == 0:
+            mod_loader_instance._save_config()
+            break
+        key = keys[sel - 1]
+        meta = schema[key]
+        console.print(f"[info]{key} ({meta.get('type', 'str')}) — actual: {api.get_setting(mod_name, key)}[/info]")
+        raw = input("Nuevo valor: ").strip()
+        if raw == "":
+            continue
+        api.set_setting(mod_name, key, _coerce_setting(raw, meta.get("type", "str")))
+        console.print("[success]Guardado.[/success]")
+
+
+def _coerce_setting(raw: str, typ: str):
+    try:
+        if typ in ("int", "integer"):
+            return int(raw)
+        if typ in ("float", "number"):
+            return float(raw)
+        if typ in ("bool", "boolean"):
+            return raw.lower() in ("1", "true", "sí", "si", "yes", "y")
+    except ValueError:
+        pass
+    return raw
+
+
 ############################## Main Game Loop ##############################
 
 
@@ -1002,9 +1172,6 @@ def main():
     
     # Clear the screen for better UI
     os.system("cls" if os.name == "nt" else "clear")
-
-    # Display player status
-    # display_player_status()
 
     # Display main menu
     main_input = display_main_menu()
@@ -1091,8 +1258,6 @@ def main():
 
             traceback.print_exc()
 
-        wait_for_enter()
-
         console.print("\n[info]Presiona Enter para continuar... ↵ [/info]")
         wait_for_enter()
 
@@ -1130,47 +1295,43 @@ def main():
                     console.print(
                         "[danger]No puedes irte sin haber escogido una zona antes...[/danger]"
                     )
-                wait_for_enter()
-
-            # Selección de zona
-            zone_key, zone_name, zone_color = zones_list[zone_input - 1]
-            chosen_area = zone_key
-
-            console.print(f"[info]Cargando zona de {zone_name}...[/info]")
-            enemy = zone_loader(chosen_area)
-
-            if enemy:
-                console.print(
-                    f"[success]Has entrado a {zone_name}. Ten cuidado con {enemy.NAME}![/success]"
-                )
-
-                # Disparar evento de entrada a zona (para mods)
-                try:
-                    mod_api = get_mod_api()
-                    mod_api.fire_event("zone_entered", player, chosen_area)
-                except:
-                    pass
-
-                # La tienda de zona ahora se abre desde la opción 7 (submenú de zona).
-                if shop_manager:
-                    shop_items = shop_manager.get_shop_items(get_zone_shop_name(zone_key))
-                    if shop_items:
-                        console.print(f"[dim]La zona {zone_name} tiene tienda disponible.[/dim]")
-                    else:
-                        console.print(f"[dim]No hay tiendas disponibles en {zone_name}[/dim]")
             else:
-                console.print(
-                    f"[warning]No se pudo cargar un enemigo de {zone_name}.[/warning]"
-                )
+                # Selección de zona
+                zone_key, zone_name, zone_color = zones_list[zone_input - 1]
+                chosen_area = zone_key
+
+                console.print(f"[info]Cargando zona de {zone_name}...[/info]")
+                enemy = zone_loader(chosen_area)
+
+                if enemy:
+                    console.print(
+                        f"[success]Has entrado a {zone_name}. Ten cuidado con {enemy.NAME}![/success]"
+                    )
+
+                    # Disparar evento de entrada a zona (para mods)
+                    try:
+                        mod_api = get_mod_api()
+                        mod_api.fire_event("zone_entered", player, chosen_area)
+                    except:
+                        pass
+
+                    # La tienda de zona ahora se abre desde la opción 7 (submenú de zona).
+                    if shop_manager:
+                        shop_items = shop_manager.get_shop_items(get_zone_shop_name(zone_key))
+                        if shop_items:
+                            console.print(f"[dim]La zona {zone_name} tiene tienda disponible.[/dim]")
+                        else:
+                            console.print(f"[dim]No hay tiendas disponibles en {zone_name}[/dim]")
+                else:
+                    console.print(
+                        f"[warning]No se pudo cargar un enemigo de {zone_name}.[/warning]"
+                    )
 
         except Exception as e:
             console.print(f"[danger]Error al cargar zonas: {str(e)}[/danger]")
 
             traceback.print_exc()
 
-        wait_for_enter()
-
-        # Pause to read message
         console.print("\n[info]Presiona Enter para continuar... ↵ [/info]")
         wait_for_enter()
 
@@ -1421,8 +1582,7 @@ def main():
 
         _kb = None
         with keyboard_listener_scope():
-            _kb = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_key, "sequential": False, "delay_second_char": 0.0, "until": None}, daemon=True)
-            _kb.start()
+            _kb = start_key_listener(_on_key)
             try:
                 with Live(_build_panel(), console=console, screen=True, auto_refresh=False) as live:
                     while not _st["done"]:
@@ -1458,33 +1618,39 @@ def main():
                 )
 
                 if zone_input == 1:
-                    if enemy is None:
-                        enemy = zone_loader(chosen_area)
-                        if enemy is None:
-                            console.print("[danger]No hay enemigo disponible en esta zona.[/danger]")
-                            wait_for_enter()
-                            continue
+                    # Generar un grupo de enemigos (tamaño según group_spawn del líder)
+                    enemies = zone_loader_group(chosen_area)
+                    if not enemies:
+                        console.print("[danger]No hay enemigos disponibles en esta zona.[/danger]")
+                        wait_for_enter()
+                        continue
+                    enemy = enemies[0]  # mantener global por compatibilidad
+
+                    try:
+                        get_mod_api().fire_event("combat_start", player, enemies, chosen_area)
+                    except Exception:
+                        pass
 
                     combat_round = 1
                     combat_active = True
-                    
+
                     combat_logs = []
                     def redraw_combat_screen(logs=None):
                         if logs is None: logs = combat_logs
                         os.system("cls" if os.name == "nt" else "clear")
-                        render_combat_menu(player, enemy, combat_round)
+                        render_combat_menu(player, enemies, combat_round)
                         for log in logs:
                             console.print(log)
-                            
+
                     def add_log(markup):
                         combat_logs.append(Text.from_markup(markup))
                         redraw_combat_screen()
 
                     while combat_active:
                         os.system("cls" if os.name == "nt" else "clear")
-                        render_combat_menu(player, enemy, combat_round)
+                        render_combat_menu(player, enemies, combat_round)
                         player_debuffs = apply_debuffs(player)
-                        
+
                         # Apply Tax debuffs if player in guild
                         gm = get_guild_manager()
                         pg = gm.get_player_guild()
@@ -1496,7 +1662,7 @@ def main():
                                         player_debuffs[attr] = val
                                     else:
                                         player_debuffs[attr] *= val # Cumulative
-                        
+
                         if player_debuffs:
                             debuff_text = ", ".join([f"{attr}: {val}" for attr, val in player_debuffs.items()])
                             console.print(f"[warning]Debuffs activos (incl. Taxes): {debuff_text}[/warning]")
@@ -1513,37 +1679,40 @@ def main():
                             use_screen=False,
                             bottom_content=Group(*combat_logs) if combat_logs else None
                         )
-                        
+
                         combat_logs.clear()
                         redraw_combat_screen()
 
                         if combat_action == 1:
                             add_log("\n[bold]¡Tu turno![/bold]")
-                            sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0) * 0.3)
-                            damage_dealt = _perform_attack(player, enemy, console, redraw_combat_screen, combat_logs)
-                            
-                            # Registrar daño en mastery de arma
-                            try:
-                                mm = ensure_mastery(player)
-                                lvlup_msg = mm.register_damage_dealt(player, float(damage_dealt))
-                                if lvlup_msg:
-                                    console.print(f"[bold green]{lvlup_msg}[/bold green]")
-                            except Exception:
-                                pass
+                            _combat_delay(0.5)
+                            target = _choose_target(enemies)
+                            if target is not None:
+                                damage_dealt = _perform_attack(player, target, console, redraw_combat_screen, combat_logs)
+
+                                # Registrar daño en mastery de arma
+                                try:
+                                    mm = ensure_mastery(player)
+                                    lvlup_msg = mm.register_damage_dealt(player, float(damage_dealt))
+                                    if lvlup_msg:
+                                        console.print(f"[bold green]{lvlup_msg}[/bold green]")
+                                except Exception:
+                                    pass
 
                             # ── Acción de los Compañeros ────────────────────────────
                             for comp in player.companion:
-                                if comp.is_alive and enemy.HP > 0:
+                                if comp.is_alive and _alive_enemies(enemies):
+                                    c_target = _alive_enemies(enemies)[0]
                                     add_log(f"\n[cyan]>> Turno de {comp.name} <<[/cyan]")
-                                    sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0) * 0.2)
+                                    _combat_delay(0.3)
                                     c_opts = [(1, "Atacar")]
                                     c_class = getattr(comp, 'c_class', 'Daño')
-                                    
+
                                     if c_class == "Curandero":
                                         c_opts.extend([(2, "Curar al jugador"), (3, "Curar a todo el equipo")])
                                     elif c_class == "Soporte":
-                                        c_opts.append((2, f"Debilitar a {enemy.NAME}"))
-                                    
+                                        c_opts.append((2, f"Debilitar a {c_target.NAME}"))
+
                                     c_action = interactive_menu_select(
                                         title=f"Acción de {comp.name}",
                                         subtitle="Selecciona habilidad:",
@@ -1552,9 +1721,9 @@ def main():
                                         default_value=1,
                                         border_style="cyan"
                                     )
-                                    
+
                                     if c_action == 1:
-                                        _perform_attack(comp, enemy, console, redraw_combat_screen, combat_logs)
+                                        _perform_attack(comp, c_target, console, redraw_combat_screen, combat_logs)
                                     elif c_action == 2 and c_class == "Curandero":
                                         cura = player.Health_max * 0.20
                                         player.Health = min(player.Health_max, player.Health + cura)
@@ -1569,151 +1738,109 @@ def main():
                                         bm = get_buff_manager()
                                         debuff = bm.create_buff("5_debuff", "companion_skill")
                                         if debuff:
-                                            if not hasattr(enemy, 'active_buffs'): enemy.active_buffs = []
-                                            enemy.active_buffs.append(debuff)
-                                            add_log(f"[warning]{comp.name} aplicó {debuff.name} a {enemy.NAME}![/warning]")
+                                            if not hasattr(c_target, 'active_buffs'): c_target.active_buffs = []
+                                            c_target.active_buffs.append(debuff)
+                                            add_log(f"[warning]{comp.name} aplicó {debuff.name} a {c_target.NAME}![/warning]")
 
-                            # ── ¿Murió el enemigo? ────────────────────────────────
-                            if enemy.HP <= 0:
-                                add_log(f"[success]¡Has derrotado a {enemy.NAME}![/success]")
-
-                                # ── Modificadores globales de EXP y Oro ──────────
-                                _world_cfg   = CONFIG.get("WORLD", {})
-                                _exp_mod     = float(_world_cfg.get("GLOBAL_EXP_MODIFIER",  1))
-                                _gold_mod    = float(_world_cfg.get("GLOBAL_GOLD_MODIFIER", 1))
-                                _loot_mod    = float(_world_cfg.get("GLOBAL_LOOT_MODIFIER", 1))
-                                _lq_pos      = float(_world_cfg.get("GLOBAL_LOOT_QUALITY_MODIFIER_POSITIVE", 1))
-                                _lq_neg      = float(_world_cfg.get("GLOBAL_LOOT_QUALITY_MODIFIER_NEGATIVE", 1))
-
-                                exp_gain  = int(enemy.EXP_TO_PLAYER * _exp_mod)
-                                gold_gain = int(enemy.GOLD          * _gold_mod)
-                                player.EXP  += exp_gain
-                                player.Gold += gold_gain
-                                add_log(f"[success]Ganaste {exp_gain} EXP y {gold_gain} oro.[/success]")
-
-                                # ── Drop de loot ─────────────────────────────────
-                                _base_loot_chance = 0.40
-                                _loot_chance = min(1.0, _base_loot_chance * _loot_mod)
-                                
-                                if random.random() < _loot_chance:
-                                    # Determinar la cantidad de items a soltar según las probabilidades pedidas
-                                    # Usamos pesos relativos para que sea aleatorio pero respete la curva
-                                    items_to_drop = random.choices([1, 2, 3, 4, 5], weights=[0.4, 0.5, 0.3, 0.2, 0.08], k=1)[0]
-                                    
-                                    # Intentar usar loot table del enemigo
-                                    _loot_pool = getattr(enemy, "loot_tables", None)
-                                    
-                                    dropped_items_summary = []
-                                    
-                                    for _ in range(items_to_drop):
-                                        if _loot_pool and isinstance(_loot_pool, dict) and len(_loot_pool) > 0:
-                                            # Extraer claves y pesos
-                                            ids = list(_loot_pool.keys())
-                                            weights = list(_loot_pool.values())
-                                            loot_id = int(random.choices(ids, weights=weights, k=1)[0])
-                                        else:
-                                            # Fallback a lista de IDs genérica
-                                            _fallback_ids = [1, 10, 21, 32, 43, 54]
-                                            loot_id = random.choice(_fallback_ids)
-
-                                        loot_item = load_item_by_id(loot_id, cWeapon, cEquippableItems, cObject, cTool, cMaterial)
-                                        if loot_item:
-                                            # Aplicar modificador de objeto al loot (si aplica)
-                                            try:
-                                                from Modules.ModulesManager.ItemModifierSystem import roll_and_apply_modifier, get_item_display_name
-                                                mod = roll_and_apply_modifier(loot_item, _lq_pos, _lq_neg)
-                                                display_name = get_item_display_name(loot_item)
-                                                mod_txt = f" [{('red' if mod.is_negative else 'green')}]{mod.icon} {mod.name}[/]" if mod else ""
-                                            except Exception:
-                                                display_name = getattr(loot_item, 'name', getattr(loot_item, 'Name', 'Objeto'))
-                                                mod_txt = ""
-                                            
-                                            dropped_items_summary.append(f"{display_name}{mod_txt}")
-                                            vInventory.addObject(loot_item)
-                                            
-                                    if dropped_items_summary:
-                                        add_log(f"\n[success]¡{enemy.NAME} soltó los siguientes objetos![/success]")
-                                        for item_desc in dropped_items_summary:
-                                            add_log(f"  [yellow]- {item_desc}[/yellow]")
-
-                                quest_manager.update_kill_quest(enemy.NAME, player)
-                                player.level_up()
-
-                                # ── V4: Guild Taxes Trigger ──────────────────────────
-                                gm = get_guild_manager()
-                                pg = gm.get_player_guild()
-                                if pg:
-                                    pg.fight_count += 1
-                                    if pg.fight_count >= 5:
-                                        tax_msg = pg.apply_taxes()
-                                        add_log(f"\n[bold yellow]💰 {tax_msg}[/bold yellow]")
-                                        pg.fight_count = 0
-                                
-                                if input("¿Seguir en esta zona? (s/n): ").lower() == 's':
-                                    enemy = zone_loader(chosen_area)
+                            # ── ¿Murió todo el grupo? ─────────────────────────────
+                            if not _alive_enemies(enemies):
+                                if len(enemies) > 1:
+                                    add_log("[success]¡Has derrotado a todo el grupo![/success]")
                                 else:
-                                    enemy = None
+                                    add_log(f"[success]¡Has derrotado a {enemies[0].NAME}![/success]")
+
+                                _grant_group_victory(enemies, add_log)
+
+                                stay_choice = interactive_menu_select(
+                                    title="¡Grupo derrotado!",
+                                    subtitle="¿Qué quieres hacer?",
+                                    options=[(1, "Seguir en esta zona"), (2, "Volver al menú")],
+                                    prompt="Acción: ",
+                                    default_value=1,
+                                    border_style="green",
+                                    use_screen=False,
+                                )
+                                # En ambos casos volvemos al submenú de zona; un nuevo
+                                # grupo se generará al elegir "Luchar" otra vez.
+                                enemy = None
                                 combat_active = False
                                 break
 
-                            # ── Turno del enemigo ──
-                            add_log("\n[bold]¡Turno del enemigo![/bold]")
-                            sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
-                            alive_companions = [c for c in player.companion if c.is_alive]
-                            possible_targets = [player] + alive_companions
-                            attack_target = random.choice(possible_targets)
+                            # ── Turno de los enemigos (cada uno vivo ataca) ──
+                            add_log("\n[bold]¡Turno de los enemigos![/bold]")
+                            _combat_delay()
+                            for en in _alive_enemies(enemies):
+                                alive_companions = [c for c in player.companion if c.is_alive]
+                                possible_targets = [player] + alive_companions
+                                attack_target = random.choice(possible_targets)
 
-                            damage_taken = _perform_attack(enemy, attack_target, console, redraw_combat_screen, combat_logs)
+                                damage_taken = _perform_attack(en, attack_target, console, redraw_combat_screen, combat_logs)
 
-                            if attack_target is player:
-                                try:
-                                    mm = ensure_mastery(player)
-                                    lvlup_msg = mm.register_damage_received(player, float(damage_taken))
-                                    if lvlup_msg: console.print(f"[bold cyan]{lvlup_msg}[/bold cyan]")
-                                except Exception: pass
-                                
-                                if player.Health <= 0:
-                                    add_log("[danger]¡Has sido derrotado![/danger]")
-                                    player.Health = max(1, int(player.Health_max * 0.1))
-                                    player.Gold = max(0, player.Gold * 0.5)
-                                    combat_active = False
-                                    enemy = None
-                                    break
-                            else:
-                                if not attack_target.is_alive:
-                                    add_log(f"[bold red]💀 {attack_target.name} ha caído![/bold red]")
+                                if attack_target is player:
+                                    try:
+                                        mm = ensure_mastery(player)
+                                        lvlup_msg = mm.register_damage_received(player, float(damage_taken))
+                                        if lvlup_msg: console.print(f"[bold cyan]{lvlup_msg}[/bold cyan]")
+                                    except Exception: pass
+
+                                    if player.Health <= 0:
+                                        add_log("[danger]¡Has sido derrotado![/danger]")
+                                        player.Health = max(1, int(player.Health_max * 0.1))
+                                        player.Gold = max(0, int(player.Gold * 0.5))
+                                        combat_active = False
+                                        enemy = None
+                                        break
+                                else:
+                                    if not attack_target.is_alive:
+                                        add_log(f"[bold red]💀 {attack_target.name} ha caído![/bold red]")
+
+                            if not combat_active:
+                                break
 
                             combat_round += 1
 
                         elif combat_action == 2:
                             open_inventory_menu(vInventory, player)
                             os.system("cls" if os.name == "nt" else "clear")
-                            render_combat_menu(player, enemy, combat_round)
+                            render_combat_menu(player, enemies, combat_round)
                             continue
 
                         elif combat_action == 3:
-                            # Cálculo de escape: (EVA del jugador - AGI del enemigo) + chance aleatoria
+                            # Escape vs grupo: usa la AGI más alta entre enemigos vivos
                             base_escape_chance = random.uniform(0.3, 0.6)
                             player_eva = getattr(player, "Evasion", 0) / 100.0
-                            enemy_agi = getattr(enemy, "AGI", 0) / 100.0
+                            alive = _alive_enemies(enemies)
+                            enemy_agi = (max(getattr(e, "AGI", 0) for e in alive) / 100.0) if alive else 0.0
                             escape_chance = base_escape_chance + player_eva - enemy_agi
-                            
+
                             if random.random() < escape_chance:
                                 add_log(f"\n[success]¡Escapaste con éxito! (Probabilidad: {escape_chance*100:.1f}%)[/success]")
-                                sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0))
+                                _combat_delay()
                                 combat_active = False
                                 enemy = None
                                 break
                             else:
                                 add_log(f"\n[danger]¡No pudiste escapar! (Probabilidad: {escape_chance*100:.1f}%)[/danger]")
-                                sp.sleep(CONFIG["DISPLAY"].get("MENU_REFRESH_RATE", 1.0) * 0.5)
-                                _perform_attack(enemy, player, console, redraw_combat_screen, combat_logs)
-                                if player.Health <= 0:
-                                    combat_active = False
-                                    enemy = None
+                                _combat_delay(0.5)
+                                # Todos los enemigos vivos aprovechan para golpear
+                                for en in _alive_enemies(enemies):
+                                    _perform_attack(en, player, console, redraw_combat_screen, combat_logs)
+                                    if player.Health <= 0:
+                                        player.Health = max(1, int(player.Health_max * 0.1))
+                                        player.Gold = max(0, int(player.Gold * 0.5))
+                                        combat_active = False
+                                        enemy = None
+                                        break
+
+                                if not combat_active:
                                     break
-                                
+
                                 combat_round += 1
+
+                    try:
+                        get_mod_api().fire_event("combat_end", player, enemies, chosen_area)
+                    except Exception:
+                        pass
 
                 elif zone_input == 2:
                     try:
@@ -1736,63 +1863,7 @@ def main():
          
 
     elif main_input == 7:
-        # Gestión de Mods
-        console.print(Panel(" Gestión de Mods", style="cyan"))
-
-        mod_loader_instance = get_mod_loader()
-        mod_api_instance = get_mod_api()
-
-        while True:
-            console.print("\n1.  Mostrar mods cargados")
-            console.print("2.  Cargar/Recargar todos los mods")
-            console.print("3.  Estado del sistema de mods")
-            console.print("0.  Volver al menú principal")
-
-            mod_choice = get_validated_input("Selecciona una opción: ", [0, 1, 2, 3])
-
-            if mod_choice == 0:
-                break
-            elif mod_choice == 1:
-                mod_loader_instance.display_mods_info()
-
-                # Mostrar comandos personalizados si existen
-                if mod_api_instance.custom_commands:
-                    console.print("\n[bold]Comandos personalizados disponibles:[/bold]")
-                    for cmd_name, cmd_info in mod_api_instance.custom_commands.items():
-                        console.print(
-                            f"• {cmd_name}: {cmd_info.get('description', 'Sin descripción')}"
-                        )
-
-            elif mod_choice == 2:
-                console.print("[info]Cargando mods...[/info]")
-                mod_loader_instance.load_all_mods()
-                console.print("[success]Proceso de carga completado.[/success]")
-
-            elif mod_choice == 3:
-                console.print(Panel(" Estado del Sistema de Mods", style="green"))
-
-                loaded_count = len(mod_loader_instance.loaded_mods)
-                console.print(f"Mods cargados: {loaded_count}")
-
-                # Estadísticas de la API
-                console.print(
-                    f"Items registrados: {len(mod_api_instance.registered_items)}"
-                )
-                console.print(
-                    f"Enemigos registrados: {len(mod_api_instance.registered_enemies)}"
-                )
-                console.print(
-                    f"Zonas registradas: {len(mod_api_instance.registered_zones)}"
-                )
-                console.print(
-                    f"Comandos personalizados: {len(mod_api_instance.custom_commands)}"
-                )
-                console.print(
-                    f"Manejadores de eventos: {sum(len(handlers) for handlers in mod_api_instance.event_handlers.values())}"
-                )
-
-            console.print("\n[info]Presiona Enter para continuar...[/info]")
-            wait_for_enter()
+        open_mod_manager()
 
 
 
@@ -1879,7 +1950,6 @@ def main():
 
     elif main_input == 17 and CONFIG["DEBUG"]["ENABLED"]:
         try:
-            from Modules.ModulesMenu.DebugMenu import open_enhanced_debug_menu
             open_enhanced_debug_menu(
                 player=player, 
                 inventory=vInventory, 
@@ -1904,7 +1974,10 @@ def init_game():
     mod_loader_instance = get_mod_loader()
     mod_loader_instance.load_all_mods()
 
-    get_mod_api().integrate_with_quest_manager(quest_manager)
+    # Integrar contenido de mods en los managers reales (items, tiendas, encantamientos, buffs)
+    mod_api = get_mod_api()
+    mod_api.integrate_all()
+    mod_api.integrate_with_quest_manager(quest_manager)
 
     has_saves = False
     for s in [1, 2, 3]:
@@ -1938,6 +2011,13 @@ def init_game():
             player = setup_player()
     else:
         player = setup_player()
+
+    # Aplicar atributos de mod al jugador y disparar evento de creación
+    try:
+        mod_api.apply_player_attributes(player)
+        mod_api.fire_event("player_created", player)
+    except Exception as e:
+        console.print(f"[warning]Error aplicando atributos de mod: {e}[/warning]")
 
 # Execution
 if __name__ == "__main__":

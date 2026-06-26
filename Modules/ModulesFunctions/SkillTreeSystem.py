@@ -4,7 +4,7 @@ from typing import Dict, Any
 from rich.console import Console
 from rich.tree import Tree
 from rich.panel import Panel
-from Modules.ModulesUtils.input_utils import get_menu_refresh_rate
+from Modules.ModulesUtils.input_utils import get_menu_refresh_rate, interactive_menu_select
 
 
 console = Console()
@@ -112,7 +112,6 @@ class SkillTreeManager:
                 setattr(player, stat, actual + value)
 
     def open_menu(self, player):
-        from Modules.ModulesUtils.input_utils import interactive_menu_select
         
         # Asegurarse que el tracking exista (retrocompatibilidad a dict)
         if hasattr(player, "skills_purchased") and isinstance(player.skills_purchased, list):

@@ -60,6 +60,34 @@ def keyboard_listener_scope():
             _stop_keyboard_listener_and_wait()
 
 
+def start_key_listener(on_press, *, sequential=False, until=None,
+                       delay_second_char=0.0, delay_other_chars=0.0,
+                       daemon=True, **extra):
+    """Crea, arranca y devuelve un hilo daemon con listen_keyboard.
+
+    Centraliza los delays en 0 para evitar el lag por defecto de sshkeyboard
+    (delay_second_char=0.75, delay_other_chars=0.05) en los menús de navegación.
+    Debe usarse dentro de un `with keyboard_listener_scope():`.
+
+    Returns:
+        El threading.Thread arrancado (para poder hacer join()).
+    """
+    kb = threading.Thread(
+        target=listen_keyboard,
+        kwargs={
+            "on_press": on_press,
+            "sequential": sequential,
+            "delay_second_char": delay_second_char,
+            "delay_other_chars": delay_other_chars,
+            "until": until,
+            **extra,
+        },
+        daemon=daemon,
+    )
+    kb.start()
+    return kb
+
+
 def select_option_with_arrows(prompt: str, valid_options: List[int], default_option=None) -> int:
     """Select option using up/down arrows or numeric input (rápido y continuo)."""
     if not valid_options:
@@ -118,8 +146,14 @@ def select_option_with_arrows(prompt: str, valid_options: List[int], default_opt
 
     _render_prompt()
     with keyboard_listener_scope():
-        # sequential=False permite que múltiples pulsaciones rápidas se procesen mejor
-        listen_keyboard(on_press=_on_press, sequential=False)
+        # sequential=False + delays en 0: pulsaciones rápidas/repetidas sin lag
+        # (sshkeyboard por defecto espera 0.75s antes del 2º char repetido)
+        listen_keyboard(
+            on_press=_on_press,
+            sequential=False,
+            delay_second_char=0.0,
+            delay_other_chars=0.0,
+        )
     print()
 
     if selected["value"] is None:
@@ -276,14 +310,7 @@ def interactive_menu_select(
     kb_thread: Optional[threading.Thread] = None
 
     with keyboard_listener_scope():
-        kb_thread = threading.Thread(
-            target=listen_keyboard,
-            kwargs={"on_press": _on_press, "sequential": False, "delay_second_char": 0.0, "until": None},
-            daemon=True,
-        )
-        kb_thread.start()
-
-        
+        kb_thread = start_key_listener(_on_press)
 
         try:
             with Live(

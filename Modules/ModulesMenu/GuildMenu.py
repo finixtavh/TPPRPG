@@ -37,12 +37,14 @@ from rich.text import Text
 from rich.rule import Rule
 from rich.live import Live
 from rich import box
-from sshkeyboard import listen_keyboard, stop_listening
+from sshkeyboard import stop_listening
 
-from Modules.ModulesFunctions.GuildSystem import Guild, GuildManager, get_guild_manager, reset_guild_manager, SIMULATION_INTERVAL
+from Modules.ModulesFunctions.GuildSystem import Guild, GuildManager, get_guild_manager, reset_guild_manager, SIMULATION_INTERVAL, TIER_ROMAN, ROMAN_TIER, MAX_TERRITORY_LEVEL
+from Modules.ModulesUtils.setup import vInventory
+from Modules.ModulesUtils.Loader import Read
 from Modules.ModulesFunctions.GuildSkillTree import open_guild_skill_tree, BRANCH_ICONS
 from Modules.ModulesFunctions.GuildMissions import open_guild_missions_menu
-from Modules.ModulesUtils.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope, start_key_listener
 from Modules.ModulesUtils.UIStyle import (
     herald_panel, herald_bar, herald_table, ICONS, 
     COLOR_PRIMARY, COLOR_SECONDARY, COLOR_DIM
@@ -102,10 +104,7 @@ def _render_territories(guild: Guild, gm: GuildManager, page: int = 0):
         for tid in guild.territories[start:end]:
             terr = gm.territories.get(tid)
             if terr:
-                res_str = "  ".join(
-                    f"{gm.resource_defs.get(rid, {}).get('icon','?')} {amt}/tick"
-                    for rid, amt in terr.resource_output.items()
-                )
+                res_str = f"Nv.{terr.level} → mat. Tier {TIER_ROMAN.get(terr.level, 'I')}/tick"
                 t.add_row(f"{terr.icon} {terr.name}", res_str)
 
     footer = Text()
@@ -357,12 +356,7 @@ def _diplomacy_action_menu(player_guild: Guild, player, gm: GuildManager, con):
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "until": None},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -419,7 +413,7 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
         "exit":      False,
         "confirm_war": None,
         "page":      0,
-        "message":   "↑↓←→: Navegar | [ENTER]: Atacar | [ESC]: Volver",
+        "message":   "↑↓←→: Navegar | [ENTER]: Atacar | [U]: Mejorar (tuyo) | [ESC]: Volver",
         "msg_style": "dim",
     }
 
@@ -446,7 +440,7 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
         t.add_column("",            width=3)
         t.add_column("Territorio",  ratio=2)
         t.add_column("Dueño",       ratio=2)
-        t.add_column("Recursos",    ratio=3)
+        t.add_column("Producción",  ratio=3)
         t.add_column("Dif",         width=5)
         t.add_column("Estado",      width=12)
 
@@ -454,10 +448,7 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
             real_i = all_territories.index(terr)
             sel    = real_i == state["idx"]
             prio, status, s_color, owner_str = get_terr_status_and_priority(terr)
-            res_str = " ".join(
-                f"{gm.resource_defs.get(rid,{}).get('icon','?')}{amt}"
-                for rid, amt in list(terr.resource_output.items())[:3]
-            )
+            res_str = f"Nv.{terr.level} → mat. Tier {TIER_ROMAN.get(terr.level, 'I')}"
             nm = Text(f"{terr.icon} {terr.name}")
             if sel:
                 nm.stylize("bold reverse")
@@ -475,15 +466,21 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
             detail = Text()
             detail.append(f"\n  {terr.icon} {terr.name} — {terr.description}\n", style="bold cyan")
             if not is_own:
-                cost_xar = terr.difficulty * 8
-                cost_mad = terr.difficulty * 5
-                if "mil_siege_mastery" in player_guild.unlocked_skills:
-                    cost_mad = max(0, cost_mad - 4)
-                detail.append(f"  Coste de ataque: ⚡{cost_xar} Lingote de Xar + 🪵{cost_mad} Madera\n", style="yellow")
+                cost_t1 = terr.difficulty * 8
+                cost_t2 = terr.difficulty * 5
+                detail.append(f"  Coste de ataque: {cost_t1} mat. Tier I + {cost_t2} mat. Tier II\n", style="yellow")
                 detail.append(f"  Poder militar tu guild: {player_guild.military_power}  |  Defensa: {terr.defense_value}\n", style="dim")
                 detail.append("  [ENTER] Atacar\n", style="bold bright_cyan")
             else:
-                detail.append("  Ya controlas este territorio.\n", style="dim")
+                detail.append(f"  Nivel {terr.level}/{MAX_TERRITORY_LEVEL} — produce materiales Tier {TIER_ROMAN.get(terr.level,'I')}\n", style="green")
+                if terr.level < MAX_TERRITORY_LEVEL:
+                    cost = terr.upgrade_cost()
+                    (tk, amt), = cost.items()
+                    tr = tk.split("_", 1)[1]
+                    detail.append(f"  Mejora a Nv.{terr.level+1}: {amt} materiales Tier {tr} (de tu inventario)\n", style="yellow")
+                    detail.append("  [U] Mejorar territorio (recolecta los materiales a mano)\n", style="bold bright_green")
+                else:
+                    detail.append("  Nivel máximo alcanzado.\n", style="dim")
         else:
             detail = Text("Sin territorios disponibles.", style="dim")
 
@@ -525,6 +522,12 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
                     state["idx"] = 0
                 else:
                     state["idx"] = new_idx
+        elif key == "u" and all_territories:
+            # Mejorar territorio propio (consume materiales del inventario del jugador)
+            terr = all_territories[state["idx"]]
+            ok, msg = gm.upgrade_territory(terr, player, vInventory)
+            state["message"]   = msg
+            state["msg_style"] = "bold green" if ok else "bold red"
         elif key == "enter" and all_territories:
             terr  = all_territories[state["idx"]]
             is_own = terr.owner == player_guild.guild_id
@@ -563,19 +566,15 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
                         else:
                             player_guild.relations[gid] = -surprise_penalty
                     gm.world_events.append(f"💥 ¡{player_guild.name} ha declarado una GUERRA SORPRESA! El mundo los desprecia.")
-            cost_xar = terr.difficulty * 8
-            cost_mad = terr.difficulty * 5
-            if player_guild.get_resource("lingote_xar") < cost_xar:
-                state["message"]   = f"✗ Necesitas {cost_xar} Lingotes de Xar para atacar."
+            # Atacar cuesta materiales: Tier I (suministros) + Tier II (armamento)
+            cost_t1 = terr.difficulty * 8
+            cost_t2 = terr.difficulty * 5
+            attack_cost = {"tier_I": cost_t1, "tier_II": cost_t2}
+            if not player_guild.can_afford_tier_cost(attack_cost):
+                state["message"]   = f"✗ Necesitas {cost_t1} mat. Tier I y {cost_t2} mat. Tier II para atacar."
                 state["msg_style"] = "bold red"
                 return
-            if player_guild.get_resource("madera") < cost_mad:
-                state["message"]   = f"✗ Necesitas {cost_mad} de Madera para atacar."
-                state["msg_style"] = "bold red"
-                return
-            # Consumir recursos
-            player_guild.consume_resource("lingote_xar", cost_xar)
-            player_guild.consume_resource("madera", cost_mad)
+            player_guild.pay_tier_cost(attack_cost)
             # Resolver ataque
             msg = gm._attack_territory(player_guild, gm.guilds.get(terr.owner) if terr.owner not in ("neutral","") else None, terr)
             state["message"]   = msg
@@ -585,12 +584,7 @@ def _territories_action_menu(player_guild: Guild, player, gm: GuildManager, con)
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "until": None},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -711,12 +705,7 @@ def _buildings_menu(player_guild: Guild, gm: GuildManager, con):
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "until": None},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -775,12 +764,7 @@ def _no_guild_menu(player, gm: GuildManager, con) -> str:
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "until": None},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -851,12 +835,7 @@ def _create_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "until": None},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["done"]:
@@ -918,12 +897,7 @@ def _join_guild_flow(player, gm: GuildManager, con) -> Optional[Guild]:
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "until": None},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["done"]:
@@ -1067,12 +1041,7 @@ def _main_guild_tabs(player_guild: Guild, player, gm: GuildManager, con) -> str:
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "until": None},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -1150,8 +1119,7 @@ def _commerce_menu(player_guild: Guild, player, gm: GuildManager, con):
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -1258,8 +1226,17 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
                                 player_guild.log_event(f"✗ Trade fallido: no tienes suficientes recursos.")
                     elif k in ("src_id", "offer_rid", "offer_amt", "req_rid", "req_amt"):
                         pass  # Ignorar claves de metadatos usadas por otros efectos
+                    elif isinstance(k, str) and k.startswith("tier_"):
+                        # Efecto en materiales por tier (ej. "tier_I": 30)
+                        tier_n = ROMAN_TIER.get(k.split("_", 1)[1], 1)
+                        if v > 0:
+                            pool = gm.tier_materials.get(tier_n, [])
+                            if pool:
+                                player_guild.add_resource(pool[0], int(v), gm.resource_defs)
+                        else:
+                            player_guild.consume_tier(tier_n, abs(int(v)))
                     else:
-                        # Asumir que es un recurso
+                        # Asumir que es un id de material (recurso)
                         if isinstance(v, (int, float)):
                             if v > 0: player_guild.add_resource(k, v, gm.resource_defs)
                             else:     player_guild.consume_resource(k, abs(v))
@@ -1269,8 +1246,7 @@ def _events_menu(player_guild: Guild, player, gm: GuildManager, con):
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -1319,22 +1295,16 @@ def _military_management_menu(player_guild: Guild, player, gm: GuildManager, con
             nm  = Text(sec)
             desc = ""
             if sec.startswith("Reclutar"):
-                if "Infantería" in sec:
-                    desc = f" (Coste: {state['rec_amt']} Comida, {max(1, state['rec_amt']//2)} Cuero) [+ {state['rec_amt']}]"
-                elif "Arqueros" in sec:
-                    desc = f" (Coste: {state['rec_amt']} Madera, {max(1, state['rec_amt']//2)} Cuero) [+ {state['rec_amt']}]"
-                elif "Caballería" in sec:
-                    desc = f" (Coste: {state['rec_amt']} Comida, {max(1, state['rec_amt']//3)} Ganado) [+ {state['rec_amt']}]"
-                elif "Asedio" in sec:
-                    desc = f" (Coste: {state['rec_amt']*2} Madera, {max(1, state['rec_amt']//5)} Lingotes Xar) [+ {state['rec_amt']}]"
+                n = state['rec_amt']
+                desc = f" (Coste: {n} mat. Tier I, {max(1, n//2)} mat. Tier II) [+ {n}]"
             elif sec == "Gestionar Guarniciones":
                 desc = " (Asignar tropas a territorios controlados)"
             elif sec == "Mejorar Ataque":
-                desc = f" (Coste: {5 * player_guild.attack_rating} Cuero Endurecido)"
+                desc = f" (Coste: {5 * player_guild.attack_rating} mat. Tier II)"
             elif sec == "Mejorar Defensa":
-                desc = f" (Coste: {5 * player_guild.defense_rating} Cuero Endurecido)"
+                desc = f" (Coste: {5 * player_guild.defense_rating} mat. Tier II)"
             elif sec == "Mejorar Armadura":
-                desc = f" (Coste: {8 * player_guild.armor_rating} Cuero Endurecido)"
+                desc = f" (Coste: {4 * player_guild.armor_rating} mat. Tier III)"
             
             if sel: nm.stylize("bold reverse")
             t.add_row("▶" if sel else " ", nm, Text(desc, style="dim"), style="bold bright_cyan" if sel else "white")
@@ -1384,8 +1354,7 @@ def _military_management_menu(player_guild: Guild, player, gm: GuildManager, con
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -1507,8 +1476,7 @@ def _garrison_management_menu(player_guild: Guild, player, gm: GuildManager, con
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -1532,7 +1500,6 @@ def open_guild_menu(player, console=None):
     if not gm.guilds:
         gm.generate_random_guilds()
         try:
-            from Modules.ModulesUtils.Loader import Read
             _cfg = Read("config.json", None)
             world_cfg = _cfg.get("WORLD", {}) if _cfg else {}
         except Exception:
@@ -1658,8 +1625,7 @@ def _tax_settings_menu(player_guild: Guild, player, gm: GuildManager, con):
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -1770,8 +1736,7 @@ def _market_and_barter_menu(player_guild: Guild, player, gm: GuildManager, con):
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -1885,8 +1850,7 @@ def _custom_trade_menu(player_guild: Guild, target_guild: Guild, player, gm: Gui
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:
@@ -1972,8 +1936,7 @@ def _custom_trade_menu(player_guild: Guild, target_guild: Guild, player, gm: Gui
 
     with con.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=con, screen=True, auto_refresh=False) as live:
                 while not state["exit"]:
                     if state["dirty"]:

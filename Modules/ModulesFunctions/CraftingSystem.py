@@ -11,14 +11,15 @@ from rich.live import Live
 from rich.box import ROUNDED
 from rich.rule import Rule
 from rich import box
-from sshkeyboard import listen_keyboard, stop_listening
+from sshkeyboard import stop_listening
 
 from Modules.ModulesUtils.Loader import Read
-from Modules.ModulesUtils.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope, start_key_listener
 from Modules.ModulesManager.ItemManager import get_item_manager
 from Modules.ModulesUtils.setup import cWeapon, cEquippableItems, cObject
 from Modules.ModulesFunctions.GatheringMasterySystem import cMaterial, cTool  
 from Modules.ModulesUtils.ModLoader import get_mod_api
+from Modules.ModulesManager.ItemModifierSystem import roll_and_apply_modifier, get_item_display_name
 
 console = Console()
 
@@ -149,7 +150,6 @@ def open_crafting_menu(player, inventory):
                     _cfg  = _json.loads(_cfgp.read_text("utf-8"))
                     _cqp  = float(_cfg.get("WORLD", {}).get("GLOBAL_CRAFTING_QUALITY_MODIFIER_POSITIVE", 1))
                     _cqn  = float(_cfg.get("WORLD", {}).get("GLOBAL_CRAFTING_QUALITY_MODIFIER_NEGATIVE", 1))
-                    from Modules.ModulesManager.ItemModifierSystem import roll_and_apply_modifier, get_item_display_name
                     _mod = roll_and_apply_modifier(obj, _cqp, _cqn)
                     _dname = get_item_display_name(obj)
                     _mod_txt = f" [{('red' if _mod.is_negative else 'green')}]{_mod.icon} {_mod.name}[/]" if _mod else ""
@@ -258,7 +258,6 @@ def open_crafting_menu(player, inventory):
         if hasattr(item, "modifier") and item.modifier is not None:
             item.modifier = None  # El modify ya fue aplicado al objeto en la última vez
 
-        from Modules.ModulesManager.ItemModifierSystem import roll_and_apply_modifier, get_item_display_name
         mod = roll_and_apply_modifier(item, _cqp, _cqn)
         dname = get_item_display_name(item)
         if mod:
@@ -329,8 +328,7 @@ def open_crafting_menu(player, inventory):
     state["dirty"] = True
     with console.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press, "sequential": False, "until": None}, daemon=True)
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             try:
                 with Live(console=console, screen=True, auto_refresh=False) as live:
                     while not state["exit"]:

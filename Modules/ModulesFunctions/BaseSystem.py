@@ -28,6 +28,8 @@ from typing import Dict, Optional, List
 
 from Modules.ModulesUtils.Loader import Read
 from Modules.ModulesUtils.input_utils import get_menu_refresh_rate
+from Modules.ModulesFunctions.MasterySystem import ensure_mastery, WEAPON_TYPES, ARMOR_TYPES
+from Modules.ModulesManager.ItemManager import get_item_manager
 
 
 _BUILDINGS_JSON = os.path.join("Data", "DataBuildings.json")
@@ -416,7 +418,6 @@ def _building_submenu(building, bid, base_mgr, player, inventory, console, menu_
 
 def _run_training(building, player, console, pause_fn):
     """Ejecuta el minijuego del edificio y otorga EXP de Mastery."""
-    from Modules.ModulesFunctions.MasterySystem import ensure_mastery
 
     mgr = ensure_mastery(player)
     exp_gain = building.current_level_mastery_exp()
@@ -431,7 +432,6 @@ def _run_training(building, player, console, pause_fn):
     if success and exp_gain > 0:
         # Dar EXP a todos los masteries del tipo correspondiente
         if building.building_id == "weapon_training":
-            from Modules.ModulesFunctions.MasterySystem import WEAPON_TYPES
             for wt in WEAPON_TYPES:
                 skill = mgr.weapon_masteries.get(wt)
                 if skill:
@@ -441,7 +441,6 @@ def _run_training(building, player, console, pause_fn):
                             f"[green]⚔️  Mastery de {skill.name} subió a Nv.{skill.current_level}![/green]"
                         )
         elif building.building_id == "armor_training":
-            from Modules.ModulesFunctions.MasterySystem import ARMOR_TYPES
             for at in ARMOR_TYPES:
                 skill = mgr.armor_masteries.get(at)
                 if skill:
@@ -519,7 +518,6 @@ def _build_mat_type_cache():
     if _mat_type_cache:
         return
     try:
-        from Modules.ModulesManager.ItemManager import get_item_manager
         im = get_item_manager()
         mats = im.items_data.get("TYPE:Materials", {})
         for key, data in mats.items():

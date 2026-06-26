@@ -1,5 +1,2 @@
-from .debug import *
-from .input_utils import *
-from .Loader import *
-from .ModLoader import *
-from .setup import *
+# Paquete vacío a propósito (ver Modules/ModulesFunctions/__init__.py).
+# Evita el `from .X import *` que causaba imports circulares.

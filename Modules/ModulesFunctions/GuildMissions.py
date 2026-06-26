@@ -19,6 +19,7 @@ import random
 import time
 import threading
 from typing import List, Optional, Dict, Tuple
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope, start_key_listener
 
 from rich.console import Console, Group
 from rich.panel import Panel
@@ -27,7 +28,7 @@ from rich.text import Text
 from rich.rule import Rule
 from rich.live import Live
 from rich import box
-from sshkeyboard import listen_keyboard, stop_listening
+from sshkeyboard import stop_listening
 
 from Modules.ModulesFunctions.GuildSystem import Guild, GuildManager, get_guild_manager
 from Modules.ModulesFunctions.GuildSkillTree import get_effective_mission_slots
@@ -339,7 +340,6 @@ def open_guild_missions_menu(guild: Guild, player, guild_manager: GuildManager, 
     if console is None:
         console = console_gm
 
-    from Modules.ModulesUtils.input_utils import keyboard_listener_scope
 
     # Generar misiones disponibles
     available_missions = generate_missions_for_guild(guild, guild_manager)
@@ -454,12 +454,7 @@ def open_guild_missions_menu(guild: Guild, player, guild_manager: GuildManager, 
     state["dirty"] = True
     with console.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "until": None},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=console, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:

@@ -8,7 +8,7 @@ import json
 import os
 from typing import List, Optional
 from Modules.ModulesUtils.input_utils import wait_for_enter, interactive_menu_select
-from Modules.ModulesUtils.setup import cWeapon, cEquippableItems, cObject
+from Modules.ModulesUtils.setup import cWeapon, cEquippableItems, cObject, vInventory
 from Modules.ModulesFunctions.GatheringMasterySystem import cTool
 
 class ShopManager:
@@ -309,7 +309,6 @@ def display_shop(shop_name: str, player, item_manager):
                         player.Gold -= cost
                         
                         # Agregar al inventario
-                        from Modules.ModulesUtils.setup import vInventory
                         vInventory.addObject(item_obj)
                         
                         print(f"\n[SUCCESS] ¡Has comprado {item_data.get('Name')}!")

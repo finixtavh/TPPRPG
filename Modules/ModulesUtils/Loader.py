@@ -4,7 +4,6 @@ from rich.console import Console
 from rich.panel import Panel
 from pathlib import Path
 import logging
-logpath = Path
 
 # Configure logging
 logging.basicConfig(
@@ -16,6 +15,24 @@ logging.basicConfig(
 logger = logging.getLogger('TPPRPG.Loader')
 
 console = Console()
+
+# Cache de archivos JSON parseados: {abspath: (mtime, data)}.
+# Evita re-parsear archivos calientes (p. ej. DataStats.json en cada combate).
+# Nota: devuelve referencias compartidas; los callers no deben mutar el resultado.
+_FILE_CACHE = {}
+
+
+def _load_json_cached(FilePath):
+    """Carga y parsea un JSON usando cache por mtime. Lanza las excepciones de open/json."""
+    mtime = os.path.getmtime(FilePath)
+    cached = _FILE_CACHE.get(FilePath)
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
+    with open(FilePath, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+    _FILE_CACHE[FilePath] = (mtime, data)
+    return data
+
 
 def Read(FilePath, Object, Content=None, Values=None):
     """ 
@@ -37,35 +54,32 @@ def Read(FilePath, Object, Content=None, Values=None):
         # Extract filename from path for file type detection
         filename = os.path.basename(FilePath).lower()
         
-        with open(FilePath, 'r', encoding='utf-8') as file:
-            data = json.load(file)
-            
-            # If Object is None, return the entire data
-            if Object is None:
-                return data
-            
-            # Check if the key exists in the JSON
-            if Object in data:
-                # Handle different JSON file types based on filename
-                if "datastats.json" in filename:
-                    return _handle_datastats(data, Object, Content)
-                elif "weapons.json" in filename:
-                    return _handle_weapons(data, Object, Content)
-                elif "datashops.json" in filename:
-                    return _handle_shops(data, Object, Content)
-                elif "saveslots.json" in filename or "savegame.json" in filename:
-                    return _handle_saves(data, Object, Content)
-                elif "databuffs.json" in filename:
-                    return _handle_buffs(data, Object, Content)
-                elif "datacompanions.json" in filename:
-                    return _handle_companions(data, Object, Content)
-                else:
-                    # Generic handling for other JSON files
-                    return _handle_generic_json(data, Object, Content)
+        data = _load_json_cached(FilePath)
+
+        # If Object is None, return the entire data
+        if Object is None:
+            return data
+
+        # Check if the key exists in the JSON
+        if Object in data:
+            # Handle different JSON file types based on filename
+            if "datastats.json" in filename:
+                return _handle_datastats(data, Object, Content)
+            elif "datashops.json" in filename:
+                return _handle_shops(data, Object, Content)
+            elif "saveslots.json" in filename or "savegame.json" in filename:
+                return _handle_saves(data, Object, Content)
+            elif "databuffs.json" in filename:
+                return _handle_buffs(data, Object, Content)
+            elif "datacompanions.json" in filename:
+                return _handle_companions(data, Object, Content)
             else:
-                console.print(f"[yellow]Warning:[/] {Object} not found in the JSON file: {FilePath}")
-                logger.warning(f"Object {Object} not found in {FilePath}")
-                return {}  # Return an empty dict for consistency
+                # Generic handling for other JSON files
+                return _handle_generic_json(data, Object, Content)
+        else:
+            console.print(f"[yellow]Warning:[/] {Object} not found in the JSON file: {FilePath}")
+            logger.warning(f"Object {Object} not found in {FilePath}")
+            return {}  # Return an empty dict for consistency
                 
     except FileNotFoundError as e:
         console.print(f"[bold red]Error:[/] File '{FilePath}' not found.")
@@ -126,35 +140,6 @@ def _handle_datastats(data, Object, Content):
             return {}
         else:
             return data[Object]
-
-def _handle_weapons(data, Object, Content):
-    """
-    Handle weapons.json structure with TYPE: prefixes.
-    
-    Args:
-        data: The loaded JSON data
-        Object: The weapon type (e.g., "TYPE:Swords")
-        Content: Specific weapon or None for all weapons of that type
-    
-    Returns:
-        Processed weapon data
-    """
-    # Handle "TYPE:" prefix if not already included
-    if not Object.startswith("TYPE:") and f"TYPE:{Object}" in data:
-        Object = f"TYPE:{Object}"
-    
-    if Content is None:
-        # Return all weapons of the specified type
-        return data[Object]
-    else:
-        # Return specific weapon data
-        if Content in data[Object]:
-            weapon_data = data[Object][Content]
-            return weapon_data
-        else:
-            console.print(f"[yellow]Warning:[/] Weapon '{Content}' not found in {Object}")
-            logger.warning(f"Weapon '{Content}' not found in {Object}")
-            return {}
 
 def _handle_shops(data, Object, Content):
     """
@@ -323,37 +308,6 @@ def _handle_companions(data, Object, Content):
             return {}
 
 
-def _handle_generic_json_old(data, Object, Content):
-    """
-    Generic handler for other JSON files.
-    
-    Args:
-        data: The loaded JSON data
-        Object: The primary key
-        Content: Secondary key or None
-    
-    Returns:
-        Processed data
-    """
-    if Content is None:
-        return data[Object]
-    elif Content in data[Object]:
-        return data[Object][Content]
-    else:
-        # Try to handle nested lists
-        if isinstance(data[Object], list):
-            for item in data[Object]:
-                if isinstance(item, dict) and Content in item:
-                    return item[Content]
-            
-            console.print(f"[yellow]Warning:[/] '{Content}' not found in {Object}")
-            logger.warning(f"'{Content}' not found in {Object}")
-            return {}
-        else:
-            console.print(f"[yellow]Warning:[/] '{Content}' not found in {Object}")
-            logger.warning(f"'{Content}' not found in {Object}")
-            return {}
-    
 def Write(FilePath, Object=None, Content=None, ToWrite=None, isplaintext=False):
     """ 
     Write data to JSON files or plain text files.
@@ -406,8 +360,6 @@ def Write(FilePath, Object=None, Content=None, ToWrite=None, isplaintext=False):
                 # Special handling for different file types
                 if "datastats.json" in filename:
                     _write_datastats(data, Object, Content, ToWrite)
-                elif "weapons.json" in filename:
-                    _write_weapons(data, Object, Content, ToWrite)
                 elif "datashops.json" in filename:
                     _write_shops(data, Object, Content, ToWrite)
                 elif "saveslots.json" in filename or "savegame.json" in filename:
@@ -423,7 +375,10 @@ def Write(FilePath, Object=None, Content=None, ToWrite=None, isplaintext=False):
             # Write the updated data back to the file
             with open(FilePath, 'w', encoding='utf-8') as file:
                 json.dump(data, file, indent=4)
-            
+
+            # Invalidar cache para que la próxima lectura recargue desde disco
+            _FILE_CACHE.pop(FilePath, None)
+
             logger.info(f"Successfully wrote JSON data to {FilePath}")
             
     except Exception as e:
@@ -470,33 +425,6 @@ def _write_datastats(data, Object, Content, ToWrite):
     else:
         # Overwrite the entire zone
         data[Object] = ToWrite
-
-def _write_weapons(data, Object, Content, ToWrite):
-    """
-    Handle writing to weapons.json with TYPE: prefixes.
-    
-    Args:
-        data: The existing JSON data
-        Object: The weapon type (e.g., "TYPE:Swords" or "Swords")
-        Content: Specific weapon name or None
-        ToWrite: The data to write
-    """
-    # Handle "TYPE:" prefix if not already included
-    if not Object.startswith("TYPE:") and not Object.startswith("TYPE:"):
-        full_object = f"TYPE:{Object}"
-    else:
-        full_object = Object
-    
-    # Ensure the weapon type exists
-    if full_object not in data:
-        data[full_object] = {}
-    
-    if Content is not None:
-        # Write specific weapon data
-        data[full_object][Content] = ToWrite
-    else:
-        # Overwrite the entire weapon type
-        data[full_object] = ToWrite
 
 def _write_shops(data, Object, Content, ToWrite):
     """
@@ -644,46 +572,3 @@ def _write_buffs(data, Object, Content, ToWrite):
         
         # Escribir el buff/debuff
         data[category][Object] = ToWrite
-
-def _write_generic_json_old(data, Object, Content, ToWrite):
-    """
-    Generic handler for writing to other JSON files.
-    
-    Args:
-        data: The existing JSON data
-        Object: The primary key
-        Content: Secondary key or None
-        ToWrite: The data to write
-    """
-    # Ensure the object exists
-    if Object not in data:
-        if Content is not None:
-            data[Object] = {}
-        else:
-            data[Object] = ToWrite
-            return
-    
-    if Content is not None:
-        # Handle writing to potentially nested structures
-        if isinstance(data[Object], list):
-            # If it's a list, we need to find or create the right dict
-            found = False
-            for item in data[Object]:
-                if isinstance(item, dict):
-                    if Content in item:
-                        item[Content] = ToWrite
-                        found = True
-                        break
-            
-            if not found:
-                # Add to the first dict if it exists, otherwise append a new dict
-                if len(data[Object]) > 0 and isinstance(data[Object][0], dict):
-                    data[Object][0][Content] = ToWrite
-                else:
-                    data[Object].append({Content: ToWrite})
-        else:
-            # Simple key-value update
-            data[Object][Content] = ToWrite
-    else:
-        # Overwrite the entire object
-        data[Object] = ToWrite

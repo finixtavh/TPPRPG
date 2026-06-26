@@ -328,6 +328,7 @@ def get_food_efficiency(guild) -> float:
 import os
 import time
 import threading
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope, start_key_listener
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
@@ -335,7 +336,7 @@ from rich.text import Text
 from rich.rule import Rule
 from rich.live import Live
 from rich import box
-from sshkeyboard import listen_keyboard, stop_listening
+from sshkeyboard import stop_listening
 
 console_gs = Console()
 
@@ -345,7 +346,6 @@ def open_guild_skill_tree(guild, console=None):
     if console is None:
         console = console_gs
 
-    from Modules.ModulesUtils.input_utils import keyboard_listener_scope
 
     branches = list(BRANCH_ORDER.keys())
     state = {
@@ -480,12 +480,7 @@ def open_guild_skill_tree(guild, console=None):
     state["dirty"] = True
     with console.screen():
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": False, "until": None},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press)
             with Live(console=console, screen=True, auto_refresh=False) as live:
                 try:
                     while not state["exit"]:

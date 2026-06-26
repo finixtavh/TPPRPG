@@ -13,9 +13,9 @@ from rich.text import Text
 from rich.table import Table
 from rich.panel import Panel
 from rich import box
-from sshkeyboard import listen_keyboard, stop_listening
+from sshkeyboard import stop_listening
 
-from Modules.ModulesUtils.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope, start_key_listener
 
 class cSkill:
     BONUS_EFFICIENCY: float = 0.05   # +5% de eficiencia de recolección por nivel
@@ -234,12 +234,7 @@ class cFarm:
 
         kb_thread = None
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": on_press, "sequential": True, "delay_second_char": 0.05},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(on_press, sequential=True, delay_second_char=0.05)
 
             with Live(console=console, refresh_per_second=int(1 / self.TICK_INTERVAL)) as live:
                 while state["elapsed"] < total_time:

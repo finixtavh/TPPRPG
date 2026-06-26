@@ -1,4 +1,7 @@
 from Modules.ModulesUtils.input_utils import wait_for_enter, interactive_menu_select
+from Modules.ModulesManager.BuffManager import apply_buff_to_player, remove_buff_from_player
+from Modules.ModulesFunctions.GatheringMasterySystem import cTool
+from Modules.ModulesUtils.setup import cWeapon
 
 class EquipmentManager:
     """
@@ -77,7 +80,6 @@ class EquipmentManager:
             item.AppliedStats = True
             
         if hasattr(item, 'Buffs') and item.Buffs:
-            from Modules.ModulesManager.BuffManager import apply_buff_to_player
             for b_info in item.Buffs:
                 b_id = b_info.get("id") if isinstance(b_info, dict) else b_info
                 is_party = b_info.get("party", False) if isinstance(b_info, dict) else False
@@ -95,7 +97,6 @@ class EquipmentManager:
         # LÓGICA ESPECIAL ANTORCHA (Antigua, mantenida por retrocompatibilidad si no tiene Buffs definidos)
         item_name = getattr(item, "Name", getattr(item, "name", "")).lower()
         if "antorcha" in item_name and not (hasattr(item, 'Buffs') and item.Buffs):
-            from Modules.ModulesManager.BuffManager import apply_buff_to_player
             apply_buff_to_player(player, "torch_light", source="Equip", permanent=True)
             if hasattr(player, "companions"):
                 for companion in player.companions:
@@ -135,7 +136,6 @@ class EquipmentManager:
 
         # REMOCIÓN DE BUFFS (SISTEMA GLOBAL)
         if hasattr(item, 'Buffs') and item.Buffs:
-            from Modules.ModulesManager.BuffManager import remove_buff_from_player
             for b_info in item.Buffs:
                 b_id = b_info.get("id") if isinstance(b_info, dict) else b_info
                 is_party = b_info.get("party", False) if isinstance(b_info, dict) else False
@@ -148,7 +148,6 @@ class EquipmentManager:
         # LÓGICA ESPECIAL ANTORCHA (Remover - Antigua)
         item_name = getattr(item, "Name", getattr(item, "name", "")).lower()
         if "antorcha" in item_name and not (hasattr(item, 'Buffs') and item.Buffs):
-            from Modules.ModulesManager.BuffManager import remove_buff_from_player
             remove_buff_from_player(player, "torch_light")
             if hasattr(player, "companions"):
                 for companion in player.companions:
@@ -182,7 +181,6 @@ class EquipmentManager:
             True si se equipó correctamente, False en caso contrario
         """
         # Manejo especial para herramientas (cTool)
-        from Modules.ModulesFunctions.GatheringMasterySystem import cTool
         if isinstance(item, cTool):
             current_tool = getattr(player, "tool", None)
             if current_tool is not None:
@@ -197,7 +195,6 @@ class EquipmentManager:
             return True
 
         # Manejo especial para armas (cWeapon, que no tiene objectcheck)
-        from Modules.ModulesUtils.setup import cWeapon
         if isinstance(item, cWeapon):
             # LÓGICA ARMAS 2 MANOS
             if getattr(item, "is_two_handed", False):
@@ -442,8 +439,6 @@ def equip_menu(player, inventory):
 
         if choice == 1:
             # Mostrar items equipables del inventario
-            from Modules.ModulesFunctions.GatheringMasterySystem import cTool
-            from Modules.ModulesUtils.setup import cWeapon
             equipable_items = [
                 item for item in inventory.lObjectsInventory
                 if hasattr(item, 'objectcheck') or isinstance(item, (cTool, cWeapon))

@@ -12,13 +12,16 @@ from rich.live import Live
 from rich.box import ROUNDED
 from rich.rule import Rule
 from rich import box
-from sshkeyboard import listen_keyboard, stop_listening
+from sshkeyboard import stop_listening
 
-from Modules.ModulesUtils.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope, start_key_listener
 from Modules.ModulesManager.ItemManager import load_item_by_id
 from Modules.ModulesUtils.setup import cWeapon, cEquippableItems, cObject
 from Modules.ModulesFunctions.GatheringMasterySystem import cTool
 from Modules.ModulesFunctions.CompanionSystem import cCompanion
+from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
+from Modules.ModulesFunctions.GuildSystem import get_guild_manager
+from Modules.ModulesManager.BuffManager import get_buff_manager, apply_buff_to_player
 
 console = Console()
 
@@ -45,8 +48,6 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
 
     def _trigger_disaster():
         try:
-            from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
-            from Modules.ModulesFunctions.GuildSystem import get_guild_manager
             wm = get_weather_manager()
             disaster_weathers = [w for w in wm.weathers.values() if w.disaster_effect]
             if disaster_weathers:
@@ -65,7 +66,6 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
 
     def _add_buff():
         try:
-            from Modules.ModulesManager.BuffManager import get_buff_manager, apply_buff_to_player
             bm = get_buff_manager()
             buff_ids = list(bm.buffs_data.keys())
             if buff_ids:
@@ -82,7 +82,6 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
 
     def _add_debuff():
         try:
-            from Modules.ModulesManager.BuffManager import get_buff_manager, apply_buff_to_player
             bm = get_buff_manager()
             debuff_ids = list(bm.debuffs_data.keys())
             if debuff_ids:
@@ -139,7 +138,6 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
 
     def _add_guild_sp():
         try:
-            from Modules.ModulesFunctions.GuildSystem import get_guild_manager
             gm = get_guild_manager()
             if not gm.guilds:
                 gm.generate_random_guilds()
@@ -189,12 +187,7 @@ def open_enhanced_debug_menu(player, inventory, gathering_init, mod_loader, mod_
 
     # screen=True + auto_refresh=False: sin scroll, solo redibuja cuando algo cambia
     with keyboard_listener_scope():
-        kb_thread = threading.Thread(
-            target=listen_keyboard,
-            kwargs={"on_press": _on_press, "sequential": False, "until": None},
-            daemon=True,
-        )
-        kb_thread.start()
+        kb_thread = start_key_listener(_on_press)
 
         state["dirty"] = True
         try:
@@ -324,8 +317,7 @@ def open_variable_viewer(player, inventory, gathering_init, mod_loader, mod_api,
 
     _dirty = [True]
     with keyboard_listener_scope():
-        kb_thread = threading.Thread(target=listen_keyboard, kwargs={"on_press": _on_press_viewer, "sequential": False, "until": None}, daemon=True)
-        kb_thread.start()
+        kb_thread = start_key_listener(_on_press_viewer)
         try:
             with Live(console=console, screen=True, auto_refresh=False) as live:
                 while not exit_viewer:

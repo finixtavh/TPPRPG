@@ -1,971 +1,1113 @@
 {
-    "Forest": [
-        {
-            "enemy": {
-                "NAME": "Lobo del Bosque",
-                "HP_M": 50,
-                "DMG": [
-                    15,
-                    0,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    8,
-                    0,
-                    0,
-                    0
-                ],
-                "MP_M": 10,
-                "EXP_TO_PLAYER": 25,
-                "DEF": [
-                    5,
-                    2,
-                    3,
-                    2,
-                    1
-                ],
-                "LS": 0,
-                "AGI": 15,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 30,
-                "loot_tables": {
-                    "1": 0.5,
-                    "10": 0.2,
-                    "50": 0.4,
-                    "20": 0.8
-                }
-            },
-            "enemy2": {
-                "NAME": "Goblin",
-                "HP_M": 40,
-                "DMG": [
-                    12,
-                    5,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    6,
-                    2,
-                    0,
-                    0
-                ],
-                "MP_M": 20,
-                "EXP_TO_PLAYER": 20,
-                "DEF": [
-                    3,
-                    2,
-                    2,
-                    2,
-                    1
-                ],
-                "LS": 0,
-                "AGI": 10,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 25,
-                "loot_tables": {
-                    "2": 0.4,
-                    "20": 0.5,
-                    "50": 0.3
-                }
-            },
-            "fire_spirit": {
-                "NAME": "Espíritu de Fuego",
-                "HP_M": 35,
-                "DMG": [
-                    5,
-                    25,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    2,
-                    12,
-                    0,
-                    0
-                ],
-                "MP_M": 50,
-                "EXP_TO_PLAYER": 35,
-                "DEF": [
-                    2,
-                    15,
-                    3,
-                    3,
-                    2
-                ],
-                "LS": 0,
-                "AGI": 20,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 40,
-                "loot_tables": {
-                    "4": 0.3,
-                    "45": 0.1,
-                    "21": 0.5
-                }
-            },
-            "goblin_king": {
-                "NAME": "Rey Goblin",
-                "HP_M": 150,
-                "DMG": [
-                    25,
-                    10,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    15,
-                    5,
-                    0,
-                    0
-                ],
-                "MP_M": 50,
-                "EXP_TO_PLAYER": 100,
-                "DEF": [
-                    15,
-                    10,
-                    10,
-                    10,
-                    5
-                ],
-                "LS": 0,
-                "AGI": 5,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 150,
-                "IS_BOSS": true,
-                "SPAWN_CHANCE": 0.05,
-                "loot_tables": {
-                    "3": 0.5,
-                    "22": 0.3,
-                    "6": 0.1,
-                    "51": 1.0
-                }
-            },
-            "Strings": {
-                "name": "Bosque Encantado",
-                "desc": "Bosque Encantado",
-                "exit": "Saliendo del Bosque",
-                "color": "green"
-            },
-            "Gathering": {
-                "Materials": [
-                    "1_G",
-                    "2_G",
-                    "16_G",
-                    "20_G"
-                ]
-            }
+  "Forest": [
+    {
+      "enemy": {
+        "NAME": "Lobo del Bosque",
+        "HP_M": 50,
+        "DMG": [
+          15,
+          0,
+          0,
+          0,
+          0
+        ],
+        "DMG_min": [
+          8,
+          0,
+          0,
+          0
+        ],
+        "MP_M": 10,
+        "EXP_TO_PLAYER": 25,
+        "DEF": [
+          5,
+          2,
+          3,
+          2,
+          1
+        ],
+        "LS": 0,
+        "AGI": 15,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 30,
+        "loot_tables": {
+          "1": 0.5,
+          "10": 0.2,
+          "50": 0.4,
+          "20": 0.8
+        },
+        "group_spawn": {
+          "1": 0.2,
+          "2": 0.35,
+          "3": 0.25,
+          "4": 0.12,
+          "5": 0.08
+        },
+        "affinity_profile": "beast"
+      },
+      "enemy2": {
+        "NAME": "Goblin",
+        "HP_M": 40,
+        "DMG": [
+          12,
+          5,
+          0,
+          0,
+          0
+        ],
+        "DMG_min": [
+          6,
+          2,
+          0,
+          0
+        ],
+        "MP_M": 20,
+        "EXP_TO_PLAYER": 20,
+        "DEF": [
+          3,
+          2,
+          2,
+          2,
+          1
+        ],
+        "LS": 0,
+        "AGI": 10,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 25,
+        "loot_tables": {
+          "2": 0.4,
+          "20": 0.5,
+          "50": 0.3
+        },
+        "group_spawn": {
+          "1": 0.2,
+          "2": 0.35,
+          "3": 0.25,
+          "4": 0.12,
+          "5": 0.08
+        },
+        "affinity_profile": "beast"
+      },
+      "fire_spirit": {
+        "NAME": "Espíritu de Fuego",
+        "HP_M": 35,
+        "DMG": [
+          5,
+          25,
+          0,
+          0,
+          0
+        ],
+        "DMG_min": [
+          2,
+          12,
+          0,
+          0
+        ],
+        "MP_M": 50,
+        "EXP_TO_PLAYER": 35,
+        "DEF": [
+          2,
+          15,
+          3,
+          3,
+          2
+        ],
+        "LS": 0,
+        "AGI": 20,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 40,
+        "loot_tables": {
+          "4": 0.3,
+          "45": 0.1,
+          "21": 0.5
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
+        },
+        "affinity_profile": "fire_elemental"
+      },
+      "goblin_king": {
+        "NAME": "Rey Goblin",
+        "HP_M": 150,
+        "DMG": [
+          25,
+          10,
+          0,
+          0,
+          0
+        ],
+        "DMG_min": [
+          15,
+          5,
+          0,
+          0
+        ],
+        "MP_M": 50,
+        "EXP_TO_PLAYER": 100,
+        "DEF": [
+          15,
+          10,
+          10,
+          10,
+          5
+        ],
+        "LS": 0,
+        "AGI": 5,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 150,
+        "IS_BOSS": true,
+        "SPAWN_CHANCE": 0.05,
+        "loot_tables": {
+          "3": 0.5,
+          "22": 0.3,
+          "6": 0.1,
+          "51": 1.0
+        },
+        "affinity_profile": "beast"
+      },
+      "Strings": {
+        "name": "Bosque Encantado",
+        "desc": "Bosque Encantado",
+        "exit": "Saliendo del Bosque",
+        "color": "green"
+      },
+      "Gathering": {
+        "Materials": [
+          "1_G",
+          "2_G",
+          "16_G",
+          "20_G"
+        ]
+      }
+    }
+  ],
+  "Cave": [
+    {
+      "rock_golem": {
+        "NAME": "Gólem de Roca",
+        "HP_M": 100,
+        "DMG": [
+          20,
+          0,
+          30,
+          0,
+          0
+        ],
+        "DMG_min": [
+          10,
+          0,
+          15,
+          0
+        ],
+        "MP_M": 5,
+        "EXP_TO_PLAYER": 50,
+        "DEF": [
+          15,
+          8,
+          30,
+          10,
+          5
+        ],
+        "LS": 0,
+        "AGI": 5,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 80,
+        "loot_tables": {
+          "6": 0.8,
+          "14": 0.1,
+          "46": 0.05
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
+        },
+        "affinity_profile": "rock_golem"
+      },
+      "electric_bat": {
+        "NAME": "Murciélago Eléctrico",
+        "HP_M": 45,
+        "DMG": [
+          8,
+          0,
+          0,
+          22,
+          0
+        ],
+        "DMG_min": [
+          4,
+          0,
+          0,
+          10
+        ],
+        "MP_M": 30,
+        "EXP_TO_PLAYER": 40,
+        "DEF": [
+          5,
+          5,
+          5,
+          20,
+          3
+        ],
+        "LS": 0,
+        "AGI": 25,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 55,
+        "loot_tables": {
+          "7": 0.05,
+          "47": 0.05,
+          "50": 0.5
+        },
+        "group_spawn": {
+          "1": 0.2,
+          "2": 0.35,
+          "3": 0.25,
+          "4": 0.12,
+          "5": 0.08
+        },
+        "affinity_profile": "beast"
+      },
+      "shadow_beast": {
+        "NAME": "Bestia de las Sombras",
+        "HP_M": 70,
+        "DMG": [
+          15,
+          10,
+          0,
+          0,
+          18
+        ],
+        "DMG_min": [
+          8,
+          5,
+          0,
+          0
+        ],
+        "MP_M": 40,
+        "EXP_TO_PLAYER": 80,
+        "DEF": [
+          8,
+          8,
+          8,
+          8,
+          25
+        ],
+        "LS": 5,
+        "AGI": 18,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 120,
+        "loot_tables": {
+          "8": 0.01,
+          "43": 0.1,
+          "20": 0.5
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
+        },
+        "affinity_profile": "spirit"
+      },
+      "elder_golem": {
+        "NAME": "Gólem Anciano",
+        "HP_M": 300,
+        "DMG": [
+          40,
+          0,
+          50,
+          0,
+          0
+        ],
+        "DMG_min": [
+          25,
+          0,
+          30,
+          0
+        ],
+        "MP_M": 20,
+        "EXP_TO_PLAYER": 250,
+        "DEF": [
+          40,
+          20,
+          50,
+          20,
+          10
+        ],
+        "LS": 0,
+        "AGI": 2,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 400,
+        "IS_BOSS": true,
+        "SPAWN_CHANCE": 0.03,
+        "loot_tables": {
+          "6": 0.5,
+          "14": 0.5,
+          "33": 0.2,
+          "46": 0.2,
+          "23": 0.3
         }
-    ],
-    "Cave": [
-        {
-            "rock_golem": {
-                "NAME": "Gólem de Roca",
-                "HP_M": 100,
-                "DMG": [
-                    20,
-                    0,
-                    30,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    10,
-                    0,
-                    15,
-                    0
-                ],
-                "MP_M": 5,
-                "EXP_TO_PLAYER": 50,
-                "DEF": [
-                    15,
-                    8,
-                    30,
-                    10,
-                    5
-                ],
-                "LS": 0,
-                "AGI": 5,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 80,
-                "loot_tables": {
-                    "6": 0.8,
-                    "14": 0.1,
-                    "46": 0.05
-                }
-            },
-            "electric_bat": {
-                "NAME": "Murciélago Eléctrico",
-                "HP_M": 45,
-                "DMG": [
-                    8,
-                    0,
-                    0,
-                    22,
-                    0
-                ],
-                "DMG_min": [
-                    4,
-                    0,
-                    0,
-                    10
-                ],
-                "MP_M": 30,
-                "EXP_TO_PLAYER": 40,
-                "DEF": [
-                    5,
-                    5,
-                    5,
-                    20,
-                    3
-                ],
-                "LS": 0,
-                "AGI": 25,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 55,
-                "loot_tables": {
-                    "7": 0.05,
-                    "47": 0.05,
-                    "50": 0.5
-                }
-            },
-            "shadow_beast": {
-                "NAME": "Bestia de las Sombras",
-                "HP_M": 70,
-                "DMG": [
-                    15,
-                    10,
-                    0,
-                    0,
-                    18
-                ],
-                "DMG_min": [
-                    8,
-                    5,
-                    0,
-                    0
-                ],
-                "MP_M": 40,
-                "EXP_TO_PLAYER": 80,
-                "DEF": [
-                    8,
-                    8,
-                    8,
-                    8,
-                    25
-                ],
-                "LS": 5,
-                "AGI": 18,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 120,
-                "loot_tables": {
-                    "8": 0.01,
-                    "43": 0.1,
-                    "20": 0.5
-                }
-            },
-            "elder_golem": {
-                "NAME": "Gólem Anciano",
-                "HP_M": 300,
-                "DMG": [
-                    40,
-                    0,
-                    50,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    25,
-                    0,
-                    30,
-                    0
-                ],
-                "MP_M": 20,
-                "EXP_TO_PLAYER": 250,
-                "DEF": [
-                    40,
-                    20,
-                    50,
-                    20,
-                    10
-                ],
-                "LS": 0,
-                "AGI": 2,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 400,
-                "IS_BOSS": true,
-                "SPAWN_CHANCE": 0.03,
-                "loot_tables": {
-                    "6": 0.5,
-                    "14": 0.5,
-                    "33": 0.2,
-                    "46": 0.2,
-                    "23": 0.3
-                }
-            },
-            "Strings": {
-                "name": "Cueva Oscura",
-                "desc": "Cueva Oscura",
-                "exit": "Saliendo de la Cueva",
-                "color": "blue"
-            },
-            "Gathering": {
-                "Materials": [
-                    "6_G",
-                    "7_G",
-                    "11_G",
-                    "12_G",
-                    "8_G"
-                ]
-            }
+      },
+      "Strings": {
+        "name": "Cueva Oscura",
+        "desc": "Cueva Oscura",
+        "exit": "Saliendo de la Cueva",
+        "color": "blue"
+      },
+      "Gathering": {
+        "Materials": [
+          "6_G",
+          "7_G",
+          "11_G",
+          "12_G",
+          "8_G"
+        ]
+      }
+    }
+  ],
+  "Volcano": [
+    {
+      "magma_elemental": {
+        "NAME": "Elemental de Magma",
+        "HP_M": 90,
+        "DMG": [
+          10,
+          40,
+          15,
+          0,
+          0
+        ],
+        "DMG_min": [
+          5,
+          20,
+          7,
+          0
+        ],
+        "MP_M": 60,
+        "EXP_TO_PLAYER": 70,
+        "DEF": [
+          10,
+          40,
+          20,
+          8,
+          5
+        ],
+        "LS": 0,
+        "AGI": 12,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 100,
+        "loot_tables": {
+          "5": 0.1,
+          "45": 0.2,
+          "10": 0.5,
+          "21": 0.4
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
+        },
+        "affinity_profile": "fire_elemental"
+      },
+      "lava_serpent": {
+        "NAME": "Serpiente de Lava",
+        "HP_M": 80,
+        "DMG": [
+          18,
+          35,
+          0,
+          0,
+          0
+        ],
+        "DMG_min": [
+          9,
+          18,
+          0,
+          0
+        ],
+        "MP_M": 30,
+        "EXP_TO_PLAYER": 65,
+        "DEF": [
+          12,
+          35,
+          10,
+          6,
+          4
+        ],
+        "LS": 3,
+        "AGI": 15,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 95,
+        "loot_tables": {
+          "13": 0.05,
+          "45": 0.1,
+          "20": 0.3
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
+        },
+        "affinity_profile": "fire_elemental"
+      },
+      "Strings": {
+        "name": "Volcán Ardiente",
+        "desc": "Volcán Ardiente",
+        "exit": "Saliendo del Volcán",
+        "color": "red"
+      },
+      "Gathering": {
+        "Materials": [
+          "10_G",
+          "8_G",
+          "14_G",
+          "21_G"
+        ]
+      }
+    }
+  ],
+  "Abyss": [
+    {
+      "void_walker": {
+        "NAME": "Caminante del Vacío",
+        "HP_M": 120,
+        "DMG": [
+          20,
+          15,
+          15,
+          15,
+          30
+        ],
+        "DMG_min": [
+          10,
+          7,
+          7,
+          7
+        ],
+        "MP_M": 80,
+        "EXP_TO_PLAYER": 150,
+        "DEF": [
+          15,
+          15,
+          15,
+          15,
+          35
+        ],
+        "LS": 8,
+        "AGI": 20,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 250,
+        "loot_tables": {
+          "8": 0.05,
+          "15": 0.02,
+          "43": 0.1
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
         }
-    ],
-    "Volcano": [
-        {
-            "magma_elemental": {
-                "NAME": "Elemental de Magma",
-                "HP_M": 90,
-                "DMG": [
-                    10,
-                    40,
-                    15,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    5,
-                    20,
-                    7,
-                    0
-                ],
-                "MP_M": 60,
-                "EXP_TO_PLAYER": 70,
-                "DEF": [
-                    10,
-                    40,
-                    20,
-                    8,
-                    5
-                ],
-                "LS": 0,
-                "AGI": 12,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 100,
-                "loot_tables": {
-                    "5": 0.1,
-                    "45": 0.2,
-                    "10": 0.5,
-                    "21": 0.4
-                }
-            },
-            "lava_serpent": {
-                "NAME": "Serpiente de Lava",
-                "HP_M": 80,
-                "DMG": [
-                    18,
-                    35,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    9,
-                    18,
-                    0,
-                    0
-                ],
-                "MP_M": 30,
-                "EXP_TO_PLAYER": 65,
-                "DEF": [
-                    12,
-                    35,
-                    10,
-                    6,
-                    4
-                ],
-                "LS": 3,
-                "AGI": 15,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 95,
-                "loot_tables": {
-                    "13": 0.05,
-                    "45": 0.1,
-                    "20": 0.3
-                }
-            },
-            "Strings": {
-                "name": "Volcán Ardiente",
-                "desc": "Volcán Ardiente",
-                "exit": "Saliendo del Volcán",
-                "color": "red"
-            },
-            "Gathering": {
-                "Materials": [
-                    "10_G",
-                    "8_G",
-                    "14_G",
-                    "21_G"
-                ]
-            }
+      },
+      "abyssal_horror": {
+        "NAME": "Horror Abismal",
+        "HP_M": 150,
+        "DMG": [
+          25,
+          20,
+          20,
+          20,
+          40
+        ],
+        "DMG_min": [
+          12,
+          10,
+          10,
+          10
+        ],
+        "MP_M": 100,
+        "EXP_TO_PLAYER": 200,
+        "DEF": [
+          20,
+          18,
+          18,
+          18,
+          45
+        ],
+        "LS": 10,
+        "AGI": 16,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 350,
+        "loot_tables": {
+          "8": 0.1,
+          "15": 0.05,
+          "44": 0.05,
+          "22": 0.8
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
         }
-    ],
-    "Abyss": [
-        {
-            "void_walker": {
-                "NAME": "Caminante del Vacío",
-                "HP_M": 120,
-                "DMG": [
-                    20,
-                    15,
-                    15,
-                    15,
-                    30
-                ],
-                "DMG_min": [
-                    10,
-                    7,
-                    7,
-                    7
-                ],
-                "MP_M": 80,
-                "EXP_TO_PLAYER": 150,
-                "DEF": [
-                    15,
-                    15,
-                    15,
-                    15,
-                    35
-                ],
-                "LS": 8,
-                "AGI": 20,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 250,
-                "loot_tables": {
-                    "8": 0.05,
-                    "15": 0.02,
-                    "43": 0.1
-                }
-            },
-            "abyssal_horror": {
-                "NAME": "Horror Abismal",
-                "HP_M": 150,
-                "DMG": [
-                    25,
-                    20,
-                    20,
-                    20,
-                    40
-                ],
-                "DMG_min": [
-                    12,
-                    10,
-                    10,
-                    10
-                ],
-                "MP_M": 100,
-                "EXP_TO_PLAYER": 200,
-                "DEF": [
-                    20,
-                    18,
-                    18,
-                    18,
-                    45
-                ],
-                "LS": 10,
-                "AGI": 16,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 350,
-                "loot_tables": {
-                    "8": 0.1,
-                    "15": 0.05,
-                    "44": 0.05,
-                    "22": 0.8
-                }
-            },
-            "Strings": {
-                "name": "El Abismo Profundo",
-                "desc": "El Abismo Profundo",
-                "exit": "Escapando del Abismo",
-                "color": "magenta"
-            },
-            "Gathering": {
-                "Materials": [
-                    "5_G",
-                    "15_G",
-                    "19_G",
-                    "22_G"
-                ]
-            }
+      },
+      "Strings": {
+        "name": "El Abismo Profundo",
+        "desc": "El Abismo Profundo",
+        "exit": "Escapando del Abismo",
+        "color": "magenta"
+      },
+      "Gathering": {
+        "Materials": [
+          "5_G",
+          "15_G",
+          "19_G",
+          "22_G"
+        ]
+      }
+    }
+  ],
+  "EnchantedForest": [
+    {
+      "fairy": {
+        "NAME": "Hada del Bosque",
+        "HP_M": 80,
+        "DMG": [
+          5,
+          10,
+          10,
+          10,
+          0
+        ],
+        "DMG_min": [
+          2,
+          5,
+          5,
+          5
+        ],
+        "MP_M": 100,
+        "EXP_TO_PLAYER": 60,
+        "DEF": [
+          5,
+          5,
+          5,
+          5,
+          5
+        ],
+        "LS": 0,
+        "AGI": 30,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 70,
+        "loot_tables": {
+          "90": 0.1,
+          "19": 0.5,
+          "52": 0.3
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
         }
-    ],
-    "EnchantedForest": [
-        {
-            "fairy": {
-                "NAME": "Hada del Bosque",
-                "HP_M": 80,
-                "DMG": [
-                    5,
-                    10,
-                    10,
-                    10,
-                    0
-                ],
-                "DMG_min": [
-                    2,
-                    5,
-                    5,
-                    5
-                ],
-                "MP_M": 100,
-                "EXP_TO_PLAYER": 60,
-                "DEF": [
-                    5,
-                    5,
-                    5,
-                    5,
-                    5
-                ],
-                "LS": 0,
-                "AGI": 30,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 70,
-                "loot_tables": {
-                    "90": 0.1,
-                    "19": 0.5,
-                    "52": 0.3
-                }
-            },
-            "treant": {
-                "NAME": "Treant Antiguo",
-                "HP_M": 200,
-                "DMG": [
-                    30,
-                    0,
-                    20,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    15,
-                    0,
-                    10,
-                    0
-                ],
-                "MP_M": 50,
-                "EXP_TO_PLAYER": 120,
-                "DEF": [
-                    20,
-                    0,
-                    30,
-                    5,
-                    5
-                ],
-                "LS": 0,
-                "AGI": 5,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 150,
-                "loot_tables": {
-                    "4": 0.2,
-                    "14": 0.1,
-                    "1": 0.9,
-                    "17": 0.6
-                }
-            },
-            "Strings": {
-                "name": "Bosque Encantado",
-                "desc": "Un bosque repleto de magia vibrante",
-                "exit": "Saliendo del Bosque Encantado",
-                "color": "green"
-            },
-            "Gathering": {
-                "Materials": [
-                    "3_G",
-                    "17_G",
-                    "18_G",
-                    "19_G"
-                ]
-            }
+      },
+      "treant": {
+        "NAME": "Treant Antiguo",
+        "HP_M": 200,
+        "DMG": [
+          30,
+          0,
+          20,
+          0,
+          0
+        ],
+        "DMG_min": [
+          15,
+          0,
+          10,
+          0
+        ],
+        "MP_M": 50,
+        "EXP_TO_PLAYER": 120,
+        "DEF": [
+          20,
+          0,
+          30,
+          5,
+          5
+        ],
+        "LS": 0,
+        "AGI": 5,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 150,
+        "loot_tables": {
+          "4": 0.2,
+          "14": 0.1,
+          "1": 0.9,
+          "17": 0.6
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
         }
-    ],
-    "ForgottenRuins": [
-        {
-            "stone_gargoyle": {
-                "NAME": "Gárgola de Piedra",
-                "HP_M": 120,
-                "DMG": [
-                    25,
-                    0,
-                    10,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    12,
-                    0,
-                    5,
-                    0
-                ],
-                "MP_M": 20,
-                "EXP_TO_PLAYER": 80,
-                "DEF": [
-                    25,
-                    5,
-                    15,
-                    10,
-                    5
-                ],
-                "LS": 0,
-                "AGI": 10,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 90,
-                "loot_tables": {
-                    "23": 0.4,
-                    "6": 0.1,
-                    "9": 0.05
-                }
-            },
-            "ruin_guardian": {
-                "NAME": "Guardián de las Ruinas",
-                "HP_M": 250,
-                "DMG": [
-                    35,
-                    15,
-                    15,
-                    15,
-                    0
-                ],
-                "DMG_min": [
-                    18,
-                    7,
-                    7,
-                    7
-                ],
-                "MP_M": 100,
-                "EXP_TO_PLAYER": 180,
-                "DEF": [
-                    30,
-                    20,
-                    20,
-                    20,
-                    10
-                ],
-                "LS": 0,
-                "AGI": 8,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 250,
-                "IS_BOSS": true,
-                "SPAWN_CHANCE": 0.05,
-                "loot_tables": {
-                    "9": 0.2,
-                    "22": 0.1,
-                    "23": 0.8,
-                    "44": 0.1
-                }
-            },
-            "Strings": {
-                "name": "Ruinas Olvidadas",
-                "desc": "Vestigios de una antigua civilización",
-                "exit": "Saliendo de las Ruinas",
-                "color": "yellow"
-            },
-            "Gathering": {
-                "Materials": [
-                    "9_G",
-                    "13_G",
-                    "23_G",
-                    "14_G"
-                ]
-            }
+      },
+      "Strings": {
+        "name": "Bosque Encantado",
+        "desc": "Un bosque repleto de magia vibrante",
+        "exit": "Saliendo del Bosque Encantado",
+        "color": "green"
+      },
+      "Gathering": {
+        "Materials": [
+          "3_G",
+          "17_G",
+          "18_G",
+          "19_G"
+        ]
+      }
+    }
+  ],
+  "ForgottenRuins": [
+    {
+      "stone_gargoyle": {
+        "NAME": "Gárgola de Piedra",
+        "HP_M": 120,
+        "DMG": [
+          25,
+          0,
+          10,
+          0,
+          0
+        ],
+        "DMG_min": [
+          12,
+          0,
+          5,
+          0
+        ],
+        "MP_M": 20,
+        "EXP_TO_PLAYER": 80,
+        "DEF": [
+          25,
+          5,
+          15,
+          10,
+          5
+        ],
+        "LS": 0,
+        "AGI": 10,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 90,
+        "loot_tables": {
+          "23": 0.4,
+          "6": 0.1,
+          "9": 0.05
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
+        },
+        "affinity_profile": "rock_golem"
+      },
+      "ruin_guardian": {
+        "NAME": "Guardián de las Ruinas",
+        "HP_M": 250,
+        "DMG": [
+          35,
+          15,
+          15,
+          15,
+          0
+        ],
+        "DMG_min": [
+          18,
+          7,
+          7,
+          7
+        ],
+        "MP_M": 100,
+        "EXP_TO_PLAYER": 180,
+        "DEF": [
+          30,
+          20,
+          20,
+          20,
+          10
+        ],
+        "LS": 0,
+        "AGI": 8,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 250,
+        "IS_BOSS": true,
+        "SPAWN_CHANCE": 0.05,
+        "loot_tables": {
+          "9": 0.2,
+          "22": 0.1,
+          "23": 0.8,
+          "44": 0.1
+        },
+        "affinity_profile": "armored"
+      },
+      "Strings": {
+        "name": "Ruinas Olvidadas",
+        "desc": "Vestigios de una antigua civilización",
+        "exit": "Saliendo de las Ruinas",
+        "color": "yellow"
+      },
+      "Gathering": {
+        "Materials": [
+          "9_G",
+          "13_G",
+          "23_G",
+          "14_G"
+        ]
+      }
+    }
+  ],
+  "FrozenMountain": [
+    {
+      "ice_wolf": {
+        "NAME": "Lobo de Hielo",
+        "HP_M": 80,
+        "DMG": [
+          15,
+          0,
+          0,
+          0,
+          0
+        ],
+        "DMG_min": [
+          8,
+          0,
+          0,
+          0
+        ],
+        "MP_M": 20,
+        "EXP_TO_PLAYER": 60,
+        "DEF": [
+          10,
+          0,
+          5,
+          5,
+          2
+        ],
+        "LS": 0,
+        "AGI": 20,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 70,
+        "loot_tables": {
+          "20": 0.6,
+          "24": 0.2
+        },
+        "group_spawn": {
+          "1": 0.2,
+          "2": 0.35,
+          "3": 0.25,
+          "4": 0.12,
+          "5": 0.08
+        },
+        "affinity_profile": "ice_beast"
+      },
+      "frost_giant": {
+        "NAME": "Gigante de Escarcha",
+        "HP_M": 300,
+        "DMG": [
+          40,
+          0,
+          20,
+          0,
+          0
+        ],
+        "DMG_min": [
+          20,
+          0,
+          10,
+          0
+        ],
+        "MP_M": 50,
+        "EXP_TO_PLAYER": 200,
+        "DEF": [
+          25,
+          0,
+          20,
+          10,
+          5
+        ],
+        "LS": 0,
+        "AGI": 2,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 300,
+        "loot_tables": {
+          "6": 0.1,
+          "14": 0.1,
+          "24": 0.7,
+          "46": 0.05
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
+        },
+        "affinity_profile": "ice_beast"
+      },
+      "Strings": {
+        "name": "Montaña Helada",
+        "desc": "Picos cubiertos de nieve eterna",
+        "exit": "Descendiendo de la Montaña",
+        "color": "cyan"
+      },
+      "Gathering": {
+        "Materials": [
+          "2_G",
+          "13_G",
+          "24_G",
+          "18_G"
+        ]
+      }
+    }
+  ],
+  "CrystalDesert": [
+    {
+      "sand_worm": {
+        "NAME": "Gusano de Arena",
+        "HP_M": 110,
+        "DMG": [
+          20,
+          0,
+          25,
+          0,
+          0
+        ],
+        "DMG_min": [
+          10,
+          0,
+          12,
+          0
+        ],
+        "MP_M": 30,
+        "EXP_TO_PLAYER": 85,
+        "DEF": [
+          15,
+          10,
+          25,
+          5,
+          5
+        ],
+        "LS": 2,
+        "AGI": 12,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 100,
+        "loot_tables": {
+          "25": 0.5,
+          "12": 0.3
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
         }
-    ],
-    "FrozenMountain": [
-        {
-            "ice_wolf": {
-                "NAME": "Lobo de Hielo",
-                "HP_M": 80,
-                "DMG": [
-                    15,
-                    0,
-                    0,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    8,
-                    0,
-                    0,
-                    0
-                ],
-                "MP_M": 20,
-                "EXP_TO_PLAYER": 60,
-                "DEF": [
-                    10,
-                    0,
-                    5,
-                    5,
-                    2
-                ],
-                "LS": 0,
-                "AGI": 20,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 70,
-                "loot_tables": {
-                    "20": 0.6,
-                    "24": 0.2
-                }
-            },
-            "frost_giant": {
-                "NAME": "Gigante de Escarcha",
-                "HP_M": 300,
-                "DMG": [
-                    40,
-                    0,
-                    20,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    20,
-                    0,
-                    10,
-                    0
-                ],
-                "MP_M": 50,
-                "EXP_TO_PLAYER": 200,
-                "DEF": [
-                    25,
-                    0,
-                    20,
-                    10,
-                    5
-                ],
-                "LS": 0,
-                "AGI": 2,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 300,
-                "loot_tables": {
-                    "6": 0.1,
-                    "14": 0.1,
-                    "24": 0.7,
-                    "46": 0.05
-                }
-            },
-            "Strings": {
-                "name": "Montaña Helada",
-                "desc": "Picos cubiertos de nieve eterna",
-                "exit": "Descendiendo de la Montaña",
-                "color": "cyan"
-            },
-            "Gathering": {
-                "Materials": [
-                    "2_G",
-                    "13_G",
-                    "24_G",
-                    "18_G"
-                ]
-            }
-        }
-    ],
-    "CrystalDesert": [
-        {
-            "sand_worm": {
-                "NAME": "Gusano de Arena",
-                "HP_M": 110,
-                "DMG": [
-                    20,
-                    0,
-                    25,
-                    0,
-                    0
-                ],
-                "DMG_min": [
-                    10,
-                    0,
-                    12,
-                    0
-                ],
-                "MP_M": 30,
-                "EXP_TO_PLAYER": 85,
-                "DEF": [
-                    15,
-                    10,
-                    25,
-                    5,
-                    5
-                ],
-                "LS": 2,
-                "AGI": 12,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 100,
-                "loot_tables": {
-                    "25": 0.5,
-                    "12": 0.3
-                }
-            },
-            "glass_golem": {
-                "NAME": "Gólem de Cristal",
-                "HP_M": 180,
-                "DMG": [
-                    15,
-                    20,
-                    0,
-                    15,
-                    0
-                ],
-                "DMG_min": [
-                    8,
-                    10,
-                    0,
-                    8
-                ],
-                "MP_M": 80,
-                "EXP_TO_PLAYER": 140,
-                "DEF": [
-                    30,
-                    15,
-                    10,
-                    25,
-                    10
-                ],
-                "LS": 0,
-                "AGI": 8,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 200,
-                "loot_tables": {
-                    "23": 0.1,
-                    "25": 0.8,
-                    "47": 0.05
-                }
-            },
-            "Strings": {
-                "name": "Desierto de Cristal",
-                "desc": "Dunas ardientes con formaciones cristalinas",
-                "exit": "Saliendo del Desierto",
-                "color": "bright_yellow"
-            },
-            "Gathering": {
-                "Materials": [
-                    "7_G",
-                    "14_G",
-                    "25_G",
-                    "17_G"
-                ]
-            }
-        }
-    ],
-    "ToxicSwamp": [
-        {
-            "swamp_slime": {
-                "NAME": "Slime del Pantano",
-                "HP_M": 90,
-                "DMG": [
-                    5,
-                    0,
-                    15,
-                    0,
-                    15
-                ],
-                "DMG_min": [
-                    2,
-                    0,
-                    8,
-                    0
-                ],
-                "MP_M": 20,
-                "EXP_TO_PLAYER": 75,
-                "DEF": [
-                    5,
-                    5,
-                    20,
-                    5,
-                    15
-                ],
-                "LS": 1,
-                "AGI": 5,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 80,
-                "loot_tables": {
-                    "26": 0.6,
-                    "16": 0.4
-                }
-            },
-            "plague_bringer": {
-                "NAME": "Portador de la Plaga",
-                "HP_M": 220,
-                "DMG": [
-                    20,
-                    0,
-                    30,
-                    0,
-                    25
-                ],
-                "DMG_min": [
-                    10,
-                    0,
-                    15,
-                    0
-                ],
-                "MP_M": 150,
-                "EXP_TO_PLAYER": 190,
-                "DEF": [
-                    20,
-                    15,
-                    30,
-                    10,
-                    25
-                ],
-                "LS": 5,
-                "AGI": 10,
-                "DBUFF_TO_PLAYER": [],
-                "BUFF_RECEIVED": [],
-                "GOLD": 280,
-                "IS_BOSS": true,
-                "SPAWN_CHANCE": 0.05,
-                "loot_tables": {
-                    "91": 0.2,
-                    "26": 0.9,
-                    "43": 0.1
-                }
-            },
-            "Strings": {
-                "name": "Pantano Tóxico",
-                "desc": "Aguas pútridas y neblina venenosa",
-                "exit": "Saliendo del Pantano",
-                "color": "magenta"
-            },
-            "Gathering": {
-                "Materials": [
-                    "16_G",
-                    "26_G",
-                    "4_G",
-                    "18_G"
-                ]
-            }
-        }
-    ]
+      },
+      "glass_golem": {
+        "NAME": "Gólem de Cristal",
+        "HP_M": 180,
+        "DMG": [
+          15,
+          20,
+          0,
+          15,
+          0
+        ],
+        "DMG_min": [
+          8,
+          10,
+          0,
+          8
+        ],
+        "MP_M": 80,
+        "EXP_TO_PLAYER": 140,
+        "DEF": [
+          30,
+          15,
+          10,
+          25,
+          10
+        ],
+        "LS": 0,
+        "AGI": 8,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 200,
+        "loot_tables": {
+          "23": 0.1,
+          "25": 0.8,
+          "47": 0.05
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
+        },
+        "affinity_profile": "rock_golem"
+      },
+      "Strings": {
+        "name": "Desierto de Cristal",
+        "desc": "Dunas ardientes con formaciones cristalinas",
+        "exit": "Saliendo del Desierto",
+        "color": "bright_yellow"
+      },
+      "Gathering": {
+        "Materials": [
+          "7_G",
+          "14_G",
+          "25_G",
+          "17_G"
+        ]
+      }
+    }
+  ],
+  "ToxicSwamp": [
+    {
+      "swamp_slime": {
+        "NAME": "Slime del Pantano",
+        "HP_M": 90,
+        "DMG": [
+          5,
+          0,
+          15,
+          0,
+          15
+        ],
+        "DMG_min": [
+          2,
+          0,
+          8,
+          0
+        ],
+        "MP_M": 20,
+        "EXP_TO_PLAYER": 75,
+        "DEF": [
+          5,
+          5,
+          20,
+          5,
+          15
+        ],
+        "LS": 1,
+        "AGI": 5,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 80,
+        "loot_tables": {
+          "26": 0.6,
+          "16": 0.4
+        },
+        "group_spawn": {
+          "1": 0.8,
+          "2": 0.1,
+          "3": 0.05,
+          "4": 0.03,
+          "5": 0.02
+        },
+        "affinity_profile": "toxic"
+      },
+      "plague_bringer": {
+        "NAME": "Portador de la Plaga",
+        "HP_M": 220,
+        "DMG": [
+          20,
+          0,
+          30,
+          0,
+          25
+        ],
+        "DMG_min": [
+          10,
+          0,
+          15,
+          0
+        ],
+        "MP_M": 150,
+        "EXP_TO_PLAYER": 190,
+        "DEF": [
+          20,
+          15,
+          30,
+          10,
+          25
+        ],
+        "LS": 5,
+        "AGI": 10,
+        "DBUFF_TO_PLAYER": [],
+        "BUFF_RECEIVED": [],
+        "GOLD": 280,
+        "IS_BOSS": true,
+        "SPAWN_CHANCE": 0.05,
+        "loot_tables": {
+          "91": 0.2,
+          "26": 0.9,
+          "43": 0.1
+        },
+        "affinity_profile": "toxic"
+      },
+      "Strings": {
+        "name": "Pantano Tóxico",
+        "desc": "Aguas pútridas y neblina venenosa",
+        "exit": "Saliendo del Pantano",
+        "color": "magenta"
+      },
+      "Gathering": {
+        "Materials": [
+          "16_G",
+          "26_G",
+          "4_G",
+          "18_G"
+        ]
+      }
+    }
+  ]
 }

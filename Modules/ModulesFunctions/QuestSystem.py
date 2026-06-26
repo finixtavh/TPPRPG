@@ -3,7 +3,7 @@ import os
 import time
 from rich.console import Console
 from rich.panel import Panel
-from Modules.ModulesUtils.input_utils import get_menu_refresh_rate
+from Modules.ModulesUtils.input_utils import get_menu_refresh_rate, interactive_menu_select
 
 
 console = Console()
@@ -116,7 +116,6 @@ class QuestManager:
                 self.active_quests[qid] = self.quests[qid]
 
     def open_quest_board(self, player, vInventory):
-        from Modules.ModulesUtils.input_utils import interactive_menu_select
         
         while True:
             console.clear()

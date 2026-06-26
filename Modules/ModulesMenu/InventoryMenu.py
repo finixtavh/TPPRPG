@@ -25,7 +25,9 @@ from rich.live import Live
 from rich.rule import Rule
 from sshkeyboard import listen_keyboard, stop_listening
 
-from Modules.ModulesUtils.input_utils import keyboard_listener_scope
+from Modules.ModulesUtils.input_utils import keyboard_listener_scope, start_key_listener
+from Modules.ModulesFunctions.EnchantmentSystem import get_item_enchants, format_enchant_display, ENCHANTMENTS_CATALOG, MAX_ENCHANT_SLOTS
+from Modules.ModulesFunctions.EquipmentSystem import EquipmentManager
 from Modules.ModulesUtils.UIStyle import (
     herald_panel, herald_bar, herald_table, ICONS, 
     COLOR_PRIMARY, COLOR_SECONDARY, COLOR_DIM
@@ -310,10 +312,6 @@ def _render_item_detail(slot, player=None) -> Panel:
     # ── Encantamientos (para Armas, Equipo y Herramientas) ──
     if itype in ("cWeapon", "cEquippableItems", "cTool"):
         try:
-            from Modules.ModulesFunctions.EnchantmentSystem import (
-                get_item_enchants, format_enchant_display,
-                ENCHANTMENTS_CATALOG, MAX_ENCHANT_SLOTS
-            )
             enchant_entries = get_item_enchants(item)
             if enchant_entries:
                 lines.append(Text(""))
@@ -475,10 +473,6 @@ def _show_item_info_screen(item, console: Console, player=None):
     # ── Encantamientos (universal para armas, equipo y herramientas) ──
     if itype in ("cWeapon", "cEquippableItems", "cTool"):
         try:
-            from Modules.ModulesFunctions.EnchantmentSystem import (
-                get_item_enchants, format_enchant_display,
-                ENCHANTMENTS_CATALOG, MAX_ENCHANT_SLOTS
-            )
             enchant_entries = get_item_enchants(item)
             if enchant_entries:
                 n_fam = len({e["family_id"] for e in enchant_entries})
@@ -540,7 +534,6 @@ def open_inventory_menu(
     # ── fallback equip ──
     if on_equip is None:
         try:
-            from Modules.ModulesFunctions.EquipmentSystem import EquipmentManager
             on_equip = lambda p, i, inv: EquipmentManager.equip_item(p, i, inv)
         except ImportError:
             on_equip = lambda p, i, inv: False
@@ -663,12 +656,7 @@ def open_inventory_menu(
         kb_thread: Optional[threading.Thread] = None
 
         with keyboard_listener_scope():
-            kb_thread = threading.Thread(
-                target=listen_keyboard,
-                kwargs={"on_press": _on_press, "sequential": True, "delay_second_char": 0.0},
-                daemon=True,
-            )
-            kb_thread.start()
+            kb_thread = start_key_listener(_on_press, sequential=True)
 
             try:
                 with Live(

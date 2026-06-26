@@ -2,16 +2,20 @@
 import os
 import json
 import time
+import traceback
 from typing import Optional, Dict, Any
+from rich.panel import Panel
 
 from Modules.ModulesUtils.Loader import Read
-from Modules.ModulesFunctions.GatheringMasterySystem import cTool, cMaterial
+from Modules.ModulesUtils.ModLoader import get_mod_api
+from Modules.ModulesFunctions.GatheringMasterySystem import cTool, cMaterial, Gathering_init
 from Modules.ModulesUtils.setup import cObject
 from Modules.ModulesUtils.setup import cWeapon, cEquippableItems
 from Modules.ModulesFunctions.CompanionSystem import load_companion_by_id
 from Modules.ModulesFunctions.MasterySystem import MasteryManager
 from Modules.ModulesFunctions.BaseSystem import BaseManager
 from Modules.ModulesFunctions.QuestSystem import quest_manager
+from Modules.ModulesFunctions.GuildSystem import get_guild_manager, reset_guild_manager
 
 _SAVE_DIR = os.path.join("Data", "Saves")
 _SLOT_PATHS = {
@@ -95,7 +99,6 @@ def _serialize_base(player) -> dict:
 def _serialize_gathering() -> dict:
     """Serializa los niveles de gathering skills del Gathering_init global."""
     try:
-        from Modules.ModulesFunctions.GatheringMasterySystem import Gathering_init
         result = {}
         for skill_key, skill_obj in Gathering_init.gathering.items():
             result[skill_key] = {
@@ -111,7 +114,6 @@ def _serialize_gathering() -> dict:
 def _serialize_guild_system() -> dict:
     """Serializa el estado completo del GuildManager."""
     try:
-        from Modules.ModulesFunctions.GuildSystem import get_guild_manager
         return get_guild_manager().to_dict()
     except Exception:
         return {}
@@ -120,7 +122,6 @@ def _serialize_guild_system() -> dict:
 def _restore_guild_system(data: dict, player) -> None:
     """Restaura el GuildManager desde el guardado y sincroniza con el jugador."""
     try:
-        from Modules.ModulesFunctions.GuildSystem import get_guild_manager, reset_guild_manager
         if not data:
             return
         gm = reset_guild_manager()
@@ -168,6 +169,8 @@ def build_save_data(player, inventory, chosen_area, active_enemies_ids=None) -> 
             "guild_id": getattr(player, "guild_id", ""),
             "guild_reputation": dict(getattr(player, "guild_reputation", {})),
             "combat_counter": getattr(player, "combat_counter", 0),
+            "_level_health_bonus": getattr(player, "_level_health_bonus", (player.Level - 1) * 20),
+            "_level_mana_bonus": getattr(player, "_level_mana_bonus", (player.Level - 1) * 10),
         },
         "equipment": equipment,
         "inventory": _serialize_inventory(inventory),
@@ -179,10 +182,37 @@ def build_save_data(player, inventory, chosen_area, active_enemies_ids=None) -> 
         "gathering_skills": _serialize_gathering(),
         "quests": quest_manager.get_save_data(),
         "guild_system": _serialize_guild_system(),
+        "mods": _serialize_mods(player),
         "game_state": {
             "chosen_area": chosen_area,
         },
     }
+
+
+def _serialize_mods(player) -> dict:
+    """Serializa atributos de jugador de mods + settings/estados de mods."""
+    try:
+        api = get_mod_api()
+        api.fire_event("on_save", player)
+        return {
+            "player_attributes": api.serialize_player_attributes(player),
+            "api_state": api.serialize_states(),
+        }
+    except Exception:
+        return {}
+
+
+def _restore_mods(player, data: dict) -> None:
+    """Restaura atributos de mods y settings/estados; dispara on_load."""
+    if not data:
+        return
+    try:
+        api = get_mod_api()
+        api.restore_states(data.get("api_state", {}))
+        api.restore_player_attributes(player, data.get("player_attributes", {}))
+        api.fire_event("on_load", player)
+    except Exception as e:
+        print(f"[SaveSystem] Error restaurando mods: {e}")
 
 
 # ── Guardar ───────────────────────────────────────────────────────────────────
@@ -242,10 +272,11 @@ def load_from_slot(slot: int, player, inventory, item_manager) -> Optional[dict]
         if "quests" in data:
             quest_manager.load_save_data(data["quests"])
         _restore_guild_system(data.get("guild_system", {}), player)
+        _restore_mods(player, data.get("mods", {}))
         return data.get("game_state", {})
     except Exception as e:
         print(f"[SaveSystem] Error restaurando estado del slot {slot}: {e}")
-        import traceback; traceback.print_exc()
+        traceback.print_exc()
         return None
 
 
@@ -254,7 +285,8 @@ def _restore_player(player, pdata: dict):
     for attr in ["name", "Level", "lvlPoints", "Health", "Health_max",
                  "Mana", "Mana_max", "EXP", "EXP_M", "Gold",
                  "AGI", "CounterAttack", "Evasion", "ManaRegen",
-                  "RAC", "Control", "Barrier"]:
+                 "RAC", "Control", "Barrier",
+                 "_level_health_bonus", "_level_mana_bonus"]:
         if attr in pdata:
             setattr(player, attr, pdata[attr])
     
@@ -274,18 +306,15 @@ def _restore_player(player, pdata: dict):
         player.DEF = list(pdata["DEF"])
     if "DefensePercentage" in pdata:
         player.DefensePercentage = list(pdata["DefensePercentage"])
+    # Backward compat: old saves lack _level_health_bonus; derive from Level
+    if "_level_health_bonus" not in pdata:
+        player._level_health_bonus = (pdata.get("Level", 1) - 1) * 20
+    if "_level_mana_bonus" not in pdata:
+        player._level_mana_bonus = (pdata.get("Level", 1) - 1) * 10
 
 
 def _restore_equipment(player, equip_data: dict, item_manager):
     """Restaura el equipamiento del jugador por ID."""
-    from Modules.ModulesUtils.setup import cWeapon, cEquippableItems
-    try:
-        from Modules.ModulesFunctions.GatheringMasterySystem import cTool
-        from Modules.ModulesUtils.setup import cObject
-    except ImportError:
-        cTool = None
-        cObject = None
-
     for slot_name, item_info in equip_data.items():
         if item_info is None:
             setattr(player, slot_name, None)
@@ -297,8 +326,7 @@ def _restore_equipment(player, equip_data: dict, item_manager):
             item_obj = item_manager.create_item_object(
                 item_id, cWeapon, cEquippableItems, cObject, cTool
             )
-            if item_obj is not None and not isinstance(item_obj, cWeapon):
-                # Re-aplicar encantamientos si existen (simplificado)
+            if item_obj is not None:
                 setattr(player, slot_name, item_obj)
                 if hasattr(item_obj, "AppliedStats"):
                     item_obj.AppliedStats = False
@@ -385,7 +413,6 @@ def _restore_gathering(gathering_data: dict):
     if not gathering_data:
         return
     try:
-        from Modules.ModulesFunctions.GatheringMasterySystem import Gathering_init
         for skill_key, sdata in gathering_data.items():
             if skill_key in Gathering_init.gathering:
                 skill_obj = Gathering_init.gathering[skill_key]
@@ -424,7 +451,6 @@ def save_load_menu(player, inventory, chosen_area, item_manager, console, menu_f
     Menú completo de guardar / cargar con 3 slots.
     Retorna dict de game_state si se cargó, None si solo se guardó o canceló.
     """
-    from rich.panel import Panel
 
     while True:
         console.clear()

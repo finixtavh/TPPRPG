@@ -1,6 +1,6 @@
 from typing import Dict, Any, List, Optional
 import copy
-from Modules.ModulesUtils.input_utils import get_menu_refresh_rate
+from Modules.ModulesUtils.input_utils import get_menu_refresh_rate, interactive_menu_select
 
 
 # ── Constantes ──
@@ -403,7 +403,6 @@ def format_enchant_display(entry: Dict[str, Any], catalog: Dict) -> str:
 def open_enchantment_menu(player, vInventory):
     from rich.console import Console
     from rich.panel import Panel
-    from Modules.ModulesUtils.input_utils import interactive_menu_select
     import time
     
     console = Console()

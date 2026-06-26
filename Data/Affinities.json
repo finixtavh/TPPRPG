@@ -1,0 +1,52 @@
+{
+  "_COMMENT": "Multiplicadores de daño por tipo elemental que recibe un enemigo. Orden de tipos: [physical, thermal, earth, electric, deep]. 1.0 = normal, >1.0 = debil, <1.0 = resistente. Un enemigo referencia un perfil con la clave 'affinity_profile' en DataStats.json, o define 'affinities' en linea.",
+  "_TYPE_ORDER": ["physical", "thermal", "earth", "electric", "deep"],
+  "PROFILES": {
+    "beast": {
+      "physical": 1.1,
+      "thermal": 1.25,
+      "deep": 0.9
+    },
+    "fire_elemental": {
+      "thermal": 0.2,
+      "earth": 1.75,
+      "electric": 1.0,
+      "deep": 1.25
+    },
+    "ice_beast": {
+      "thermal": 1.75,
+      "earth": 0.75,
+      "electric": 1.25,
+      "deep": 1.0
+    },
+    "rock_golem": {
+      "physical": 0.5,
+      "earth": 0.25,
+      "thermal": 1.5,
+      "electric": 1.75
+    },
+    "undead": {
+      "physical": 0.85,
+      "thermal": 1.4,
+      "earth": 0.75,
+      "deep": 1.6
+    },
+    "spirit": {
+      "physical": 0.4,
+      "thermal": 1.1,
+      "deep": 1.6
+    },
+    "toxic": {
+      "thermal": 1.5,
+      "earth": 1.2,
+      "deep": 0.6
+    },
+    "armored": {
+      "physical": 0.4,
+      "thermal": 0.9,
+      "earth": 1.1,
+      "electric": 1.5,
+      "deep": 1.2
+    }
+  }
+}

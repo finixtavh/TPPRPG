@@ -1,7 +1,10 @@
 {
   "COMBAT": {
     "DELAY_BETWEEN_ROUNDS": 0.5,
-    "CHANCE_TO_FLEE": 0.1
+    "CHANCE_TO_FLEE": 0.1,
+    "ANIM_DELAY": 0.4,
+    "LOOT_CHANCE": 0.40,
+    "LOOT_FALLBACK_IDS": [1, 10, 21, 32, 43, 54]
   },
   "GUILDS_PARAMS": {
     "MIN_NPC_GUILDS": 25,

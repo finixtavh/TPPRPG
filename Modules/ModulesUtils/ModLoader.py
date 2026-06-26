@@ -1,4 +1,6 @@
 import sys
+import re
+import operator
 import importlib
 import importlib.util
 import json
@@ -33,15 +35,66 @@ else:
     console = _FallbackConsole()
 
 
+# Versión del juego que los mods pueden exigir con manifest.game_version
+GAME_VERSION = "1.1.0"
+
+# Categorías de contribución que un mod puede aportar (data + código).
+_CONTRIB_DICT_KEYS = (
+    "items", "zones", "shops", "enchantments", "quests", "gathering",
+    "guild_skills", "affinities", "companions", "buffs", "player_skills",
+    "localization", "player_attributes", "buildings", "enemies", "commands",
+)
+_CONTRIB_LIST_KEYS = ("recipes", "guild_events", "weathers")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Utilidades de versión / dependencias
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _ver_tuple(v) -> tuple:
+    nums = re.findall(r'\d+', str(v))
+    return tuple(int(n) for n in nums) if nums else (0,)
+
+
+_VER_OPS = {">=": operator.ge, "<=": operator.le, "==": operator.eq,
+            ">": operator.gt, "<": operator.lt, "!=": operator.ne}
+
+
+def version_satisfies(have: str, spec: Optional[str]) -> bool:
+    """¿`have` cumple la restricción `spec` (ej. '>=1.0', '==2.1', '1.0')?"""
+    if not spec:
+        return True
+    spec = str(spec).strip()
+    m = re.match(r'^(>=|<=|==|!=|>|<)?\s*([\d.]+)$', spec)
+    if not m:
+        return True
+    op = m.group(1) or "=="
+    want = _ver_tuple(m.group(2))
+    h = _ver_tuple(have)
+    n = max(len(want), len(h))
+    want = want + (0,) * (n - len(want))
+    h = h + (0,) * (n - len(h))
+    return _VER_OPS[op](h, want)
+
+
+def parse_dependency(dep: str):
+    """'base_mod>=2.0' -> ('base_mod', '>=2.0'); 'base_mod' -> ('base_mod', None)."""
+    m = re.match(r'^\s*([^<>=!]+?)\s*(>=|<=|==|!=|>|<)\s*([\d.]+)\s*$', dep)
+    if m:
+        return m.group(1).strip(), m.group(2) + m.group(3)
+    return dep.strip(), None
+
+
 class ModAPI:
-    """API para que los mods interactúen con el juego"""
+    """API para que los mods interactúen con el juego."""
 
     def __init__(self):
+        # Agregados (vistas mergeadas de todos los mods habilitados).
         self.registered_items = {}
         self.registered_enemies = {}
         self.registered_zones = {}
-        self.event_handlers = {}
-        self.custom_commands = {}
+        self.event_handlers: Dict[str, list] = {}
+        self.custom_commands: Dict[str, dict] = {}
         self.registered_shops = {}
         self.registered_buildings = {}
         self.player_attributes = {}
@@ -50,42 +103,72 @@ class ModAPI:
         self.shop_injections = {}
         self.enchantment_injections = {}
         self.quest_injections = {}
-        self.recipe_injections = []
+        self.recipe_injections: list = []
         self.gathering_injections = {}
-        
-        # GUILD MODDING — inyecciones en el sistema de Guilds
-        self.guild_skill_injections: Dict[str, dict] = {}   # {skill_id: skill_def}
-        self.guild_event_injections: list = []              # list of event_pool dicts
-        self.guild_tick_handlers: List[Callable] = []       # fn(guild_manager) llamadas cada tick
-        self.weather_injections: List[dict] = []            # list of weather dicts
-        
-        # NUEVO: Almacenar datos crudos de JSONs de mods
-        self.mod_data_files = {}  # {mod_name: json_data}
-    
+
+        # GUILD / WEATHER
+        self.guild_skill_injections: Dict[str, dict] = {}
+        self.guild_event_injections: list = []
+        self.guild_tick_handlers: List[Callable] = []
+        self.weather_injections: List[dict] = []
+
+        # NUEVOS targets de inyección
+        self.affinity_injections: Dict[str, dict] = {}      # {profile_name: {type: mult}}
+        self.companion_injections: Dict[str, dict] = {}     # {companion_id: data}
+        self.buff_injections: Dict[str, dict] = {}          # {buff_id: data}
+        self.player_skill_injections: Dict[str, dict] = {}  # {skill_id: data}
+        self.localization_injections: Dict[str, str] = {}   # {key: text}
+
+        # Datos crudos de los JSON de mods
+        self.mod_data_files = {}
+
+        # ── Tracking por mod (para reload/unload sin duplicar) ──────────────
+        # _contrib[mod_name] = {cat: dict|list} con lo que aportó ese mod.
+        self._contrib: Dict[str, Dict[str, Any]] = {}
+        self._current_mod: Optional[str] = None   # mod cargándose ahora mismo
+        self._enabled_order: List[str] = []        # orden de merge (load order)
+        self._applied_weather_ids: set = set()
+
+        # Settings y estado persistente de mods
+        self.mod_settings: Dict[str, dict] = {}    # {mod: {key: value}}
+        self.mod_settings_schema: Dict[str, dict] = {}  # {mod: {key: schema}}
+        self.mod_states: Dict[str, dict] = {}      # estado runtime guardable
+
+    # =========================================================================
+    # CONTEXTO DE CARGA (atribuir aportes al mod correcto)
+    # =========================================================================
+
+    def _begin_mod(self, mod_name: str):
+        self._current_mod = mod_name
+        self._contrib.setdefault(mod_name, self._empty_contrib())
+
+    def _end_mod(self):
+        self._current_mod = None
+
+    @staticmethod
+    def _empty_contrib() -> Dict[str, Any]:
+        c = {k: {} for k in _CONTRIB_DICT_KEYS}
+        for k in _CONTRIB_LIST_KEYS:
+            c[k] = []
+        c["event_handlers"] = {}   # {event: [fn,...]}
+        return c
+
+    def _contrib_for(self, mod_name: Optional[str]) -> Dict[str, Any]:
+        mod_name = mod_name or self._current_mod or "_runtime"
+        return self._contrib.setdefault(mod_name, self._empty_contrib())
+
     # =========================================================================
     # CARGA DE DATOS DE MOD
     # =========================================================================
-    
+
     def load_mod_data(self, mod_name: str, json_path: str) -> Dict:
-        """
-        Carga el archivo JSON de datos de un mod
-        
-        Args:
-            mod_name: Nombre del mod
-            json_path: Ruta al archivo .json del mod
-            
-        Returns:
-            Dict con los datos del mod
-        """
+        """Carga (y mergea) uno o varios JSON de datos de un mod."""
         try:
             with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
             self.mod_data_files[mod_name] = data
             logger.info(f"Datos del mod '{mod_name}' cargados desde {json_path}")
-            
             return data
-        
         except FileNotFoundError:
             logger.warning(f"Archivo de datos no encontrado para mod '{mod_name}': {json_path}")
             return {}
@@ -95,112 +178,178 @@ class ModAPI:
         except Exception as e:
             logger.error(f"Error cargando datos del mod '{mod_name}': {e}")
             return {}
-    
+
     def get_mod_data(self, mod_name: str) -> Dict:
-        """
-        Obtiene los datos cargados de un mod
-        
-        Args:
-            mod_name: Nombre del mod
-            
-        Returns:
-            Dict con los datos del mod o {} si no existe
-        """
         return self.mod_data_files.get(mod_name, {})
-    
+
     # =========================================================================
-    # INYECCIÓN AUTOMÁTICA DESDE JSON DEL MOD
+    # INYECCIÓN AUTOMÁTICA DESDE JSON DEL MOD (-> _contrib, sin duplicar)
     # =========================================================================
-    
+
     def auto_inject_from_mod_data(self, mod_name: str):
-        """
-        Inyecta automáticamente items, zonas y tiendas desde el JSON del mod
-        
-        Args:
-            mod_name: Nombre del mod
-        """
+        """Registra en _contrib[mod_name] todo lo que el JSON del mod aporta."""
         mod_data = self.get_mod_data(mod_name)
-        
         if not mod_data:
             logger.warning(f"No hay datos para auto-inyectar del mod '{mod_name}'")
             return
-        
-        # Inyectar items
-        if "items" in mod_data:
-            for item_type, items in mod_data["items"].items():
-                if item_type not in self.item_injections:
-                    self.item_injections[item_type] = {}
-                
-                for item_key, item_data in items.items():
-                    self.item_injections[item_type][item_key] = item_data
-                    logger.info(f"[{mod_name}] Item auto-inyectado: {item_type}.{item_key}")
-        
-        # Inyectar zonas
-        if "zones" in mod_data:
-            for zone_name, zone_data in mod_data["zones"].items():
-                self.stats_injections[zone_name] = zone_data
-                logger.info(f"[{mod_name}] Zona auto-inyectada: {zone_name}")
-        
-        # Inyectar tiendas
-        if "shops" in mod_data:
-            for shop_name, shop_data in mod_data["shops"].items():
-                self.shop_injections[shop_name] = shop_data
-                logger.info(f"[{mod_name}] Tienda auto-inyectada: {shop_name}")
-        
-        # Inyectar encantamientos
-        if "enchantments" in mod_data:
-            for ench_key, ench_data in mod_data["enchantments"].items():
-                self.enchantment_injections[ench_key] = ench_data
-                logger.info(f"[{mod_name}] Encantamiento auto-inyectado: {ench_key}")
-                
-        # Inyectar quests
-        if "quests" in mod_data:
-            for quest_data in mod_data["quests"]:
-                quest_id = quest_data.get("quest_id")
-                if quest_id:
-                    self.quest_injections[quest_id] = quest_data
-                    logger.info(f"[{mod_name}] Quest auto-inyectada: {quest_id}")
-                    
-        # Inyectar recetas
-        if "recipes" in mod_data:
-            for recipe_data in mod_data["recipes"]:
-                self.recipe_injections.append(recipe_data)
-                logger.info(f"[{mod_name}] Receta auto-inyectada: {recipe_data.get('name')}")
 
-        # Inyectar parámetros de gathering
-        if "gathering" in mod_data:
-            for skill_key, params in mod_data["gathering"].items():
-                self.gathering_injections[skill_key] = params
-                logger.info(f"[{mod_name}] Gathering config auto-inyectada: {skill_key}")
-        
-        # GUILD: Inyectar habilidades del árbol
-        if "guild_skills" in mod_data:
-            for skill_id, skill_def in mod_data["guild_skills"].items():
-                self.guild_skill_injections[skill_id] = skill_def
-                logger.info(f"[{mod_name}] Guild skill inyectada: {skill_id}")
-            # Aplicar inmediatamente al árbol en memoria
-            self._apply_guild_skills()
-        
-        # GUILD: Inyectar eventos en el pool de la IA
-        if "guild_events" in mod_data:
-            for ev in mod_data["guild_events"]:
-                self.guild_event_injections.append(ev)
-                logger.info(f"[{mod_name}] Guild event inyectado: {ev.get('event_id', '?')}")
-            self._apply_guild_events()
+        c = self._contrib_for(mod_name)
 
-        # Inyectar climas
-        if "weathers" in mod_data:
-            for w_data in mod_data["weathers"]:
-                self.weather_injections.append(w_data)
-                logger.info(f"[{mod_name}] Clima auto-inyectado: {w_data.get('id', '?')}")
-            self._apply_weathers()
-    
+        # Settings declarados en el manifest
+        manifest = mod_data.get("manifest", mod_data.get("mod_info", {}))
+        if isinstance(manifest, dict) and "settings" in manifest:
+            self._register_settings(mod_name, manifest["settings"])
+
+        def _ok(entry, *required) -> bool:
+            return isinstance(entry, dict) and all(k in entry for k in required)
+
+        # items: {TYPE:x: {key: data}}
+        for item_type, items in mod_data.get("items", {}).items():
+            dst = c["items"].setdefault(item_type, {})
+            for k, v in items.items():
+                if _ok(v, "STATIC_ID") or item_type == "TYPE:Materials":
+                    dst[k] = v
+                else:
+                    logger.warning(f"[{mod_name}] item '{k}' inválido (falta STATIC_ID)")
+
+        for cat, jkey in (("zones", "zones"), ("shops", "shops"),
+                          ("enchantments", "enchantments"), ("gathering", "gathering"),
+                          ("guild_skills", "guild_skills"), ("affinities", "affinities"),
+                          ("buffs", "buffs"), ("player_skills", "player_skills"),
+                          ("localization", "localization"), ("buildings", "buildings"),
+                          ("enemies", "enemies")):
+            for k, v in mod_data.get(jkey, {}).items():
+                c[cat][k] = v
+
+        # companions pueden venir como {"COMPANIONS": {...}} o plano
+        comp_block = mod_data.get("companions", {})
+        if "COMPANIONS" in comp_block:
+            comp_block = comp_block["COMPANIONS"]
+        for k, v in comp_block.items():
+            c["companions"][k] = v
+
+        # quests (lista con quest_id)
+        for q in mod_data.get("quests", []):
+            qid = q.get("quest_id")
+            if qid:
+                c["quests"][qid] = q
+
+        # listas
+        c["recipes"].extend(mod_data.get("recipes", []))
+        c["guild_events"].extend(mod_data.get("guild_events", []))
+        c["weathers"].extend(mod_data.get("weathers", []))
+
+        logger.info(f"[{mod_name}] datos JSON registrados en contribución.")
+
     # =========================================================================
-    # REGISTRO DE ITEMS (mantenido para compatibilidad)
+    # REBUILD: recomputar agregados desde mods habilitados (anti-duplicación)
     # =========================================================================
-    
+
+    def rebuild(self, enabled_order: Optional[List[str]] = None):
+        """Reconstruye todos los agregados desde _contrib de los mods habilitados."""
+        if enabled_order is not None:
+            self._enabled_order = list(enabled_order)
+        order = self._enabled_order or list(self._contrib.keys())
+
+        # Limpiar agregados
+        self.item_injections = {}
+        self.stats_injections = {}
+        self.shop_injections = {}
+        self.enchantment_injections = {}
+        self.quest_injections = {}
+        self.recipe_injections = []
+        self.gathering_injections = {}
+        self.guild_skill_injections = {}
+        self.guild_event_injections = []
+        self.weather_injections = []
+        self.affinity_injections = {}
+        self.companion_injections = {}
+        self.buff_injections = {}
+        self.player_skill_injections = {}
+        self.localization_injections = {}
+        self.player_attributes = {}
+        self.registered_buildings = {}
+        self.registered_enemies = {}
+        self.event_handlers = {}
+        self.custom_commands = {}
+
+        for mod in order:
+            c = self._contrib.get(mod)
+            if not c:
+                continue
+            for item_type, items in c["items"].items():
+                self.item_injections.setdefault(item_type, {}).update(items)
+            self.stats_injections.update(c["zones"])
+            for sname, sdata in c["shops"].items():
+                self.shop_injections[sname] = sdata
+            self.enchantment_injections.update(c["enchantments"])
+            self.quest_injections.update(c["quests"])
+            self.gathering_injections.update(c["gathering"])
+            self.guild_skill_injections.update(c["guild_skills"])
+            self.affinity_injections.update(c["affinities"])
+            self.companion_injections.update(c["companions"])
+            self.buff_injections.update(c["buffs"])
+            self.player_skill_injections.update(c["player_skills"])
+            self.localization_injections.update(c["localization"])
+            self.player_attributes.update(c["player_attributes"])
+            self.registered_buildings.update(c["buildings"])
+            self.registered_enemies.update(c["enemies"])
+            self.custom_commands.update(c["commands"])
+            self.recipe_injections.extend(c["recipes"])
+            self.guild_event_injections.extend(c["guild_events"])
+            self.weather_injections.extend(c["weathers"])
+            for ev, fns in c["event_handlers"].items():
+                self.event_handlers.setdefault(ev, []).extend(fns)
+
+        # Re-aplicar a sistemas externos (idempotente)
+        self._apply_guild_skills()
+        self._apply_guild_events()
+        self._apply_weathers()
+        self._apply_affinities()
+        logger.info(f"Agregados reconstruidos desde {len(order)} mod(s).")
+
+    # =========================================================================
+    # SETTINGS DE MOD
+    # =========================================================================
+
+    def _register_settings(self, mod_name: str, schema: dict):
+        self.mod_settings_schema[mod_name] = schema
+        cur = self.mod_settings.setdefault(mod_name, {})
+        for key, meta in schema.items():
+            if key not in cur:
+                cur[key] = meta.get("default")
+
+    def get_setting(self, mod_name: str, key: str, fallback=None):
+        return self.mod_settings.get(mod_name, {}).get(key, fallback)
+
+    def set_setting(self, mod_name: str, key: str, value) -> None:
+        self.mod_settings.setdefault(mod_name, {})[key] = value
+
+    # =========================================================================
+    # ESTADO PERSISTENTE DE MODS (para SaveSystem)
+    # =========================================================================
+
+    def save_mod_state(self, mod_name: str, state: dict) -> None:
+        self.mod_states[mod_name] = state
+
+    def get_mod_state(self, mod_name: str) -> dict:
+        return self.mod_states.get(mod_name, {})
+
+    def serialize_states(self) -> dict:
+        """Para SaveSystem: settings + estados runtime de mods."""
+        return {"settings": self.mod_settings, "states": self.mod_states}
+
+    def restore_states(self, blob: dict) -> None:
+        if not blob:
+            return
+        self.mod_settings.update(blob.get("settings", {}) or {})
+        self.mod_states.update(blob.get("states", {}) or {})
+
+    # =========================================================================
+    # REGISTRO MANUAL (mantiene compat; ahora atribuido al mod actual)
+    # =========================================================================
+
     def register_item(self, item_or_class, item_data: Dict):
-        """Registra un item manualmente"""
         item_id = item_data.get('id', f'mod_item_{len(self.registered_items)}')
         item_class = item_or_class if inspect.isclass(item_or_class) else item_or_class.__class__
         self.registered_items[item_id] = {
@@ -209,150 +358,158 @@ class ModAPI:
             'data': item_data
         }
         logger.info(f"Item registrado: {item_id}")
-    
+
     def inject_item_to_json(self, item_type: str, item_key: str, item_data: Dict):
-        """Inyecta un item al sistema"""
-        if item_type not in self.item_injections:
-            self.item_injections[item_type] = {}
-        
-        self.item_injections[item_type][item_key] = item_data
+        self._contrib_for(None)["items"].setdefault(item_type, {})[item_key] = item_data
+        self.item_injections.setdefault(item_type, {})[item_key] = item_data
         logger.info(f"Item inyectado a {item_type}: {item_key}")
-    
-    # =========================================================================
-    # REGISTRO DE ENEMIGOS Y ZONAS (mantenido para compatibilidad)
-    # =========================================================================
-    
+
     def register_enemy(self, enemy_or_class, enemy_data: Dict):
-        """Registra un enemigo"""
         enemy_id = enemy_data.get('id', f'mod_enemy_{len(self.registered_enemies)}')
         enemy_class = enemy_or_class if inspect.isclass(enemy_or_class) else enemy_or_class.__class__
-        self.registered_enemies[enemy_id] = {
+        entry = {
             'class': enemy_class,
             'instance': None if inspect.isclass(enemy_or_class) else enemy_or_class,
             'data': enemy_data
         }
+        self.registered_enemies[enemy_id] = entry
+        self._contrib_for(None)["enemies"][enemy_id] = entry
         logger.info(f"Enemigo registrado: {enemy_id}")
-    
+
     def register_zone(self, zone_name: str, zone_data: Dict):
-        """Registra una zona"""
         self.registered_zones[zone_name] = zone_data
         logger.info(f"Zona registrada: {zone_name}")
-    
+
     def inject_zone_to_json(self, zone_name: str, zone_data: List[Dict]):
-        """Inyecta una zona al DataStats.json virtual"""
+        self._contrib_for(None)["zones"][zone_name] = zone_data
         self.stats_injections[zone_name] = zone_data
         logger.info(f"Zona inyectada a DataStats: {zone_name}")
-    
-    # =========================================================================
-    # REGISTRO DE TIENDAS
-    # =========================================================================
-    
+
     def register_shop(self, shop_name: str, shop_data: Dict):
-        """Registra una tienda"""
         self.registered_shops[shop_name] = shop_data
         logger.info(f"Tienda registrada: {shop_name}")
-    
+
     def inject_shop_to_json(self, shop_name: str, item_ids: List[int]):
-        """Inyecta una tienda al DataShops.json virtual"""
-        self.shop_injections[shop_name] = [{"IDs": item_ids}]
+        data = [{"IDs": item_ids}]
+        self._contrib_for(None)["shops"][shop_name] = data
+        self.shop_injections[shop_name] = data
         logger.info(f"Tienda inyectada: {shop_name}")
-    
+
+    # ── NUEVOS registros ────────────────────────────────────────────────────
+
+    def register_affinity_profile(self, profile_name: str, mults: Dict[str, float]):
+        """Registra un perfil de afinidad elemental usable por enemigos (affinity_profile)."""
+        self._contrib_for(None)["affinities"][profile_name] = mults
+        self.affinity_injections[profile_name] = mults
+        self._apply_affinities()
+        logger.info(f"Perfil de afinidad registrado: {profile_name}")
+
+    def register_companion(self, companion_id: str, data: Dict):
+        self._contrib_for(None)["companions"][companion_id] = data
+        self.companion_injections[companion_id] = data
+        logger.info(f"Compañero registrado: {companion_id}")
+
+    def register_buff(self, buff_id: str, data: Dict):
+        self._contrib_for(None)["buffs"][buff_id] = data
+        self.buff_injections[buff_id] = data
+        logger.info(f"Buff registrado: {buff_id}")
+
+    def register_player_skill(self, skill_id: str, data: Dict):
+        self._contrib_for(None)["player_skills"][skill_id] = data
+        self.player_skill_injections[skill_id] = data
+        logger.info(f"Skill de jugador registrada: {skill_id}")
+
+    def register_localization(self, key: str, text: str):
+        self._contrib_for(None)["localization"][key] = text
+        self.localization_injections[key] = text
+
+    def localize(self, key: str, fallback: str = "") -> str:
+        return self.localization_injections.get(key, fallback or key)
+
     # =========================================================================
     # ATRIBUTOS PERSONALIZADOS DEL JUGADOR
     # =========================================================================
-    
-    def register_player_attribute(self, attr_name: str, default_value: Any, 
-                                   description: str = ""):
-        """Registra un atributo personalizado para el jugador"""
-        self.player_attributes[attr_name] = {
-            'default': default_value,
-            'description': description
-        }
+
+    def register_player_attribute(self, attr_name: str, default_value: Any, description: str = ""):
+        meta = {'default': default_value, 'description': description}
+        self.player_attributes[attr_name] = meta
+        self._contrib_for(None)["player_attributes"][attr_name] = meta
         logger.info(f"Atributo de jugador registrado: {attr_name}")
-    
+
     def apply_player_attributes(self, player):
-        """Aplica todos los atributos personalizados al jugador"""
         for attr_name, attr_data in self.player_attributes.items():
             if not hasattr(player, attr_name):
                 setattr(player, attr_name, attr_data['default'])
                 logger.info(f"Atributo '{attr_name}' agregado al jugador: {attr_data['default']}")
-    
+
+    def serialize_player_attributes(self, player) -> dict:
+        """Valores actuales de los atributos de mod en el jugador (para guardar)."""
+        return {name: getattr(player, name) for name in self.player_attributes if hasattr(player, name)}
+
+    def restore_player_attributes(self, player, data: dict) -> None:
+        self.apply_player_attributes(player)
+        for name, val in (data or {}).items():
+            setattr(player, name, val)
+
     # =========================================================================
     # EVENTOS
     # =========================================================================
-    
+
     def register_event_handler(self, event_name: str, handler_func: Callable):
-        """Registra un manejador de eventos"""
-        if event_name not in self.event_handlers:
-            self.event_handlers[event_name] = []
-        self.event_handlers[event_name].append(handler_func)
+        self.event_handlers.setdefault(event_name, []).append(handler_func)
+        self._contrib_for(None)["event_handlers"].setdefault(event_name, []).append(handler_func)
         logger.info(f"Event handler registrado para: {event_name}")
-    
+
     def fire_event(self, event_name: str, *args, **kwargs):
-        """Dispara un evento"""
-        if event_name in self.event_handlers:
-            for handler in self.event_handlers[event_name]:
-                try:
-                    handler(*args, **kwargs)
-                except Exception as e:
-                    logger.error(f"Error en event handler {handler.__name__}: {e}")
-    
+        for handler in self.event_handlers.get(event_name, []):
+            try:
+                handler(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Error en event handler {getattr(handler, '__name__', '?')} ({event_name}): {e}")
+
     # =========================================================================
     # COMANDOS PERSONALIZADOS
     # =========================================================================
-    
-    def register_command(self, command_name: str, handler_func: Callable, 
-                        description: str = ""):
-        """Registra un comando personalizado"""
-        self.custom_commands[command_name] = {
-            'handler': handler_func,
-            'description': description
-        }
+
+    def register_command(self, command_name: str, handler_func: Callable, description: str = ""):
+        entry = {'handler': handler_func, 'description': description}
+        self.custom_commands[command_name] = entry
+        self._contrib_for(None)["commands"][command_name] = entry
         logger.info(f"Comando registrado: {command_name}")
+
+    def run_command(self, command_name: str, *args, **kwargs):
+        """Ejecuta un comando personalizado registrado por un mod."""
+        cmd = self.custom_commands.get(command_name)
+        if not cmd:
+            logger.warning(f"Comando desconocido: {command_name}")
+            return None
+        try:
+            return cmd['handler'](*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error ejecutando comando '{command_name}': {e}")
+            return None
 
     # =========================================================================
     # GUILD MODDING API
     # =========================================================================
-    
+
     def register_guild_skill(self, skill_id: str, skill_def: dict):
-        """
-        Registra una nueva habilidad en el árbol de habilidades de Guild.
-        El dict debe seguir el esquema de GUILD_SKILL_TREE.
-        Ejemplo mínimo::
-            {
-              "id": "my_skill",
-              "name": "Mi Habilidad",
-              "branch": "Militar",   # 'Militar', 'Economía' o 'Diplomacia'
-              "icon": "🔥",
-              "description": "Descripción.",
-              "cost": 2,
-              "requires": [],
-              "effect": {"military_power_bonus": 0.1}
-            }
-        """
+        self._contrib_for(None)["guild_skills"][skill_id] = skill_def
         self.guild_skill_injections[skill_id] = skill_def
         self._apply_guild_skills()
         logger.info(f"Guild skill registrada: {skill_id}")
-    
+
     def register_guild_event(self, event_def: dict):
-        """
-        Añade un nuevo evento al pool aleatorio de eventos de Guild.
-        El dict debe incluir: event_id, title, desc_tmpl, options.
-        """
+        self._contrib_for(None)["guild_events"].append(event_def)
         self.guild_event_injections.append(event_def)
         self._apply_guild_events()
         logger.info(f"Guild event registrado: {event_def.get('event_id', '?')}")
-    
+
     def register_guild_tick_handler(self, handler_func: Callable):
-        """
-        Registra una función que se llamará en cada tick de simulación de guilds.
-        La función recibe (guild_manager) como argumento.
-        """
         self.guild_tick_handlers.append(handler_func)
         logger.info(f"Guild tick handler registrado: {handler_func.__name__}")
 
     def _apply_guild_skills(self):
-        """Inyecta las guild_skill_injections en el árbol en memoria."""
         try:
             from Modules.ModulesFunctions.GuildSkillTree import GUILD_SKILL_TREE, BRANCH_ORDER
             for skill_id, skill_def in self.guild_skill_injections.items():
@@ -360,23 +517,19 @@ class ModAPI:
                 branch = skill_def.get("branch", "Militar")
                 if branch in BRANCH_ORDER and skill_id not in BRANCH_ORDER[branch]:
                     BRANCH_ORDER[branch].append(skill_id)
-            logger.info(f"{len(self.guild_skill_injections)} guild skills inyectadas en el árbol.")
         except Exception as e:
             logger.warning(f"No se pudo inyectar guild skills: {e}")
-    
+
     def _apply_guild_events(self):
-        """Inyecta los guild_event_injections en el pool de eventos de GuildSystem."""
         try:
             import Modules.ModulesFunctions.GuildSystem as gs
             for ev in self.guild_event_injections:
                 if not any(e.get("event_id") == ev.get("event_id") for e in gs.GUILD_EVENTS_POOL):
                     gs.GUILD_EVENTS_POOL.append(ev)
-            logger.info(f"{len(self.guild_event_injections)} guild events inyectados al pool.")
         except Exception as e:
             logger.warning(f"No se pudo inyectar guild events: {e}")
-    
+
     def fire_guild_tick_handlers(self, guild_manager):
-        """Llama a todos los tick handlers registrados por mods."""
         for handler in self.guild_tick_handlers:
             try:
                 handler(guild_manager)
@@ -384,116 +537,103 @@ class ModAPI:
                 logger.error(f"Error en guild tick handler {handler.__name__}: {e}")
 
     # =========================================================================
-    # WEATHER MODDING API
+    # WEATHER / AFFINITY MODDING
     # =========================================================================
 
     def register_weather(self, weather_data: dict):
-        """
-        Registra un nuevo clima.
-        El dict debe incluir: id, name, icon, description, player_enemy_mods, guild_mods, probability.
-        """
+        self._contrib_for(None)["weathers"].append(weather_data)
         self.weather_injections.append(weather_data)
         self._apply_weathers()
         logger.info(f"Clima registrado: {weather_data.get('id', '?')}")
 
     def _apply_weathers(self):
-        """Inyecta los climas en WeatherManager."""
         try:
             from Modules.ModulesFunctions.WeatherSystem import get_weather_manager
             wm = get_weather_manager()
             for w in self.weather_injections:
+                wid = w.get("id", w.get("name"))
+                if wid in self._applied_weather_ids:
+                    continue
                 wm.register_weather(w)
-            logger.info(f"{len(self.weather_injections)} climas inyectados en WeatherManager.")
+                self._applied_weather_ids.add(wid)
         except Exception as e:
             logger.warning(f"No se pudo inyectar climas: {e}")
 
-    def register_building(self, building_id: str, building_data: Dict):
-        """
-        Registra un edificio personalizado desde un mod.
+    def _apply_affinities(self):
+        """Inyecta perfiles de afinidad en Data/Affinities.json virtual (cache de setup)."""
+        if not self.affinity_injections:
+            return
+        try:
+            from Modules.ModulesUtils import setup
+            # setup.resolve_enemy_affinities lee perfiles vía Loader.Read (cacheado).
+            # Exponemos los perfiles de mod a través de un override en memoria.
+            if not hasattr(setup, "_MOD_AFFINITY_PROFILES"):
+                setup._MOD_AFFINITY_PROFILES = {}
+            setup._MOD_AFFINITY_PROFILES.update(self.affinity_injections)
+        except Exception as e:
+            logger.warning(f"No se pudo inyectar afinidades: {e}")
 
-        El dict `building_data` sigue el mismo esquema que DataBuildings.json:
-            {
-                "Name": "...",
-                "Icon": "🏗️",
-                "Description": "...",
-                "MaxLevel": 5,
-                "PassiveEffect": "...",
-                "PassiveValuePerLevel": 0,
-                "HasMinigame": False,
-                "Levels": { "1": { "MaterialCosts": {...}, "GoldCost": 0 } }
-            }
-        Al cargar la base del jugador, BaseManager comprobará también
-        `mod_api.registered_buildings` e inyectará estas definiciones.
-        """
+    def register_building(self, building_id: str, building_data: Dict):
+        self._contrib_for(None)["buildings"][building_id] = building_data
         self.registered_buildings[building_id] = building_data
         logger.info(f"Edificio de mod registrado: {building_id}")
 
     # =========================================================================
     # INTEGRACIÓN CON MANAGERS
     # =========================================================================
-    
+
     def integrate_with_item_manager(self, item_manager):
-        """Integra items de mods con ItemManager"""
         for item_type, items in self.item_injections.items():
-            if item_type not in item_manager.items_data:
-                item_manager.items_data[item_type] = {}
-            
+            item_manager.items_data.setdefault(item_type, {})
             for item_key, item_data in items.items():
                 item_manager.items_data[item_type][item_key] = item_data
-                logger.info(f"Item integrado: {item_type}.{item_key}")
-        
-        console.print(f"[green]✓ {len(self.item_injections)} tipos de items integrados[/green]")
-    
+        # Reindexar para que get_item_by_id encuentre los items del mod
+        if hasattr(item_manager, "_build_indexes"):
+            item_manager._build_indexes()
+        if self.item_injections:
+            console.print(f"[green]✓ {len(self.item_injections)} tipos de items integrados[/green]")
+
     def integrate_with_shop_manager(self, shop_manager):
-        """Integra tiendas de mods con ShopManager"""
         for shop_name, shop_data in self.shop_injections.items():
             shop_manager.shops_data[shop_name] = shop_data
-            logger.info(f"Tienda integrada: {shop_name}")
-        
-        console.print(f"[green]✓ {len(self.shop_injections)} tiendas integradas[/green]")
-    
+        if self.shop_injections:
+            console.print(f"[green]✓ {len(self.shop_injections)} tiendas integradas[/green]")
+
     def integrate_with_enchantment_system(self):
-        """Integra encantamientos interactuando con EnchantmentSystem"""
         try:
             from Modules.ModulesFunctions.EnchantmentSystem import register_enchantment, load_enchantment_from_json
             count = 0
             for ench_key, ench_data in self.enchantment_injections.items():
-                ench_instance = load_enchantment_from_json(ench_data)
-                register_enchantment(ench_instance)
-                logger.info(f"Encantamiento integrado: {ench_key}")
+                register_enchantment(load_enchantment_from_json(ench_data))
                 count += 1
-            if count > 0:
+            if count:
                 logger.info(f"{count} encantamientos integrados.")
         except ImportError:
-            logger.warning("No se pudo cargar EnchantmentSystem para la integración de encantamientos")
-            
+            logger.warning("No se pudo cargar EnchantmentSystem para la integración")
+
     def integrate_with_quest_manager(self, quest_manager):
-        """Integra quests de mods con QuestManager"""
         from Modules.ModulesFunctions.QuestSystem import cQuest
         count = 0
         for quest_id, quest_data in self.quest_injections.items():
             if quest_id not in quest_manager.quests:
                 quest_manager.quests[quest_id] = cQuest(quest_data)
-                logger.info(f"Quest integrada: {quest_id}")
                 count += 1
-        
-        if count > 0:
+        if count:
             console.print(f"[green]✓ {count} quests integradas[/green]")
 
     def integrate_with_crafting_system(self, crafting_system):
-        """Integra recetas de mods con CraftingSystem"""
         from Modules.ModulesFunctions.CraftingSystem import cRecipe
+        existing = {getattr(r, "name", id(r)) for r in crafting_system.recipes}
         count = 0
         for r_data in self.recipe_injections:
+            if r_data.get("name") in existing:
+                continue
             crafting_system.recipes.append(cRecipe(r_data))
             count += 1
-        if count > 0:
+        if count:
             logger.info(f"{count} recetas integradas.")
 
     def integrate_with_gathering_system(self, farm):
-        """Integra configuraciones de gathering de mods"""
-        # Por ahora solo logueamos o inyectamos en cSkill si fuera necesario
-        # Por ejemplo, cambiar BONUS_EFFICIENCY
         for skill_key, params in self.gathering_injections.items():
             if skill_key in farm.gathering:
                 skill_obj = farm.gathering[skill_key]
@@ -502,24 +642,40 @@ class ModAPI:
                         setattr(skill_obj, p_key, p_val)
         if self.gathering_injections:
             logger.info(f"{len(self.gathering_injections)} configs de gathering integradas.")
-    
-    def get_all_items(self) -> Dict:
-        """Retorna todos los items inyectados"""
-        return self.item_injections
-    
-    def get_all_zones(self) -> Dict:
-        """Retorna todas las zonas inyectadas"""
-        return self.stats_injections
-    
-    def get_all_shops(self) -> Dict:
-        """Retorna todas las tiendas inyectadas"""
-        return self.shop_injections
+
+    def integrate_with_buff_manager(self, buff_manager=None):
+        """Inyecta buffs/debuffs de mods en BuffManager (DataBuffs virtual)."""
+        if not self.buff_injections:
+            return
+        try:
+            if buff_manager is None:
+                from Modules.ModulesManager.BuffManager import get_buff_manager
+                buff_manager = get_buff_manager()
+            buffs = getattr(buff_manager, "buffs_data", None)
+            debuffs = getattr(buff_manager, "debuffs_data", None)
+            if isinstance(buffs, dict) and isinstance(debuffs, dict):
+                for bid, bdata in self.buff_injections.items():
+                    (debuffs if "_debuff" in bid else buffs)[bid] = bdata
+                logger.info(f"{len(self.buff_injections)} buffs integrados.")
+        except Exception as e:
+            logger.warning(f"No se pudieron integrar buffs: {e}")
+
+    def integrate_all(self):
+        """Ejecuta todas las integraciones cuyos managers son singletons accesibles."""
+        try:
+            from Modules.ModulesManager.ItemManager import get_item_manager
+            self.integrate_with_item_manager(get_item_manager())
+        except Exception as e:
+            logger.warning(f"integrate item_manager: {e}")
+        try:
+            from Modules.ModulesManager.ShopManager import get_shop_manager
+            self.integrate_with_shop_manager(get_shop_manager())
+        except Exception as e:
+            logger.warning(f"integrate shop_manager: {e}")
+        self.integrate_with_enchantment_system()
+        self.integrate_with_buff_manager()
 
     def integrate_with_base_manager(self, base_manager) -> int:
-        """
-        Inyecta edificios registrados por mods en un BaseManager existente.
-        Retorna cuántos edificios se inyectaron.
-        """
         if not self.registered_buildings:
             return 0
         count = 0
@@ -528,19 +684,28 @@ class ModAPI:
                 try:
                     from Modules.ModulesFunctions.BaseSystem import Building
                     base_manager.buildings[building_id] = Building(building_id, building_data)
-                    logger.info(f"Edificio de mod inyectado en BaseManager: {building_id}")
                     count += 1
                 except Exception as e:
                     logger.warning(f"No se pudo inyectar edificio {building_id}: {e}")
         return count
 
+    # ── getters ──────────────────────────────────────────────────────────────
+    def get_all_items(self) -> Dict:
+        return self.item_injections
+
+    def get_all_zones(self) -> Dict:
+        return self.stats_injections
+
+    def get_all_shops(self) -> Dict:
+        return self.shop_injections
+
     def get_all_buildings(self) -> Dict:
-        """Retorna todos los edificios registrados por mods"""
         return self.registered_buildings
 
 
 class ModInfo:
-    """Información sobre un mod"""
+    """Información / manifest de un mod."""
+
     def __init__(self, mod_name: str, file_path: Path):
         self.mod_name = mod_name
         self.file_path = file_path
@@ -548,180 +713,330 @@ class ModInfo:
         self.json_file = file_path / f"{mod_name}.json"
         self.loaded = False
         self.enabled = True
-        
-        # Metadata
+
+        # Metadata (rellenada desde el manifest)
+        self.display_name = mod_name
         self.version = "1.0.0"
         self.author = "Unknown"
         self.description = ""
+        self.game_version = None        # requisito ej. ">=1.0"
+        self.dependencies: List[str] = []
+        self.load_priority = 0
+        self.has_code = self.py_file.exists()
+        self.error: Optional[str] = None
+
+    def apply_manifest(self, data: dict):
+        """Lee 'manifest' o 'mod_info' del JSON."""
+        manifest = {}
+        if isinstance(data, dict):
+            manifest = data.get("manifest") or data.get("mod_info") or {}
+        self.display_name = manifest.get("name", self.mod_name)
+        self.version = str(manifest.get("version", self.version))
+        self.author = manifest.get("author", self.author)
+        self.description = manifest.get("description", self.description)
+        self.game_version = manifest.get("game_version")
+        deps = manifest.get("dependencies", [])
+        self.dependencies = list(deps) if isinstance(deps, (list, tuple)) else []
+        self.load_priority = int(manifest.get("load_priority", 0))
 
 
 class ModLoader:
-    """Cargador de mods con sistema de archivos por mod"""
-    
+    """Cargador de mods con manifest, dependencias, enable/disable y reload seguro."""
+
     def __init__(self, mods_directory="mods"):
         base_dir = Path(__file__).resolve().parent.parent.parent
         self.mods_directory = (base_dir / mods_directory) if not Path(mods_directory).is_absolute() else Path(mods_directory)
         self.loaded_mods = {}
         self.mod_api = ModAPI()
-        
+        self.config_path = self.mods_directory / "mods_config.json"
         self.mods_directory.mkdir(exist_ok=True, parents=True)
+        self._disabled: set = set()
+        self._load_config()
 
-    
+    # ── Config persistente (enable/disable + settings) ───────────────────────
+
+    def _load_config(self):
+        try:
+            if self.config_path.exists():
+                with open(self.config_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                for mod_name, entry in cfg.items():
+                    if not entry.get("enabled", True):
+                        self._disabled.add(mod_name)
+                    if "settings" in entry:
+                        self.mod_api.mod_settings[mod_name] = entry["settings"]
+        except Exception as e:
+            logger.warning(f"No se pudo leer mods_config.json: {e}")
+
+    def _save_config(self):
+        try:
+            cfg = {}
+            for mod_name in set(list(self.loaded_mods.keys()) + list(self._disabled)):
+                cfg[mod_name] = {
+                    "enabled": mod_name not in self._disabled,
+                    "settings": self.mod_api.mod_settings.get(mod_name, {}),
+                }
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.warning(f"No se pudo guardar mods_config.json: {e}")
+
+    def is_enabled(self, mod_name: str) -> bool:
+        return mod_name not in self._disabled
+
+    def enable_mod(self, mod_name: str):
+        self._disabled.discard(mod_name)
+        self._save_config()
+
+    def disable_mod(self, mod_name: str):
+        self._disabled.add(mod_name)
+        if mod_name in self.loaded_mods:
+            self.unload_mod(mod_name)
+        self._save_config()
+
+    # ── Descubrimiento ───────────────────────────────────────────────────────
+
     def discover_mods(self) -> Dict[str, ModInfo]:
-        """
-        Descubre mods en el directorio de mods
-        Busca carpetas con archivos .py y .json del mismo nombre
-        """
-        discovered_mods = {}
-        
+        """Descubre mods: carpeta con <name>.json (el <name>.py es opcional)."""
+        discovered = {}
         for mod_dir in self.mods_directory.iterdir():
             if not mod_dir.is_dir():
                 continue
-            
-            # Buscar archivos .py en el directorio
-            py_files = list(mod_dir.glob("*.py"))
-            
-            for py_file in py_files:
-                mod_name = py_file.stem
-                json_file = mod_dir / f"{mod_name}.json"
-                
-                # Verificar que exista el JSON correspondiente
-                if not json_file.exists():
-                    logger.warning(f"Mod {mod_name}: falta archivo {mod_name}.json")
-                    continue
-                
+            json_files = list(mod_dir.glob("*.json"))
+            # Ignorar el config global si estuviera dentro
+            json_files = [j for j in json_files if j.name != "mods_config.json"]
+            for json_file in json_files:
+                mod_name = json_file.stem
                 mod_info = ModInfo(mod_name, mod_dir)
-                discovered_mods[mod_name] = mod_info
-                logger.info(f"Mod descubierto: {mod_name}")
-        
-        return discovered_mods
-    
-    def load_mod(self, mod_info: ModInfo) -> bool:
-        """Carga un mod específico"""
-        try:
-            mod_name = mod_info.mod_name
-            
-            # 1. Cargar datos del JSON
-            mod_data = self.mod_api.load_mod_data(mod_name, str(mod_info.json_file))
-            
-            # 2. Auto-inyectar datos del JSON
-            self.mod_api.auto_inject_from_mod_data(mod_name)
-            
-            # 3. Cargar código Python
-            spec = importlib.util.spec_from_file_location(
-                f"mod_{mod_name}",
-                mod_info.py_file
-            )
-            
-            if spec is None or spec.loader is None:
-                logger.error(f"No se pudo crear spec para {mod_name}")
-                return False
-            
-            mod_module = importlib.util.module_from_spec(spec)
-            sys.modules[f"mod_{mod_name}"] = mod_module
-            spec.loader.exec_module(mod_module)
-            
-            # 4. Llamar init_mod con API y datos
-            if hasattr(mod_module, 'init_mod'):
-                mod_module.init_mod(self.mod_api, mod_data)
-            
-            mod_info.loaded = True
-            self.loaded_mods[mod_name] = {
-                'info': mod_info,
-                'module': mod_module,
-                'data': mod_data
-            }
-            
-            logger.info(f"Mod cargado exitosamente: {mod_name}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error cargando mod {mod_info.mod_name}: {e}", exc_info=True)
-            console.print(f"[red]✗ Error cargando {mod_info.mod_name}: {e}[/red]")
+                # Pre-cargar manifest para metadata/orden
+                try:
+                    with open(json_file, "r", encoding="utf-8") as f:
+                        mod_info.apply_manifest(json.load(f))
+                except Exception as e:
+                    logger.warning(f"Mod {mod_name}: manifest ilegible ({e})")
+                mod_info.enabled = self.is_enabled(mod_name)
+                discovered[mod_name] = mod_info
+                logger.info(f"Mod descubierto: {mod_name} (py={'sí' if mod_info.has_code else 'no'})")
+        return discovered
+
+    # ── Resolución de orden (dependencias + prioridad) ───────────────────────
+
+    def _resolve_order(self, mods: Dict[str, ModInfo]) -> List[ModInfo]:
+        names = set(mods.keys())
+        placed: List[str] = []
+        placed_set: set = set()
+        # Orden base: mayor prioridad primero, luego alfabético
+        remaining = sorted(mods.values(), key=lambda m: (-m.load_priority, m.mod_name))
+
+        progressed = True
+        while remaining and progressed:
+            progressed = False
+            for m in list(remaining):
+                dep_names = [parse_dependency(d)[0] for d in m.dependencies]
+                unmet = [d for d in dep_names if d in names and d not in placed_set]
+                if not unmet:
+                    placed.append(m.mod_name)
+                    placed_set.add(m.mod_name)
+                    remaining.remove(m)
+                    progressed = True
+        # Ciclos / deps faltantes: colocar al final para que fallen en validación
+        for m in remaining:
+            placed.append(m.mod_name)
+        return [mods[n] for n in placed]
+
+    def _validate(self, mod_info: ModInfo, all_mods: Dict[str, ModInfo]) -> Optional[str]:
+        if mod_info.game_version and not version_satisfies(GAME_VERSION, mod_info.game_version):
+            return f"requiere juego {mod_info.game_version} (actual {GAME_VERSION})"
+        for dep in mod_info.dependencies:
+            dname, dspec = parse_dependency(dep)
+            if dname not in all_mods:
+                return f"falta dependencia '{dname}'"
+            if self._disabled and dname in self._disabled:
+                return f"dependencia '{dname}' está desactivada"
+            if dspec and not version_satisfies(all_mods[dname].version, dspec):
+                return f"dependencia '{dname}' versión {all_mods[dname].version} no cumple {dspec}"
+        return None
+
+    # ── Carga ────────────────────────────────────────────────────────────────
+
+    def load_mod(self, mod_info: ModInfo, all_mods: Dict[str, ModInfo]) -> bool:
+        mod_name = mod_info.mod_name
+        err = self._validate(mod_info, all_mods)
+        if err:
+            mod_info.error = err
+            logger.warning(f"Mod '{mod_name}' rechazado: {err}")
+            console.print(f"[yellow]⚠ {mod_name}: {err}[/yellow]")
             return False
-    
+        try:
+            self.mod_api._begin_mod(mod_name)
+
+            mod_data = {}
+            if mod_info.json_file.exists():
+                mod_data = self.mod_api.load_mod_data(mod_name, str(mod_info.json_file))
+                self.mod_api.auto_inject_from_mod_data(mod_name)
+
+            mod_module = None
+            if mod_info.py_file.exists():
+                spec = importlib.util.spec_from_file_location(f"mod_{mod_name}", mod_info.py_file)
+                if spec is None or spec.loader is None:
+                    logger.error(f"No se pudo crear spec para {mod_name}")
+                    self.mod_api._end_mod()
+                    return False
+                mod_module = importlib.util.module_from_spec(spec)
+                sys.modules[f"mod_{mod_name}"] = mod_module
+                spec.loader.exec_module(mod_module)
+                if hasattr(mod_module, 'init_mod'):
+                    mod_module.init_mod(self.mod_api, mod_data)
+
+            mod_info.loaded = True
+            mod_info.error = None
+            self.loaded_mods[mod_name] = {'info': mod_info, 'module': mod_module, 'data': mod_data}
+            logger.info(f"Mod cargado: {mod_name} v{mod_info.version}")
+            return True
+        except Exception as e:
+            mod_info.error = str(e)
+            logger.error(f"Error cargando mod {mod_name}: {e}", exc_info=True)
+            console.print(f"[red]✗ Error cargando {mod_name}: {e}[/red]")
+            return False
+        finally:
+            self.mod_api._end_mod()
+
     def load_all_mods(self):
         from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-        
-        discovered_mods = self.discover_mods()
-        
-        if not discovered_mods:
+
+        # Reset limpio (evita duplicación al recargar)
+        for mod_name in list(self.loaded_mods.keys()):
+            self._unload_module_only(mod_name)
+        self.mod_api._contrib.clear()
+        self.mod_api._applied_weather_ids.clear()
+
+        discovered = self.discover_mods()
+        if not discovered:
             console.print("[yellow]No se encontraron mods para cargar.[/yellow]")
+            self.mod_api.rebuild([])
             return
-            
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console
-        ) as progress:
-            task = progress.add_task("[cyan]Cargando Mods...", total=len(discovered_mods))
-            
+
+        ordered = self._resolve_order(discovered)
+        enabled = [m for m in ordered if self.is_enabled(m.mod_name)]
+
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                      BarColumn(), TaskProgressColumn(), console=console) as progress:
+            task = progress.add_task("[cyan]Cargando Mods...", total=len(enabled) or 1)
             loaded_count = 0
-            for mod_name, mod_info in discovered_mods.items():
-                if mod_info.enabled and self.load_mod(mod_info):
+            loaded_order = []
+            for mod_info in enabled:
+                if self.load_mod(mod_info, discovered):
                     loaded_count += 1
+                    loaded_order.append(mod_info.mod_name)
                 progress.advance(task)
-        
-        console.print(Panel(f"[bold green]✓ Carga Completada[/bold green]\nMods activos: {loaded_count} de {len(discovered_mods)}", style="cyan"))
-    
-    def unload_mod(self, mod_name: str) -> bool:
-        """Descarga un mod"""
-        if mod_name not in self.loaded_mods:
-            return False
-        
-        mod_data = self.loaded_mods[mod_name]
-        mod_module = mod_data['module']
-        
-        if hasattr(mod_module, 'cleanup_mod'):
+
+        # Reconstruir agregados desde lo que se cargó
+        self.mod_api.rebuild(loaded_order)
+        self._save_config()
+
+        skipped = len(discovered) - len(enabled)
+        msg = f"[bold green]✓ Carga Completada[/bold green]\nMods activos: {loaded_count} de {len(discovered)}"
+        if skipped:
+            msg += f"\n[dim]{skipped} desactivado(s)[/dim]"
+        console.print(Panel(msg, style="cyan"))
+
+    # ── Descarga / recarga ───────────────────────────────────────────────────
+
+    def _unload_module_only(self, mod_name: str):
+        """Quita el módulo de sys.modules y llama cleanup, sin tocar config."""
+        data = self.loaded_mods.get(mod_name)
+        if not data:
+            return
+        mod_module = data.get('module')
+        if mod_module is not None and hasattr(mod_module, 'cleanup_mod'):
             try:
                 mod_module.cleanup_mod()
             except Exception as e:
                 logger.error(f"Error en cleanup de {mod_name}: {e}")
-        
-        if f"mod_{mod_name}" in sys.modules:
-            del sys.modules[f"mod_{mod_name}"]
-        
-        del self.loaded_mods[mod_name]
+        sys.modules.pop(f"mod_{mod_name}", None)
+        self.loaded_mods.pop(mod_name, None)
+
+    def unload_mod(self, mod_name: str) -> bool:
+        """Descarga un mod y REVIERTE sus inyecciones (rebuild sin él)."""
+        if mod_name not in self.loaded_mods:
+            return False
+        self._unload_module_only(mod_name)
+        self.mod_api._contrib.pop(mod_name, None)
+        remaining = [m for m in self.mod_api._enabled_order if m in self.loaded_mods]
+        self.mod_api.rebuild(remaining)
         console.print(f"[yellow]Mod descargado: {mod_name}[/yellow]")
+        logger.info(f"Mod descargado y revertido: {mod_name}")
         return True
-    
+
+    def reload_mod(self, mod_name: str) -> bool:
+        """Recarga un mod concreto (unload + load) sin duplicar datos."""
+        discovered = self.discover_mods()
+        if mod_name not in discovered:
+            console.print(f"[red]Mod '{mod_name}' no encontrado.[/red]")
+            return False
+        if mod_name in self.loaded_mods:
+            self.unload_mod(mod_name)
+        ok = self.load_mod(discovered[mod_name], discovered)
+        if ok:
+            order = [m for m in self.mod_api._enabled_order if m in self.loaded_mods]
+            if mod_name not in order:
+                order.append(mod_name)
+            self.mod_api.rebuild(order)
+        return ok
+
+    # ── Info ─────────────────────────────────────────────────────────────────
+
     def get_loaded_mods_info(self) -> List:
-        """Retorna información de mods cargados"""
         return [mod_data['info'] for mod_data in self.loaded_mods.values()]
-    
+
+    def get_all_mods_info(self) -> Dict[str, ModInfo]:
+        return self.discover_mods()
+
     def display_mods_info(self):
-        """Muestra información de mods cargados"""
-        if not self.loaded_mods:
-            console.print("[yellow]No hay mods cargados[/yellow]")
+        all_mods = self.discover_mods()
+        if not all_mods:
+            console.print("[yellow]No hay mods[/yellow]")
             return
-
         if Table is None:
-            console.print("Mods Cargados:")
-            for mod_name in self.loaded_mods.keys():
-                console.print(f"- {mod_name}")
+            for name, info in all_mods.items():
+                state = "ON" if self.is_enabled(name) else "OFF"
+                console.print(f"- {name} v{info.version} [{state}]")
             return
 
-        table = Table(title="Mods Cargados")
+        table = Table(title="Mods")
+        table.add_column("Estado", justify="center")
         table.add_column("Nombre", style="cyan")
-        table.add_column("Archivo", style="green")
-
-        for mod_name, mod_data in self.loaded_mods.items():
-            table.add_row(mod_name, f"{mod_name}.py + {mod_name}.json")
-
+        table.add_column("Ver", style="green")
+        table.add_column("Autor", style="dim")
+        table.add_column("Código", justify="center")
+        table.add_column("Nota", style="dim")
+        for name, info in all_mods.items():
+            loaded = name in self.loaded_mods
+            if not self.is_enabled(name):
+                state = "[red]OFF[/red]"
+            elif loaded:
+                state = "[green]ON[/green]"
+            elif info.error:
+                state = "[yellow]ERR[/yellow]"
+            else:
+                state = "[dim]—[/dim]"
+            note = info.error or (info.description[:40] if info.description else "")
+            table.add_row(state, info.display_name, info.version, info.author,
+                          "py" if info.has_code else "data", note)
         console.print(table)
 
 
 # Singleton
 mod_loader: Optional[ModLoader] = None
 
+
 def get_mod_api():
-    """Retorna la instancia de ModAPI"""
+    """Retorna la instancia de ModAPI."""
     return get_mod_loader().mod_api
 
+
 def get_mod_loader():
-    """Retorna la instancia del ModLoader"""
+    """Retorna la instancia del ModLoader."""
     global mod_loader
     if mod_loader is None:
         mod_loader = ModLoader()
